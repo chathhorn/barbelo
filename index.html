@@ -2213,6 +2213,10 @@
             return true;
           })
           .sort((a, b) => safeNumber(a.ID) - safeNumber(b.ID));
+        const pageProfile = profileBwsPages(bytes, best.pageSize);
+        if (pageProfile.allFfPageCount) {
+          warnings.push(`${pageProfile.allFfPageCount} database pages are filled with 0xFF bytes; result or player tables may be missing, erased, or unreadable.`);
+        }
         const diagnostics = {
           sourceType: "BWS",
           fileSize: bytes.length,
@@ -2222,6 +2226,7 @@
           acceptedReceivedRows: receivedData.length,
           duplicateReceivedRows: Math.max(0, best.receivedData.length - receivedData.length),
           acceptedPlayerRows: best.playerNumbers.length,
+          pageProfile,
           candidates: candidates.map((candidate) => candidate.diagnostics)
         };
 
@@ -2237,6 +2242,57 @@
           },
           warnings
         };
+      }
+
+      function profileBwsPages(bytes, pageSize) {
+        const filePages = Math.floor(bytes.length / pageSize);
+        const pageTypes = {};
+        const ffPages = [];
+        const allFfPages = [];
+
+        for (let pageNo = 0; pageNo < filePages; pageNo += 1) {
+          const pageStart = pageNo * pageSize;
+          const firstByte = bytes[pageStart];
+          const key = `0x${firstByte.toString(16).padStart(2, "0")}`;
+          pageTypes[key] = (pageTypes[key] || 0) + 1;
+          if (firstByte === 0xff) ffPages.push(pageNo);
+
+          let allFf = firstByte === 0xff;
+          for (let index = pageStart + 1; allFf && index < pageStart + pageSize; index += 1) {
+            if (bytes[index] !== 0xff) allFf = false;
+          }
+          if (allFf) allFfPages.push(pageNo);
+        }
+
+        return {
+          pageSize,
+          filePages,
+          trailingBytes: bytes.length % pageSize,
+          pageTypes,
+          ffPageCount: ffPages.length,
+          ffRuns: summarizeNumberRuns(ffPages),
+          allFfPageCount: allFfPages.length,
+          allFfRuns: summarizeNumberRuns(allFfPages)
+        };
+      }
+
+      function summarizeNumberRuns(values) {
+        if (!values.length) return [];
+        const runs = [];
+        let start = values[0];
+        let previous = values[0];
+        for (let index = 1; index < values.length; index += 1) {
+          const value = values[index];
+          if (value === previous + 1) {
+            previous = value;
+            continue;
+          }
+          runs.push(start === previous ? String(start) : `${start}-${previous}`);
+          start = value;
+          previous = value;
+        }
+        runs.push(start === previous ? String(start) : `${start}-${previous}`);
+        return runs;
       }
 
       function makeBwsScanStats(bytes, pageSize, tableName) {
@@ -3384,9 +3440,18 @@
         return entries.map(([key, value]) => `${key}: ${value}`).join("; ");
       }
 
+      function formatPageTypes(pageTypes) {
+        const entries = Object.entries(pageTypes || {})
+          .sort((a, b) => Number.parseInt(a[0], 16) - Number.parseInt(b[0], 16));
+        if (!entries.length) return "none";
+        return entries.map(([key, value]) => `${key}: ${value}`).join(", ");
+      }
+
       function renderBwsDiagnostics(diagnostics, results) {
         const selected = diagnostics.candidates.find((candidate) => candidate.pageSize === diagnostics.selectedPageSize) || diagnostics.candidates[0];
         const received = selected ? selected.received : {};
+        const pageProfile = diagnostics.pageProfile || {};
+        const erasedRuns = pageProfile.allFfRuns && pageProfile.allFfRuns.length ? pageProfile.allFfRuns.join(", ") : "none";
         const candidateRows = diagnostics.candidates.map((candidate) => `
           <tr>
             <td>${escapeHtml(candidate.pageSize)}</td>
@@ -3415,6 +3480,7 @@
               <div class="metadata-item"><div class="key">Player Rows</div><div class="val">${escapeHtml(diagnostics.acceptedPlayerRows)}</div></div>
               <div class="metadata-item"><div class="key">Duplicate Results</div><div class="val">${escapeHtml(diagnostics.duplicateReceivedRows)}</div></div>
               <div class="metadata-item"><div class="key">Rejected Row Slices</div><div class="val">${escapeHtml(received.rejectedRows || 0)}</div></div>
+              <div class="metadata-item"><div class="key">All-FF Pages</div><div class="val">${escapeHtml(pageProfile.allFfPageCount || 0)}</div></div>
             </div>
             <div class="preview-wrap">
               <table>
@@ -3434,6 +3500,8 @@
                 <tbody>${candidateRows}</tbody>
               </table>
             </div>
+            <div class="diagnostics-note">Selected-page profile: ${escapeHtml(formatPageTypes(pageProfile.pageTypes))}.</div>
+            <div class="diagnostics-note">All-FF page runs: ${escapeHtml(erasedRuns)}.</div>
             <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and rows scanned under the non-selected page size, so nonzero rejection counts are expected.</div>
             ${warningText}
           </div>
