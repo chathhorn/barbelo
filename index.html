@@ -44,8 +44,7 @@
 
     button,
     input,
-    select,
-    textarea {
+    select {
       font: inherit;
     }
 
@@ -108,21 +107,13 @@
     }
 
     input[type="search"],
-    select,
-    textarea {
+    select {
       width: 100%;
       border: 1px solid var(--line-strong);
       border-radius: 7px;
       background: #fff;
       color: var(--ink);
       padding: 9px 11px;
-    }
-
-    textarea {
-      min-height: 140px;
-      resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 13px;
     }
 
     label {
@@ -236,7 +227,7 @@
       box-shadow: var(--shadow);
       padding: 22px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+      grid-template-columns: minmax(0, 1fr);
       gap: 22px;
       align-items: stretch;
     }
@@ -276,20 +267,6 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    .paste-panel {
-      border-left: 1px solid var(--line);
-      padding-left: 22px;
-      display: grid;
-      gap: 10px;
-      align-content: start;
-    }
-
-    .paste-actions {
-      display: flex;
       justify-content: flex-end;
       gap: 8px;
     }
@@ -1008,13 +985,6 @@
         grid-template-columns: 1fr;
       }
 
-      .paste-panel {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-        padding-left: 0;
-        padding-top: 18px;
-      }
-
       .board-toolbar {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -1095,11 +1065,11 @@
         </div>
       </div>
       <div class="top-actions">
-        <button type="button" id="demoButton" class="ghost">Demo</button>
         <label class="file-button primary" for="pbnFile">Open PBN</label>
         <input id="pbnFile" type="file" accept=".pbn,.txt,text/plain">
         <label class="file-button" for="resultsFile">Open Results</label>
         <input id="resultsFile" type="file" accept=".bws,.csv,text/csv,application/vnd.ms-access">
+        <button type="button" id="clearAppButton" class="ghost">Clear</button>
       </div>
     </header>
 
@@ -1107,19 +1077,10 @@
       <section class="drop-zone" id="dropZone">
         <div class="drop-copy">
           <h2>Turn bridge deals and travelers into a readable session report.</h2>
-          <p>Drop a PBN file here, choose one with the file picker, or paste PBN text directly. Add a BWS or CSV results file after the hand record is loaded.</p>
+          <p>Drop a PBN file here or choose one with the file picker. Add a BWS or CSV results file after the hand record is loaded.</p>
           <div class="drop-actions">
             <label class="file-button primary" for="pbnFileHero">Choose File</label>
             <input id="pbnFileHero" type="file" accept=".pbn,.txt,text/plain">
-            <button type="button" id="loadDemoButton">Load Demo</button>
-          </div>
-        </div>
-        <div class="paste-panel">
-          <label for="pbnPaste">PBN Text</label>
-          <textarea id="pbnPaste" spellcheck="false" placeholder="% PBN 2.1&#10;[Event &quot;...&quot;]&#10;[Board &quot;1&quot;]"></textarea>
-          <div class="paste-actions">
-            <button type="button" id="clearPasteButton">Clear</button>
-            <button type="button" id="parsePasteButton" class="primary">Analyze Text</button>
           </div>
         </div>
       </section>
@@ -1374,77 +1335,6 @@
       ];
       const RANK_ORDER = "AKQJT98765432";
       const HCP_VALUE = { A: 4, K: 3, Q: 2, J: 1 };
-
-      const DEMO_PBN = `% PBN 2.1
-%Creator: PBN Bridge Analyzer demo
-%Created: local demo
-[Event "Demo Hand Set"]
-[Site "Local"]
-[Date "2026.07.04"]
-[Board "1"]
-[Dealer "N"]
-[Vulnerable "None"]
-[Deal "N:AT95.T64.J84.T53 Q76432.K7.AKQ.62 K8.J9853.9765.Q9 J.AQ2.T32.AKJ874"]
-[Declarer ""]
-[Contract ""]
-[Result ""]
-[OptimumScore "EW 920"]
-[ParContract "EW 6C="]
-[OptimumResultTable "Declarer;Denomination\\2R;Result\\2R"]
-N NT  1
-N  S  4
-N  H  4
-N  D  2
-N  C  1
-S NT  1
-S  S  4
-S  H  4
-S  D  2
-S  C  1
-E NT 11
-E  S  9
-E  H  8
-E  D 11
-E  C 12
-W NT 11
-W  S  9
-W  H  8
-W  D 11
-W  C 12
-
-[Event "Demo Hand Set"]
-[Site "Local"]
-[Date "2026.07.04"]
-[Board "2"]
-[Dealer "E"]
-[Vulnerable "NS"]
-[Deal "E:K762.62.T8753.J9 T9.8754.KQ2.7532 QJ5.AKQ.AJ4.AQT6 A843.JT93.96.K84"]
-[Declarer ""]
-[Contract ""]
-[Result ""]
-[OptimumScore "EW 430"]
-[ParContract "EW 3N+1"]
-[OptimumResultTable "Declarer;Denomination\\2R;Result\\2R"]
-N NT  3
-N  S  3
-N  H  5
-N  D  2
-N  C  3
-S NT  3
-S  S  3
-S  H  5
-S  D  2
-S  C  3
-E NT 10
-E  S 10
-E  H  8
-E  D 10
-E  C  9
-W NT 10
-W  S 10
-W  H  8
-W  D 10
-W  C  9`;
 
       const STATE = {
         parsed: null,
@@ -2787,6 +2677,16 @@ W  C  9`;
         ].join(" ").toLowerCase();
       }
 
+      function defaultFilters() {
+        return {
+          search: "",
+          side: "all",
+          className: "all",
+          vulnerability: "all",
+          played: "all"
+        };
+      }
+
       function setCurrentPbn(text, fileName) {
         const parsed = parsePbn(text, fileName);
         const analysis = buildAnalysis(parsed);
@@ -2795,15 +2695,22 @@ W  C  9`;
         STATE.results = null;
         STATE.rowMode = "boards";
         STATE.selectedColumns = new Set(defaultColumnKeys("boards", analysis));
-        STATE.filters = {
-          search: "",
-          side: "all",
-          className: "all",
-          vulnerability: "all",
-          played: "all"
-        };
+        STATE.filters = defaultFilters();
         renderAll();
         showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}.`);
+      }
+
+      function clearLoadedData() {
+        const hadData = Boolean(STATE.analysis || STATE.results);
+        STATE.parsed = null;
+        STATE.analysis = null;
+        STATE.results = null;
+        STATE.rowMode = "boards";
+        STATE.selectedColumns = new Set();
+        STATE.filters = defaultFilters();
+        document.getElementById("fileSubtitle").textContent = "Open a Portable Bridge Notation hand record.";
+        renderAll();
+        showToast(hadData ? "Cleared loaded files." : "No loaded files to clear.");
       }
 
       function setCurrentResults(rawResults) {
@@ -3900,19 +3807,7 @@ W  C  9`;
           readFile(event.dataTransfer.files[0]);
         });
 
-        document.getElementById("demoButton").addEventListener("click", () => setCurrentPbn(DEMO_PBN, "demo.pbn"));
-        document.getElementById("loadDemoButton").addEventListener("click", () => setCurrentPbn(DEMO_PBN, "demo.pbn"));
-        document.getElementById("clearPasteButton").addEventListener("click", () => {
-          document.getElementById("pbnPaste").value = "";
-        });
-        document.getElementById("parsePasteButton").addEventListener("click", () => {
-          const text = document.getElementById("pbnPaste").value;
-          if (!text.trim()) {
-            showToast("Paste PBN text before analyzing.", "error");
-            return;
-          }
-          setCurrentPbn(text, "pasted.pbn");
-        });
+        document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
 
         document.getElementById("boardSearch").addEventListener("input", (event) => {
           STATE.filters.search = event.target.value;
