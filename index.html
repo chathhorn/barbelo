@@ -257,12 +257,6 @@
       font-size: 15px;
     }
 
-    .drop-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
     .results-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1180,11 +1174,7 @@
       <section class="drop-zone" id="dropZone">
         <div class="drop-copy">
           <h2>Turn bridge deals and travelers into a readable session report.</h2>
-          <p>Drop a PBN file here or choose one with the file picker. Add a BWS or CSV results file after the hand record is loaded.</p>
-          <div class="drop-actions">
-            <label class="file-button primary" for="pbnFileHero">Choose File</label>
-            <input id="pbnFileHero" type="file" accept=".pbn,.txt,text/plain">
-          </div>
+          <p>Drop a PBN hand record here, or drop a BWS or CSV results file after a PBN is loaded.</p>
         </div>
       </section>
 
@@ -4151,8 +4141,31 @@
         else reader.readAsText(file, "ISO-8859-1");
       }
 
+      function droppedFileKind(file) {
+        const name = String(file && file.name || "").toLowerCase();
+        if (name.endsWith(".bws") || name.endsWith(".csv")) return "results";
+        if (name.endsWith(".pbn") || name.endsWith(".txt")) return "pbn";
+        if (file && file.type === "text/csv") return "results";
+        if (file && /^text\//i.test(file.type)) return "pbn";
+        return "";
+      }
+
+      function readDroppedFile(file) {
+        if (!file) return;
+        const kind = droppedFileKind(file);
+        if (kind === "results") {
+          readResultsFile(file);
+          return;
+        }
+        if (kind === "pbn") {
+          readFile(file);
+          return;
+        }
+        showToast("Drop a PBN hand record or a BWS/CSV results file.", "error");
+      }
+
       function setupEvents() {
-        const fileInputs = [document.getElementById("pbnFile"), document.getElementById("pbnFileHero")];
+        const fileInputs = [document.getElementById("pbnFile")];
         fileInputs.forEach((input) => {
           input.addEventListener("change", (event) => {
             readFile(event.target.files[0]);
@@ -4182,7 +4195,7 @@
           });
         });
         dropZone.addEventListener("drop", (event) => {
-          readFile(event.dataTransfer.files[0]);
+          readDroppedFile(event.dataTransfer.files[0]);
         });
 
         document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
