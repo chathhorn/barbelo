@@ -1,0 +1,2749 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PBN Bridge Analyzer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-soft: #f9fafb;
+      --ink: #17212b;
+      --muted: #607083;
+      --line: #d9e0e7;
+      --line-strong: #b9c5d0;
+      --green: #0f7b6c;
+      --green-dark: #09564d;
+      --blue: #2457a6;
+      --red: #bb3f45;
+      --gold: #b7791f;
+      --club: #1f7a4d;
+      --diamond: #c6463b;
+      --heart: #b73750;
+      --spade: #1d2b3a;
+      --shadow: 0 16px 40px rgba(25, 38, 52, 0.10);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(23, 33, 43, 0.04), rgba(23, 33, 43, 0) 320px),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    .file-button {
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 38px;
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .file-button:hover {
+      border-color: var(--green);
+      background: #f5fbf9;
+    }
+
+    button:active,
+    .file-button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary,
+    .file-button.primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    button.primary:hover,
+    .file-button.primary:hover {
+      background: var(--green-dark);
+      border-color: var(--green-dark);
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    input[type="search"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 11px;
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .app-shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(217, 224, 231, 0.82);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 12px 26px rgba(23, 33, 43, 0.08);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      overflow: hidden;
+      border-radius: 7px;
+      border: 1px solid var(--line-strong);
+      background: #fff;
+    }
+
+    .brand-mark span {
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .brand-mark .spade,
+    .brand-mark .club {
+      color: var(--spade);
+      background: #eef2f5;
+    }
+
+    .brand-mark .heart,
+    .brand-mark .diamond {
+      color: var(--red);
+      background: #fff2f3;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 20px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: min(66vw, 720px);
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    main {
+      margin-top: 18px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .drop-zone {
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .drop-zone.dragging {
+      border-color: var(--green);
+      background: #f3fbf8;
+    }
+
+    .drop-copy {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      min-height: 220px;
+    }
+
+    .drop-copy h2 {
+      font-size: clamp(28px, 4.3vw, 54px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      max-width: 820px;
+    }
+
+    .drop-copy p {
+      color: var(--muted);
+      max-width: 700px;
+      font-size: 15px;
+    }
+
+    .drop-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .paste-panel {
+      border-left: 1px solid var(--line);
+      padding-left: 22px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .paste-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .dashboard {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 8px 28px rgba(23, 33, 43, 0.06);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      min-height: 50px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-header h2 {
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .panel-header p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel-body {
+      padding: 16px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metric .value {
+      margin-top: 8px;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .metric .note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+      gap: 18px;
+    }
+
+    .chart-stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+    }
+
+    .metadata-item {
+      min-width: 0;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+
+    .metadata-item .key {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metadata-item .val {
+      margin-top: 4px;
+      min-height: 20px;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+    }
+
+    .quality-list,
+    .notable-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .quality-list li,
+    .notable-list li {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .dot.red {
+      background: var(--red);
+    }
+
+    .dot.gold {
+      background: var(--gold);
+    }
+
+    .chart-wrap {
+      overflow-x: auto;
+    }
+
+    svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--green);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .hcp-bars {
+      display: grid;
+      gap: 11px;
+    }
+
+    .hcp-bar {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) 48px;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e9eef3;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--blue));
+    }
+
+    .count-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .count-tile {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      background: var(--panel-soft);
+      min-width: 0;
+    }
+
+    .count-tile strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .count-tile span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .board-toolbar,
+    .csv-toolbar {
+      display: grid;
+      grid-template-columns: 1.2fr 180px 180px 180px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .board-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .board-card-header {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .board-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .board-title strong {
+      font-size: 17px;
+    }
+
+    .board-title span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .contract-chip,
+    .side-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .side-chip.ns {
+      border-color: rgba(15, 123, 108, 0.45);
+      color: var(--green-dark);
+      background: #eefaf6;
+    }
+
+    .side-chip.ew {
+      border-color: rgba(187, 63, 69, 0.45);
+      color: #943238;
+      background: #fff1f2;
+    }
+
+    .board-card-body {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .board-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .board-stat {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--panel-soft);
+      min-width: 0;
+    }
+
+    .board-stat span {
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .board-stat strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .deal-diagram {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr);
+      grid-template-areas:
+        ". north ."
+        "west center east"
+        ". south .";
+      gap: 8px;
+      align-items: center;
+    }
+
+    .hand-block {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      padding: 8px;
+      min-width: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+
+    .hand-block.north {
+      grid-area: north;
+    }
+
+    .hand-block.east {
+      grid-area: east;
+    }
+
+    .hand-block.south {
+      grid-area: south;
+    }
+
+    .hand-block.west {
+      grid-area: west;
+    }
+
+    .table-center {
+      grid-area: center;
+      min-height: 86px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background:
+        linear-gradient(135deg, rgba(15, 123, 108, 0.10), rgba(36, 87, 166, 0.08)),
+        #fff;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .hand-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .suit-line {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 5px;
+      min-height: 18px;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .suit-symbol {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .suit-line.spade .suit-symbol,
+    .suit-line.club .suit-symbol {
+      color: var(--spade);
+    }
+
+    .suit-line.heart .suit-symbol,
+    .suit-line.diamond .suit-symbol {
+      color: var(--red);
+    }
+
+    .cards {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .shape-line {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+
+    details.board-details {
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    details.board-details summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .detail-grid {
+      margin-top: 10px;
+      display: grid;
+      gap: 12px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f4f7fa;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .dd-table th,
+    .dd-table td {
+      text-align: center;
+      padding: 5px 6px;
+      font-size: 12px;
+    }
+
+    .csv-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+      gap: 16px;
+    }
+
+    .column-list {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-soft);
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      max-height: 340px;
+      overflow: auto;
+    }
+
+    .column-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .column-check input {
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+    }
+
+    .column-check span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .csv-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .preview-wrap {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: auto;
+      max-height: 390px;
+      background: #fff;
+    }
+
+    .preview-wrap table {
+      min-width: 760px;
+    }
+
+    .empty-state {
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+      background: #fff;
+    }
+
+    .error-box {
+      border: 1px solid rgba(187, 63, 69, 0.38);
+      border-radius: var(--radius);
+      background: #fff3f4;
+      color: #7a252a;
+      padding: 12px;
+      font-size: 14px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 40;
+      max-width: min(460px, calc(100vw - 36px));
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      padding: 12px 14px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .toast.error {
+      border-color: rgba(187, 63, 69, 0.40);
+      background: #fff3f4;
+      color: #7a252a;
+    }
+
+    @media (max-width: 1120px) {
+      .metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .chart-grid,
+      .grid-2,
+      .csv-grid,
+      .drop-zone {
+        grid-template-columns: 1fr;
+      }
+
+      .paste-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 0;
+        padding-top: 18px;
+      }
+
+      .board-toolbar,
+      .csv-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        padding: 10px;
+      }
+
+      .topbar {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .top-actions button,
+      .top-actions .file-button {
+        flex: 1 1 auto;
+      }
+
+      .metric-grid,
+      .metadata-grid,
+      .count-grid,
+      .board-toolbar,
+      .csv-toolbar,
+      .column-list {
+        grid-template-columns: 1fr;
+      }
+
+      .board-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .board-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .deal-diagram {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "north"
+          "east"
+          "south"
+          "west"
+          "center";
+      }
+
+      .table-center {
+        min-height: 58px;
+      }
+
+      .drop-copy {
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span class="spade">&spades;</span>
+          <span class="heart">&hearts;</span>
+          <span class="diamond">&diams;</span>
+          <span class="club">&clubs;</span>
+        </div>
+        <div>
+          <h1>PBN Bridge Analyzer</h1>
+          <p class="subtitle" id="fileSubtitle">Open a Portable Bridge Notation file.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="demoButton" class="ghost">Demo</button>
+        <label class="file-button primary" for="pbnFile">Open PBN</label>
+        <input id="pbnFile" type="file" accept=".pbn,.txt,text/plain">
+      </div>
+    </header>
+
+    <main>
+      <section class="drop-zone" id="dropZone">
+        <div class="drop-copy">
+          <h2>Turn bridge deals into a readable session report.</h2>
+          <p>Drop a PBN file here, choose one with the file picker, or paste PBN text directly.</p>
+          <div class="drop-actions">
+            <label class="file-button primary" for="pbnFileHero">Choose File</label>
+            <input id="pbnFileHero" type="file" accept=".pbn,.txt,text/plain">
+            <button type="button" id="loadDemoButton">Load Demo</button>
+          </div>
+        </div>
+        <div class="paste-panel">
+          <label for="pbnPaste">PBN Text</label>
+          <textarea id="pbnPaste" spellcheck="false" placeholder="% PBN 2.1&#10;[Event &quot;...&quot;]&#10;[Board &quot;1&quot;]"></textarea>
+          <div class="paste-actions">
+            <button type="button" id="clearPasteButton">Clear</button>
+            <button type="button" id="parsePasteButton" class="primary">Analyze Text</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard hidden" id="dashboard">
+        <div class="metric-grid" id="metricGrid"></div>
+
+        <section class="grid-2">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Header Info</h2>
+                <p id="headerCaption"></p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="metadata-grid" id="metadataGrid"></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Data Quality</h2>
+                <p id="qualityCaption"></p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <ul class="quality-list" id="qualityList"></ul>
+            </div>
+          </article>
+        </section>
+
+        <section class="chart-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Par Score By Board</h2>
+                <p>Positive bars favor NS, negative bars favor EW.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="chart-wrap" id="scoreChart"></div>
+            </div>
+          </article>
+
+          <div class="chart-stack">
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Par Strains</h2>
+              </div>
+              <div class="panel-body" id="strainChart"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Average HCP</h2>
+              </div>
+              <div class="panel-body" id="hcpChart"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="grid-2">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>HCP Heat Map</h2>
+                <p>Each row is a seat, each column is a board.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="chart-wrap" id="heatMap"></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Notable Boards</h2>
+            </div>
+            <div class="panel-body">
+              <ul class="notable-list" id="notableList"></ul>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Board Explorer</h2>
+              <p id="boardCountCaption"></p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="board-toolbar">
+              <div>
+                <label for="boardSearch">Search</label>
+                <input type="search" id="boardSearch" placeholder="Board, contract, vulnerability, hand">
+              </div>
+              <div>
+                <label for="sideFilter">Par Edge</label>
+                <select id="sideFilter">
+                  <option value="all">All</option>
+                  <option value="NS">NS edge</option>
+                  <option value="EW">EW edge</option>
+                  <option value="Flat">Flat or unknown</option>
+                </select>
+              </div>
+              <div>
+                <label for="classFilter">Contract Class</label>
+                <select id="classFilter">
+                  <option value="all">All</option>
+                  <option value="Slam-level">Slam-level</option>
+                  <option value="Game-level">Game-level</option>
+                  <option value="Partscore">Partscore</option>
+                  <option value="Unknown">Unknown</option>
+                </select>
+              </div>
+              <div>
+                <label for="vulFilter">Vulnerability</label>
+                <select id="vulFilter">
+                  <option value="all">All</option>
+                  <option value="None">None</option>
+                  <option value="NS">NS</option>
+                  <option value="EW">EW</option>
+                  <option value="All">All vul</option>
+                </select>
+              </div>
+            </div>
+            <div class="board-grid" id="boardGrid"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>CSV Builder</h2>
+              <p id="csvCaption"></p>
+            </div>
+            <button type="button" id="downloadCsvButton" class="primary">Download CSV</button>
+          </div>
+          <div class="panel-body">
+            <div class="csv-grid">
+              <div>
+                <div class="csv-toolbar">
+                  <div>
+                    <label for="rowMode">Rows</label>
+                    <select id="rowMode">
+                      <option value="boards">One row per board</option>
+                      <option value="hands">One row per hand</option>
+                      <option value="pairs">One row per pair</option>
+                      <option value="doubleDummy">One row per double-dummy cell</option>
+                      <option value="tags">One row per board with raw tags</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="csv-buttons">
+                  <button type="button" id="selectDefaultColumns">Defaults</button>
+                  <button type="button" id="selectAllColumns">All Columns</button>
+                  <button type="button" id="clearColumns">Clear</button>
+                </div>
+                <div class="column-list" id="columnList"></div>
+              </div>
+              <div>
+                <label>Preview</label>
+                <div class="preview-wrap" id="csvPreview"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const SEATS = ["N", "E", "S", "W"];
+      const DOUBLE_DUMMY_SEATS = ["N", "S", "E", "W"];
+      const DOUBLE_DUMMY_DENOMS = ["N", "S", "H", "D", "C"];
+      const PAIRS = { N: "NS", S: "NS", E: "EW", W: "EW" };
+      const SUITS = [
+        { key: "S", label: "Spades", short: "S", html: "&spades;", className: "spade" },
+        { key: "H", label: "Hearts", short: "H", html: "&hearts;", className: "heart" },
+        { key: "D", label: "Diamonds", short: "D", html: "&diams;", className: "diamond" },
+        { key: "C", label: "Clubs", short: "C", html: "&clubs;", className: "club" }
+      ];
+      const DENOMS = [
+        { key: "N", label: "NT", color: "#2457a6" },
+        { key: "S", label: "Spades", color: "#1d2b3a" },
+        { key: "H", label: "Hearts", color: "#bb3f45" },
+        { key: "D", label: "Diamonds", color: "#d08a20" },
+        { key: "C", label: "Clubs", color: "#0f7b6c" }
+      ];
+      const RANK_ORDER = "AKQJT98765432";
+      const HCP_VALUE = { A: 4, K: 3, Q: 2, J: 1 };
+
+      const DEMO_PBN = `% PBN 2.1
+%Creator: PBN Bridge Analyzer demo
+%Created: local demo
+[Event "Demo Hand Set"]
+[Site "Local"]
+[Date "2026.07.04"]
+[Board "1"]
+[Dealer "N"]
+[Vulnerable "None"]
+[Deal "N:AT95.T64.J84.T53 Q76432.K7.AKQ.62 K8.J9853.9765.Q9 J.AQ2.T32.AKJ874"]
+[Declarer ""]
+[Contract ""]
+[Result ""]
+[OptimumScore "EW 920"]
+[ParContract "EW 6C="]
+[OptimumResultTable "Declarer;Denomination\\2R;Result\\2R"]
+N NT  1
+N  S  4
+N  H  4
+N  D  2
+N  C  1
+S NT  1
+S  S  4
+S  H  4
+S  D  2
+S  C  1
+E NT 11
+E  S  9
+E  H  8
+E  D 11
+E  C 12
+W NT 11
+W  S  9
+W  H  8
+W  D 11
+W  C 12
+
+[Event "Demo Hand Set"]
+[Site "Local"]
+[Date "2026.07.04"]
+[Board "2"]
+[Dealer "E"]
+[Vulnerable "NS"]
+[Deal "E:K762.62.T8753.J9 T9.8754.KQ2.7532 QJ5.AKQ.AJ4.AQT6 A843.JT93.96.K84"]
+[Declarer ""]
+[Contract ""]
+[Result ""]
+[OptimumScore "EW 430"]
+[ParContract "EW 3N+1"]
+[OptimumResultTable "Declarer;Denomination\\2R;Result\\2R"]
+N NT  3
+N  S  3
+N  H  5
+N  D  2
+N  C  3
+S NT  3
+S  S  3
+S  H  5
+S  D  2
+S  C  3
+E NT 10
+E  S 10
+E  H  8
+E  D 10
+E  C  9
+W NT 10
+W  S 10
+W  H  8
+W  D 10
+W  C  9`;
+
+      const STATE = {
+        parsed: null,
+        analysis: null,
+        rowMode: "boards",
+        selectedColumns: new Set(),
+        filters: {
+          search: "",
+          side: "all",
+          className: "all",
+          vulnerability: "all"
+        }
+      };
+
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function formatSigned(value) {
+        if (value == null || Number.isNaN(value)) return "";
+        return value > 0 ? `+${value}` : String(value);
+      }
+
+      function plural(value, singular, pluralText) {
+        return `${value} ${value === 1 ? singular : pluralText || `${singular}s`}`;
+      }
+
+      function sum(values) {
+        return values.reduce((acc, value) => acc + value, 0);
+      }
+
+      function average(values) {
+        return values.length ? sum(values) / values.length : 0;
+      }
+
+      function safeNumber(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      }
+
+      function uniqueSorted(values) {
+        return Array.from(new Set(values.filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+      }
+
+      function normalizeText(text) {
+        return String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+      }
+
+      function decodePbnValue(value) {
+        return String(value || "").replace(/\\(["\\])/g, "$1");
+      }
+
+      function decodeDirectiveValue(value) {
+        let next = String(value || "").trim();
+        if (next.startsWith("\"")) next = next.slice(1);
+        if (next.endsWith("\"")) next = next.slice(0, -1);
+        return next
+          .replace(/\\\\n/g, "\n")
+          .replace(/\\n/g, "\n")
+          .replace(/\\"/g, "\"")
+          .trim();
+      }
+
+      function parseTagLine(line) {
+        const match = line.match(/^\[([A-Za-z0-9_]+)\s+"((?:\\.|[^"\\])*)"\]\s*$/);
+        if (!match) return null;
+        return {
+          key: match[1],
+          value: decodePbnValue(match[2])
+        };
+      }
+
+      function parseDirectiveLine(line, lineNo) {
+        const body = line.slice(1).trim();
+        if (!body) return null;
+        const firstSpace = body.search(/\s/);
+        const rawKey = firstSpace === -1 ? body : body.slice(0, firstSpace);
+        const rawValue = firstSpace === -1 ? "" : body.slice(firstSpace + 1).trim();
+        const key = rawKey.endsWith(":") ? rawKey.slice(0, -1) : rawKey;
+        return {
+          key,
+          value: decodeDirectiveValue(rawValue),
+          raw: line,
+          lineNo
+        };
+      }
+
+      function makeRecord(startLine) {
+        return {
+          startLine,
+          tags: {},
+          tagOrder: [],
+          lineNumbers: {},
+          sections: {
+            Auction: [],
+            Play: [],
+            OptimumResultTable: []
+          },
+          looseLines: []
+        };
+      }
+
+      function parsePbn(text, fileName) {
+        const lines = normalizeText(text).split("\n");
+        const directives = [];
+        const records = [];
+        const warnings = [];
+        let current = null;
+        let section = null;
+
+        lines.forEach((line, index) => {
+          const lineNo = index + 1;
+          const trimmed = line.trim();
+          if (!trimmed) {
+            if (section !== "Auction" && section !== "Play") section = null;
+            return;
+          }
+
+          if (trimmed.startsWith("%")) {
+            const directive = parseDirectiveLine(trimmed, lineNo);
+            if (directive) directives.push(directive);
+            return;
+          }
+
+          const tag = parseTagLine(trimmed);
+          if (tag) {
+            const startsNextRecord =
+              current &&
+              Object.keys(current.tags).length > 0 &&
+              (tag.key === "Event" || (tag.key === "Board" && current.tags.Board));
+            if (startsNextRecord) {
+              records.push(current);
+              current = makeRecord(lineNo);
+            }
+            if (!current) current = makeRecord(lineNo);
+            current.tags[tag.key] = tag.value;
+            current.tagOrder.push(tag.key);
+            current.lineNumbers[tag.key] = lineNo;
+            section = ["Auction", "Play", "OptimumResultTable"].includes(tag.key) ? tag.key : null;
+            return;
+          }
+
+          if (current && section && current.sections[section]) {
+            current.sections[section].push(trimmed);
+          } else if (current) {
+            current.looseLines.push({ lineNo, text: line });
+          } else if (trimmed !== "\"") {
+            warnings.push(`Ignored preamble line ${lineNo}: ${trimmed}`);
+          }
+        });
+
+        if (current && Object.keys(current.tags).length > 0) records.push(current);
+
+        if (!records.length) warnings.push("No PBN board records were found.");
+
+        return {
+          fileName: fileName || "PBN text",
+          directives,
+          records,
+          warnings
+        };
+      }
+
+      function directiveMap(directives) {
+        const map = new Map();
+        directives.forEach((directive) => {
+          if (!map.has(directive.key)) map.set(directive.key, []);
+          map.get(directive.key).push(directive.value);
+        });
+        return map;
+      }
+
+      function firstDirective(analysis, keys) {
+        const map = analysis.directiveMap;
+        for (const key of keys) {
+          const values = map.get(key);
+          if (values && values.length) return values[0];
+        }
+        return "";
+      }
+
+      function orderedSeatsFrom(firstSeat) {
+        const start = SEATS.indexOf(firstSeat);
+        if (start === -1) return [];
+        return [0, 1, 2, 3].map((offset) => SEATS[(start + offset) % SEATS.length]);
+      }
+
+      function normalizeSuitHolding(value) {
+        const text = String(value == null ? "" : value).trim().toUpperCase();
+        return text === "-" ? "" : text;
+      }
+
+      function sortHolding(holding) {
+        return normalizeSuitHolding(holding)
+          .split("")
+          .filter(Boolean)
+          .sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b))
+          .join("");
+      }
+
+      function parseDeal(dealText) {
+        const result = {
+          raw: dealText || "",
+          firstSeat: "",
+          hands: {},
+          valid: false,
+          issues: []
+        };
+
+        if (!dealText) {
+          result.issues.push("Missing Deal tag");
+          return result;
+        }
+
+        const match = String(dealText).trim().match(/^([NESW]):\s*(.+)$/i);
+        if (!match) {
+          result.issues.push("Deal tag is not in seat:hand format");
+          return result;
+        }
+
+        const firstSeat = match[1].toUpperCase();
+        const handTexts = match[2].trim().split(/\s+/);
+        const seats = orderedSeatsFrom(firstSeat);
+        result.firstSeat = firstSeat;
+
+        if (handTexts.length !== 4) {
+          result.issues.push(`Expected 4 hands, found ${handTexts.length}`);
+        }
+
+        seats.forEach((seat, index) => {
+          const suitTexts = (handTexts[index] || "").split(".");
+          while (suitTexts.length < 4) suitTexts.push("");
+          result.hands[seat] = {};
+          SUITS.forEach((suit, suitIndex) => {
+            result.hands[seat][suit.key] = sortHolding(suitTexts[suitIndex] || "");
+          });
+        });
+
+        const seen = new Map();
+        const cards = [];
+        SEATS.forEach((seat) => {
+          const hand = result.hands[seat] || {};
+          SUITS.forEach((suit) => {
+            const holding = hand[suit.key] || "";
+            holding.split("").forEach((rank) => {
+              if (!RANK_ORDER.includes(rank)) {
+                result.issues.push(`Unknown rank ${rank} in ${seat} ${suit.key}`);
+                return;
+              }
+              const card = `${suit.key}${rank}`;
+              cards.push(card);
+              if (seen.has(card)) {
+                result.issues.push(`Duplicate card ${card} in ${seat} and ${seen.get(card)}`);
+              } else {
+                seen.set(card, seat);
+              }
+            });
+          });
+        });
+
+        if (cards.length !== 52) result.issues.push(`Deal has ${cards.length} cards, expected 52`);
+        result.valid = result.issues.length === 0;
+        return result;
+      }
+
+      function analyzeHand(hand) {
+        const normalized = {};
+        SUITS.forEach((suit) => {
+          normalized[suit.key] = sortHolding(hand && hand[suit.key]);
+        });
+
+        const lengths = {};
+        const hcpBySuit = {};
+        let hcp = 0;
+        let controls = 0;
+        let distributionPoints = 0;
+
+        SUITS.forEach((suit) => {
+          const holding = normalized[suit.key];
+          lengths[suit.key] = holding.length;
+          hcpBySuit[suit.key] = 0;
+          holding.split("").forEach((rank) => {
+            const points = HCP_VALUE[rank] || 0;
+            hcp += points;
+            hcpBySuit[suit.key] += points;
+            if (rank === "A") controls += 2;
+            if (rank === "K") controls += 1;
+          });
+          if (holding.length === 0) distributionPoints += 3;
+          if (holding.length === 1) distributionPoints += 2;
+          if (holding.length === 2) distributionPoints += 1;
+        });
+
+        const shape = SUITS.map((suit) => lengths[suit.key]).join("-");
+        const longest = SUITS
+          .map((suit) => ({ suit: suit.key, length: lengths[suit.key] }))
+          .sort((a, b) => b.length - a.length || SUITS.findIndex((suit) => suit.key === a.suit) - SUITS.findIndex((suit) => suit.key === b.suit))[0];
+        const voids = SUITS.filter((suit) => lengths[suit.key] === 0).map((suit) => suit.key);
+        const singletons = SUITS.filter((suit) => lengths[suit.key] === 1).map((suit) => suit.key);
+        const display = SUITS.map((suit) => normalized[suit.key] || "-").join(".");
+
+        return {
+          cards: normalized,
+          lengths,
+          hcp,
+          hcpBySuit,
+          controls,
+          distributionPoints,
+          shape,
+          longestSuit: longest ? longest.suit : "",
+          longestLength: longest ? longest.length : 0,
+          voids,
+          singletons,
+          display
+        };
+      }
+
+      function combinePairStats(hands, pair) {
+        const seats = pair === "NS" ? ["N", "S"] : ["E", "W"];
+        const lengths = {};
+        const holdings = {};
+        SUITS.forEach((suit) => {
+          holdings[suit.key] = seats.map((seat) => hands[seat] ? hands[seat].cards[suit.key] : "").join("");
+          lengths[suit.key] = holdings[suit.key].length;
+        });
+
+        const bestFit = SUITS
+          .map((suit) => ({ suit: suit.key, length: lengths[suit.key] }))
+          .sort((a, b) => b.length - a.length || SUITS.findIndex((suit) => suit.key === a.suit) - SUITS.findIndex((suit) => suit.key === b.suit))[0];
+
+        return {
+          pair,
+          seats,
+          hcp: seats.reduce((acc, seat) => acc + (hands[seat] ? hands[seat].hcp : 0), 0),
+          lengths,
+          holdings,
+          bestFitSuit: bestFit ? bestFit.suit : "",
+          bestFitLength: bestFit ? bestFit.length : 0,
+          majorFit: Math.max(lengths.S || 0, lengths.H || 0),
+          minorFit: Math.max(lengths.D || 0, lengths.C || 0)
+        };
+      }
+
+      function normalizeVulnerability(value) {
+        const text = String(value || "").trim();
+        if (/^none$/i.test(text) || text === "-") return "None";
+        if (/^all$/i.test(text) || /^both$/i.test(text)) return "All";
+        if (/^n-?s$/i.test(text)) return "NS";
+        if (/^e-?w$/i.test(text)) return "EW";
+        return text || "";
+      }
+
+      function parseOptimumScore(value) {
+        const text = String(value || "").trim();
+        const match = text.match(/^(NS|EW|[NESW])\s+(-?\d+)/i);
+        if (!match) {
+          return {
+            raw: text,
+            side: "",
+            pair: "",
+            score: null,
+            nsPerspective: null,
+            edge: "Flat"
+          };
+        }
+
+        const side = match[1].toUpperCase();
+        const score = Number(match[2]);
+        const pair = side === "NS" || side === "EW" ? side : PAIRS[side];
+        const nsPerspective = pair === "NS" ? score : -score;
+        return {
+          raw: text,
+          side,
+          pair,
+          score,
+          nsPerspective,
+          edge: nsPerspective > 0 ? "NS" : nsPerspective < 0 ? "EW" : "Flat"
+        };
+      }
+
+      function parseContractPiece(piece) {
+        const text = String(piece || "").trim();
+        if (!text) return null;
+        const sideMatch = text.match(/^(NS|EW|[NESW])\b/i);
+        const side = sideMatch ? sideMatch[1].toUpperCase() : "";
+        const pair = side === "NS" || side === "EW" ? side : PAIRS[side] || "";
+        const body = side ? text.slice(sideMatch[0].length).trim() : text;
+        const contractMatch = body.match(/([1-7])\s*(NT|N|[CDHS])\s*(XX|X)?\s*(=|[+-]\d+)?/i);
+        if (!contractMatch) {
+          return {
+            raw: text,
+            side,
+            pair,
+            level: null,
+            strain: "",
+            doubled: "",
+            result: "",
+            className: "Unknown"
+          };
+        }
+
+        const level = Number(contractMatch[1]);
+        const strain = contractMatch[2].toUpperCase() === "NT" ? "N" : contractMatch[2].toUpperCase();
+        const doubled = (contractMatch[3] || "").toUpperCase();
+        const result = contractMatch[4] || "";
+        return {
+          raw: text,
+          side,
+          pair,
+          level,
+          strain,
+          doubled,
+          result,
+          className: classifyContract(level, strain)
+        };
+      }
+
+      function parseParContracts(value) {
+        return String(value || "")
+          .split(";")
+          .map((piece) => parseContractPiece(piece))
+          .filter(Boolean);
+      }
+
+      function classifyContract(level, strain) {
+        if (!level || !strain) return "Unknown";
+        if (level >= 6) return "Slam-level";
+        if (strain === "N" && level >= 3) return "Game-level";
+        if ((strain === "S" || strain === "H") && level >= 4) return "Game-level";
+        if ((strain === "D" || strain === "C") && level >= 5) return "Game-level";
+        return "Partscore";
+      }
+
+      function parseOptimumRows(lines) {
+        return (lines || [])
+          .map((line) => {
+            const match = String(line).trim().match(/^([NESW])\s+(NT|[SHDC])\s+(\d+)$/i);
+            if (!match) return null;
+            const denomination = match[2].toUpperCase() === "NT" ? "N" : match[2].toUpperCase();
+            const tricks = Number(match[3]);
+            return {
+              declarer: match[1].toUpperCase(),
+              pair: PAIRS[match[1].toUpperCase()],
+              denomination,
+              tricks,
+              makeableLevel: Math.max(0, tricks - 6)
+            };
+          })
+          .filter(Boolean);
+      }
+
+      function parseDoubleDummyTricks(value) {
+        const text = String(value || "").replace(/[^0-9a-d]/gi, "").toLowerCase();
+        if (text.length < 20) return [];
+        const rows = [];
+        let index = 0;
+        DOUBLE_DUMMY_SEATS.forEach((seat) => {
+          DOUBLE_DUMMY_DENOMS.forEach((denomination) => {
+            const tricks = parseInt(text[index], 16);
+            index += 1;
+            if (Number.isFinite(tricks)) {
+              rows.push({
+                declarer: seat,
+                pair: PAIRS[seat],
+                denomination,
+                tricks,
+                makeableLevel: Math.max(0, tricks - 6)
+              });
+            }
+          });
+        });
+        return rows;
+      }
+
+      function getDoubleDummyTricks(board, declarer, denomination) {
+        const row = board.optimumRows.find((entry) => entry.declarer === declarer && entry.denomination === denomination);
+        return row ? row.tricks : "";
+      }
+
+      function normalizeBoard(record, index) {
+        const tags = record.tags;
+        const boardNo = safeNumber(tags.Board) || index + 1;
+        const dealer = String(tags.Dealer || "").toUpperCase();
+        const vulnerable = normalizeVulnerability(tags.Vulnerable);
+        const deal = parseDeal(tags.Deal);
+        const hands = {};
+        SEATS.forEach((seat) => {
+          hands[seat] = analyzeHand(deal.hands[seat]);
+        });
+        const pairs = {
+          NS: combinePairStats(hands, "NS"),
+          EW: combinePairStats(hands, "EW")
+        };
+        const parContracts = parseParContracts(tags.ParContract);
+        const primaryPar = parContracts[0] || null;
+        const optimum = parseOptimumScore(tags.OptimumScore);
+        const optimumRows = parseOptimumRows(record.sections.OptimumResultTable);
+        const doubleDummyRows = optimumRows.length ? optimumRows : parseDoubleDummyTricks(tags.DoubleDummyTricks);
+        const voids = [];
+        const longSuits = [];
+
+        SEATS.forEach((seat) => {
+          hands[seat].voids.forEach((suit) => voids.push(`${seat} ${suit}`));
+          if (hands[seat].longestLength >= 7) longSuits.push(`${seat} ${hands[seat].longestLength}${hands[seat].longestSuit}`);
+        });
+
+        const issues = [...deal.issues];
+        if (!tags.Deal) issues.push("No deal to analyze");
+        if (!tags.ParContract) issues.push("No par contract");
+        if (!tags.OptimumScore) issues.push("No optimum score");
+
+        return {
+          index,
+          record,
+          tags,
+          boardNo,
+          dealer,
+          vulnerable,
+          deal,
+          hands,
+          pairs,
+          hcpNS: pairs.NS.hcp,
+          hcpEW: pairs.EW.hcp,
+          hcpDeltaNS: pairs.NS.hcp - pairs.EW.hcp,
+          parContracts,
+          primaryPar,
+          optimum,
+          optimumRows: doubleDummyRows,
+          voids,
+          longSuits,
+          issues,
+          validDeal: deal.valid,
+          className: primaryPar ? primaryPar.className : "Unknown"
+        };
+      }
+
+      function countBy(values) {
+        const counts = {};
+        values.forEach((value) => {
+          const key = value || "Unknown";
+          counts[key] = (counts[key] || 0) + 1;
+        });
+        return counts;
+      }
+
+      function buildAnalysis(parsed) {
+        const boards = parsed.records.map((record, index) => normalizeBoard(record, index));
+        const tags = uniqueSorted(parsed.records.flatMap((record) => Object.keys(record.tags)));
+        const map = directiveMap(parsed.directives);
+        const parContractPieces = boards.flatMap((board) => board.parContracts);
+        const validDeals = boards.filter((board) => board.validDeal).length;
+        const boardsWithActualResults = boards.filter((board) => board.tags.Contract || board.tags.Declarer || board.tags.Result).length;
+        const nsPerspectiveScores = boards.map((board) => board.optimum.nsPerspective).filter((value) => value != null);
+        const largestScores = [...boards]
+          .filter((board) => board.optimum.nsPerspective != null)
+          .sort((a, b) => Math.abs(b.optimum.nsPerspective) - Math.abs(a.optimum.nsPerspective))
+          .slice(0, 5);
+
+        const summary = {
+          boardCount: boards.length,
+          validDeals,
+          invalidDeals: boards.length - validDeals,
+          dealers: countBy(boards.map((board) => board.dealer)),
+          vulnerabilities: countBy(boards.map((board) => board.vulnerable)),
+          parEdges: countBy(boards.map((board) => board.optimum.edge)),
+          parContractSides: countBy(parContractPieces.map((contract) => contract.pair || contract.side)),
+          classes: countBy(boards.map((board) => board.className)),
+          levels: countBy(parContractPieces.map((contract) => contract.level ? String(contract.level) : "")),
+          strains: countBy(parContractPieces.map((contract) => contract.strain)),
+          boardsWithActualResults,
+          boardsMissingActualResults: boards.length - boardsWithActualResults,
+          averageHcpBySeat: Object.fromEntries(SEATS.map((seat) => [seat, average(boards.map((board) => board.hands[seat].hcp))])),
+          averageHcpByPair: {
+            NS: average(boards.map((board) => board.hcpNS)),
+            EW: average(boards.map((board) => board.hcpEW))
+          },
+          maxAbsScore: nsPerspectiveScores.length ? Math.max(...nsPerspectiveScores.map((value) => Math.abs(value))) : 0,
+          largestScores,
+          slamLevelBoards: boards.filter((board) => board.parContracts.some((contract) => contract.level >= 6)),
+          voidBoards: boards.filter((board) => board.voids.length),
+          longSuitBoards: boards.filter((board) => board.longSuits.length),
+          hcpImbalanceBoards: [...boards].sort((a, b) => Math.abs(b.hcpDeltaNS) - Math.abs(a.hcpDeltaNS)).slice(0, 5)
+        };
+
+        return {
+          parsed,
+          boards,
+          tagKeys: tags,
+          directiveMap: map,
+          summary
+        };
+      }
+
+      function suitMeta(key) {
+        return SUITS.find((suit) => suit.key === key) || SUITS[0];
+      }
+
+      function denomMeta(key) {
+        return DENOMS.find((denom) => denom.key === key) || DENOMS[0];
+      }
+
+      function sideClass(edge) {
+        return edge === "NS" ? "ns" : edge === "EW" ? "ew" : "";
+      }
+
+      function boardSearchText(board) {
+        return [
+          board.boardNo,
+          board.dealer,
+          board.vulnerable,
+          board.tags.ParContract,
+          board.tags.OptimumScore,
+          board.deal.raw,
+          board.voids.join(" "),
+          board.longSuits.join(" ")
+        ].join(" ").toLowerCase();
+      }
+
+      function setCurrentPbn(text, fileName) {
+        const parsed = parsePbn(text, fileName);
+        const analysis = buildAnalysis(parsed);
+        STATE.parsed = parsed;
+        STATE.analysis = analysis;
+        STATE.rowMode = "boards";
+        STATE.selectedColumns = new Set(defaultColumnKeys("boards", analysis));
+        STATE.filters = {
+          search: "",
+          side: "all",
+          className: "all",
+          vulnerability: "all"
+        };
+        renderAll();
+        showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}.`);
+      }
+
+      function showToast(message, type) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.className = `toast${type === "error" ? " error" : ""}`;
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => {
+          toast.classList.add("hidden");
+        }, 3600);
+      }
+
+      function renderAll() {
+        const analysis = STATE.analysis;
+        const dashboard = document.getElementById("dashboard");
+        if (!analysis) {
+          dashboard.classList.add("hidden");
+          return;
+        }
+
+        dashboard.classList.remove("hidden");
+        document.getElementById("fileSubtitle").textContent = `${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}`;
+        document.getElementById("boardSearch").value = "";
+        document.getElementById("sideFilter").value = "all";
+        document.getElementById("classFilter").value = "all";
+        document.getElementById("vulFilter").value = "all";
+        document.getElementById("rowMode").value = STATE.rowMode;
+
+        renderMetrics(analysis);
+        renderMetadata(analysis);
+        renderQuality(analysis);
+        renderCharts(analysis);
+        renderNotables(analysis);
+        renderBoards();
+        renderCsvControls();
+      }
+
+      function renderMetrics(analysis) {
+        const summary = analysis.summary;
+        const edgeNS = summary.parEdges.NS || 0;
+        const edgeEW = summary.parEdges.EW || 0;
+        const slamCount = summary.slamLevelBoards.length;
+        const gameCount = summary.classes["Game-level"] || 0;
+        const partCount = summary.classes.Partscore || 0;
+        const avgNS = summary.averageHcpByPair.NS.toFixed(1);
+        const avgEW = summary.averageHcpByPair.EW.toFixed(1);
+
+        const metrics = [
+          { label: "Boards", value: summary.boardCount, note: `${summary.validDeals} valid deals` },
+          { label: "Par Edge", value: `${edgeNS}/${edgeEW}`, note: "NS / EW boards" },
+          { label: "Slam-Level", value: slamCount, note: "Par contracts at 6 or 7" },
+          { label: "Games", value: gameCount, note: `${partCount} partscore boards` },
+          { label: "Avg Pair HCP", value: `${avgNS}/${avgEW}`, note: "NS / EW" },
+          { label: "Results", value: summary.boardsWithActualResults, note: "Played contracts found" }
+        ];
+
+        document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
+          <div class="metric">
+            <div class="label">${escapeHtml(metric.label)}</div>
+            <div class="value">${escapeHtml(metric.value)}</div>
+            <div class="note">${escapeHtml(metric.note)}</div>
+          </div>
+        `).join("");
+      }
+
+      function renderMetadata(analysis) {
+        const parsed = analysis.parsed;
+        const firstBoard = analysis.boards[0] || { tags: {} };
+        const title = firstDirective(analysis, ["HRTitleEvent"]) || firstBoard.tags.Event || "";
+        const date = firstDirective(analysis, ["HRTitleDate"]) || firstBoard.tags.Date || "";
+        const items = [
+          ["File", parsed.fileName],
+          ["PBN", firstDirective(analysis, ["PBN"]) || "Unspecified"],
+          ["Content Type", firstDirective(analysis, ["Content-type"]) || "Unspecified"],
+          ["Creator", firstDirective(analysis, ["Creator"]) || firstDirective(analysis, ["Generator"]) || firstBoard.tags.Generator || "Unspecified"],
+          ["Created", firstDirective(analysis, ["Created"]) || "Unspecified"],
+          ["Event", title || "Blank in records"],
+          ["Date", date || "Blank in records"],
+          ["Set ID", firstDirective(analysis, ["HRTitleSetID"]) || "Unspecified"],
+          ["Tag Types", analysis.tagKeys.length],
+          ["Directives", parsed.directives.length]
+        ];
+
+        document.getElementById("headerCaption").textContent = `${plural(parsed.directives.length, "directive")} and ${plural(analysis.tagKeys.length, "tag type")}.`;
+        document.getElementById("metadataGrid").innerHTML = items.map(([key, value]) => `
+          <div class="metadata-item">
+            <div class="key">${escapeHtml(key)}</div>
+            <div class="val">${escapeHtml(value)}</div>
+          </div>
+        `).join("");
+      }
+
+      function renderQuality(analysis) {
+        const summary = analysis.summary;
+        const parseWarnings = analysis.parsed.warnings.length;
+        const issueBoards = analysis.boards.filter((board) => board.issues.length).length;
+        const quality = [
+          {
+            tone: summary.invalidDeals ? "red" : "",
+            text: `${summary.validDeals} of ${summary.boardCount} deals have 52 unique cards.`
+          },
+          {
+            tone: summary.boardsMissingActualResults ? "gold" : "",
+            text: summary.boardsMissingActualResults
+              ? `${summary.boardsMissingActualResults} boards do not contain played contract, declarer, or result data.`
+              : "Played contract and result fields are present."
+          },
+          {
+            tone: parseWarnings ? "gold" : "",
+            text: parseWarnings ? `${parseWarnings} preamble or parse warnings were recorded.` : "No parser warnings."
+          },
+          {
+            tone: issueBoards ? "gold" : "",
+            text: issueBoards ? `${issueBoards} boards have missing par, score, or deal analysis fields.` : "Every board has deal, par, and optimum score fields."
+          }
+        ];
+
+        document.getElementById("qualityCaption").textContent = summary.boardsWithActualResults
+          ? `${summary.boardsWithActualResults} boards include played-result fields.`
+          : "This looks like a hand record rather than a result file.";
+        document.getElementById("qualityList").innerHTML = quality.map((item) => `
+          <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
+        `).join("");
+      }
+
+      function renderCharts(analysis) {
+        document.getElementById("scoreChart").innerHTML = renderScoreChart(analysis);
+        document.getElementById("strainChart").innerHTML = renderStrainChart(analysis);
+        document.getElementById("hcpChart").innerHTML = renderHcpChart(analysis);
+        document.getElementById("heatMap").innerHTML = renderHeatMap(analysis);
+      }
+
+      function renderScoreChart(analysis) {
+        const boards = analysis.boards;
+        if (!boards.length) return `<div class="empty-state">No boards to chart.</div>`;
+        const width = Math.max(860, boards.length * 23 + 90);
+        const height = 300;
+        const left = 46;
+        const right = 20;
+        const top = 20;
+        const bottom = 42;
+        const plotWidth = width - left - right;
+        const plotHeight = height - top - bottom;
+        const maxAbs = Math.max(100, analysis.summary.maxAbsScore || 0);
+        const zeroY = top + plotHeight / 2;
+        const barGap = 3;
+        const step = plotWidth / boards.length;
+        const barWidth = Math.max(5, step - barGap);
+        const yFor = (value) => zeroY - (value / maxAbs) * (plotHeight / 2);
+        const gridValues = [-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs];
+
+        const grid = gridValues.map((value) => {
+          const y = yFor(value);
+          return `
+            <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#8ca0b2" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
+            <text x="${left - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end" fill="#607083" font-size="11">${escapeHtml(Math.round(value))}</text>
+          `;
+        }).join("");
+
+        const bars = boards.map((board, index) => {
+          const value = board.optimum.nsPerspective || 0;
+          const x = left + index * step + barGap / 2;
+          const y = Math.min(zeroY, yFor(value));
+          const h = Math.abs(yFor(value) - zeroY);
+          const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
+          return `
+            <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
+              <title>Board ${escapeHtml(board.boardNo)}: NS ${escapeHtml(formatSigned(value))}; ${escapeHtml(board.tags.ParContract || "No par contract")}</title>
+            </rect>
+          `;
+        }).join("");
+
+        const labels = boards.map((board, index) => {
+          if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return "";
+          const x = left + index * step + barWidth / 2;
+          return `<text x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
+        }).join("");
+
+        return `
+          <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Par score by board">
+            <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+            ${grid}
+            ${bars}
+            ${labels}
+            <text x="${left}" y="${height - 4}" fill="#607083" font-size="11">Board</text>
+          </svg>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#0f7b6c"></span>NS score</span>
+            <span class="legend-item"><span class="swatch" style="background:#bb3f45"></span>EW score</span>
+          </div>
+        `;
+      }
+
+      function renderStrainChart(analysis) {
+        const counts = DENOMS.map((denom) => ({
+          ...denom,
+          count: analysis.summary.strains[denom.key] || 0
+        })).filter((entry) => entry.count > 0);
+        const total = sum(counts.map((entry) => entry.count));
+        if (!total) return `<div class="empty-state">No par strains found.</div>`;
+        const radius = 58;
+        const circumference = 2 * Math.PI * radius;
+        let offset = 0;
+        const circles = counts.map((entry) => {
+          const length = (entry.count / total) * circumference;
+          const circle = `
+            <circle cx="88" cy="88" r="${radius}" fill="none" stroke="${entry.color}" stroke-width="30"
+              stroke-dasharray="${length.toFixed(2)} ${(circumference - length).toFixed(2)}"
+              stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 88 88)">
+              <title>${escapeHtml(entry.label)}: ${entry.count}</title>
+            </circle>`;
+          offset += length;
+          return circle;
+        }).join("");
+
+        const legend = counts.map((entry) => `
+          <span class="legend-item">
+            <span class="swatch" style="background:${entry.color}"></span>${escapeHtml(entry.label)} ${entry.count}
+          </span>
+        `).join("");
+
+        return `
+          <svg viewBox="0 0 176 176" role="img" aria-label="Par strain distribution" style="margin:auto">
+            <circle cx="88" cy="88" r="${radius}" fill="none" stroke="#edf1f5" stroke-width="30"></circle>
+            ${circles}
+            <text x="88" y="83" text-anchor="middle" font-size="24" font-weight="800" fill="#17212b">${total}</text>
+            <text x="88" y="104" text-anchor="middle" font-size="12" fill="#607083">contracts</text>
+          </svg>
+          <div class="legend">${legend}</div>
+        `;
+      }
+
+      function renderHcpChart(analysis) {
+        const entries = [
+          ...SEATS.map((seat) => ({ label: seat, value: analysis.summary.averageHcpBySeat[seat], max: 20 })),
+          { label: "NS", value: analysis.summary.averageHcpByPair.NS, max: 40 },
+          { label: "EW", value: analysis.summary.averageHcpByPair.EW, max: 40 }
+        ];
+
+        return `
+          <div class="hcp-bars">
+            ${entries.map((entry) => `
+              <div class="hcp-bar">
+                <strong>${escapeHtml(entry.label)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, (entry.value / entry.max) * 100).toFixed(1)}%"></div></div>
+                <span>${entry.value.toFixed(1)}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      function hcpColor(hcp) {
+        const t = Math.max(0, Math.min(1, hcp / 22));
+        const low = [237, 242, 247];
+        const high = [15, 123, 108];
+        const rgb = low.map((component, index) => Math.round(component + (high[index] - component) * t));
+        return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+      }
+
+      function renderHeatMap(analysis) {
+        const boards = analysis.boards;
+        if (!boards.length) return `<div class="empty-state">No boards to map.</div>`;
+        const cellW = 22;
+        const cellH = 23;
+        const left = 34;
+        const top = 16;
+        const width = left + boards.length * cellW + 18;
+        const height = top + SEATS.length * cellH + 36;
+        const cells = [];
+        SEATS.forEach((seat, row) => {
+          cells.push(`<text x="8" y="${top + row * cellH + 16}" fill="#607083" font-size="12" font-weight="700">${seat}</text>`);
+          boards.forEach((board, col) => {
+            const hcp = board.hands[seat].hcp;
+            const x = left + col * cellW;
+            const y = top + row * cellH;
+            cells.push(`
+              <rect x="${x}" y="${y}" width="18" height="18" rx="3" fill="${hcpColor(hcp)}" stroke="#ffffff">
+                <title>Board ${escapeHtml(board.boardNo)} ${seat}: ${hcp} HCP</title>
+              </rect>
+            `);
+          });
+        });
+
+        boards.forEach((board, index) => {
+          if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return;
+          const x = left + index * cellW + 9;
+          cells.push(`<text x="${x}" y="${height - 8}" fill="#607083" font-size="10" text-anchor="middle">${escapeHtml(board.boardNo)}</text>`);
+        });
+
+        return `
+          <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="HCP heat map by board and seat">
+            <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"></rect>
+            ${cells.join("")}
+          </svg>
+        `;
+      }
+
+      function renderNotables(analysis) {
+        const items = [];
+        const scores = analysis.summary.largestScores.map((board) => {
+          const edge = board.optimum.edge === "NS" ? "NS" : board.optimum.edge === "EW" ? "EW" : "flat";
+          return `Board ${board.boardNo}: ${edge} ${Math.abs(board.optimum.nsPerspective || 0)} (${board.tags.ParContract || "no par"})`;
+        });
+        if (scores.length) items.push({ tone: "", text: `Largest par swings: ${scores.join("; ")}.` });
+
+        const slamBoards = analysis.summary.slamLevelBoards.map((board) => `Board ${board.boardNo} ${board.tags.ParContract}`);
+        if (slamBoards.length) items.push({ tone: "gold", text: `Slam-level par contracts: ${slamBoards.slice(0, 8).join("; ")}${slamBoards.length > 8 ? "; ..." : ""}.` });
+
+        const voidBoards = analysis.summary.voidBoards.map((board) => `Board ${board.boardNo} ${board.voids.join(", ")}`);
+        if (voidBoards.length) items.push({ tone: "", text: `Voids appear on ${plural(voidBoards.length, "board")}: ${voidBoards.slice(0, 8).join("; ")}${voidBoards.length > 8 ? "; ..." : ""}.` });
+
+        const longSuitBoards = analysis.summary.longSuitBoards.map((board) => `Board ${board.boardNo} ${board.longSuits.join(", ")}`);
+        if (longSuitBoards.length) items.push({ tone: "", text: `Seven-card or longer suits: ${longSuitBoards.slice(0, 8).join("; ")}${longSuitBoards.length > 8 ? "; ..." : ""}.` });
+
+        const imbalances = analysis.summary.hcpImbalanceBoards
+          .filter((board) => Math.abs(board.hcpDeltaNS) >= 12)
+          .map((board) => `Board ${board.boardNo} ${board.hcpNS}-${board.hcpEW}`);
+        if (imbalances.length) items.push({ tone: "gold", text: `Large HCP imbalances, NS-EW: ${imbalances.join("; ")}.` });
+
+        if (!items.length) items.push({ tone: "", text: "No notable outliers found in this file." });
+
+        document.getElementById("notableList").innerHTML = items.map((item) => `
+          <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
+        `).join("");
+      }
+
+      function renderBoards() {
+        const analysis = STATE.analysis;
+        if (!analysis) return;
+
+        const search = STATE.filters.search.trim().toLowerCase();
+        const filtered = analysis.boards.filter((board) => {
+          if (search && !boardSearchText(board).includes(search)) return false;
+          if (STATE.filters.side !== "all" && board.optimum.edge !== STATE.filters.side) return false;
+          if (STATE.filters.className !== "all" && board.className !== STATE.filters.className) return false;
+          if (STATE.filters.vulnerability !== "all" && board.vulnerable !== STATE.filters.vulnerability) return false;
+          return true;
+        });
+
+        document.getElementById("boardCountCaption").textContent = `${plural(filtered.length, "board")} shown from ${analysis.summary.boardCount}.`;
+        document.getElementById("boardGrid").innerHTML = filtered.length
+          ? filtered.map(renderBoardCard).join("")
+          : `<div class="empty-state">No boards match the current filters.</div>`;
+      }
+
+      function renderBoardCard(board) {
+        const opt = board.optimum;
+        const scoreText = opt.nsPerspective == null ? "" : `NS ${formatSigned(opt.nsPerspective)}`;
+        const edgeChip = opt.edge && opt.edge !== "Flat"
+          ? `<span class="side-chip ${sideClass(opt.edge)}">${escapeHtml(opt.edge)} edge</span>`
+          : `<span class="side-chip">No edge</span>`;
+        const parText = board.tags.ParContract || "No par";
+        return `
+          <article class="board-card">
+            <div class="board-card-header">
+              <div class="board-title">
+                <strong>Board ${escapeHtml(board.boardNo)}</strong>
+                <span>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</span>
+              </div>
+              <span class="contract-chip">${escapeHtml(parText)}</span>
+            </div>
+            <div class="board-card-body">
+              <div class="board-stats">
+                <div class="board-stat"><span>Optimum</span><strong>${escapeHtml(board.tags.OptimumScore || "Missing")}</strong></div>
+                <div class="board-stat"><span>NS Score</span><strong>${escapeHtml(scoreText || "Unknown")}</strong></div>
+                <div class="board-stat"><span>HCP</span><strong>NS ${board.hcpNS} / EW ${board.hcpEW}</strong></div>
+              </div>
+              <div>${edgeChip}</div>
+              ${renderDealDiagram(board)}
+              <details class="board-details">
+                <summary>Double dummy, tags, and notes</summary>
+                <div class="detail-grid">
+                  ${renderDoubleDummyTable(board)}
+                  ${renderBoardTagTable(board)}
+                </div>
+              </details>
+            </div>
+          </article>
+        `;
+      }
+
+      function renderDealDiagram(board) {
+        return `
+          <div class="deal-diagram">
+            ${renderHandBlock(board, "N")}
+            ${renderHandBlock(board, "W")}
+            <div class="table-center">
+              <div>Board ${escapeHtml(board.boardNo)}<br>D ${escapeHtml(board.dealer || "-")}<br>${escapeHtml(board.vulnerable || "-")}</div>
+            </div>
+            ${renderHandBlock(board, "E")}
+            ${renderHandBlock(board, "S")}
+          </div>
+        `;
+      }
+
+      function renderHandBlock(board, seat) {
+        const hand = board.hands[seat];
+        const player = board.tags[seatName(seat)] || "";
+        return `
+          <div class="hand-block ${seatName(seat).toLowerCase()}">
+            <div class="hand-title"><span>${escapeHtml(seat)}${player ? ` ${escapeHtml(player)}` : ""}</span><span>${hand.hcp} HCP</span></div>
+            ${SUITS.map((suit) => `
+              <div class="suit-line ${suit.className}">
+                <span class="suit-symbol">${suit.html}</span>
+                <span class="cards">${escapeHtml(hand.cards[suit.key] || "-")}</span>
+              </div>
+            `).join("")}
+            <div class="shape-line">${escapeHtml(hand.shape)} shape, ${escapeHtml(hand.controls)} controls</div>
+          </div>
+        `;
+      }
+
+      function seatName(seat) {
+        return { N: "North", E: "East", S: "South", W: "West" }[seat] || seat;
+      }
+
+      function renderDoubleDummyTable(board) {
+        if (!board.optimumRows.length) return `<div class="empty-state">No double-dummy table found for this board.</div>`;
+        return `
+          <table class="dd-table">
+            <thead>
+              <tr>
+                <th>Declarer</th>
+                ${DENOMS.map((denom) => `<th>${escapeHtml(denom.label)}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${SEATS.map((seat) => `
+                <tr>
+                  <th>${seat}</th>
+                  ${DENOMS.map((denom) => `<td>${escapeHtml(getDoubleDummyTricks(board, seat, denom.key))}</td>`).join("")}
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function renderBoardTagTable(board) {
+        const visibleKeys = ["Event", "Site", "Date", "Dealer", "Vulnerable", "Deal", "Declarer", "Contract", "Result", "ParContract", "OptimumScore"];
+        return `
+          <table>
+            <thead><tr><th>Tag</th><th>Value</th></tr></thead>
+            <tbody>
+              ${visibleKeys.map((key) => `
+                <tr><td>${escapeHtml(key)}</td><td>${escapeHtml(board.tags[key] || "")}</td></tr>
+              `).join("")}
+              ${board.issues.length ? `<tr><td>Issues</td><td>${escapeHtml(board.issues.join("; "))}</td></tr>` : ""}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function defaultColumnKeys(mode, analysis) {
+        const defaults = {
+          boards: ["board", "dealer", "vulnerable", "par_contract", "optimum_score", "ns_score", "par_class", "hcp_ns", "hcp_ew", "hcp_delta_ns", "shape_n", "shape_e", "shape_s", "shape_w", "valid_deal"],
+          hands: ["board", "dealer", "vulnerable", "seat", "pair", "hand", "hcp", "shape", "spades", "hearts", "diamonds", "clubs", "voids", "longest_suit"],
+          pairs: ["board", "dealer", "vulnerable", "pair", "hcp", "hcp_delta_ns", "spades", "hearts", "diamonds", "clubs", "best_fit", "major_fit", "minor_fit", "par_contract", "ns_score"],
+          doubleDummy: ["board", "dealer", "vulnerable", "declarer", "pair", "denomination", "tricks", "makeable_level"],
+          tags: ["record_index", "board", ...((analysis && analysis.tagKeys) || []).slice(0, 12).map((key) => `tag_${key}`)]
+        };
+        return defaults[mode] || defaults.boards;
+      }
+
+      function getColumnDefs(mode, analysis) {
+        const boardCols = [
+          col("file_name", "File Name", (ctx) => analysis.parsed.fileName),
+          col("record_index", "Record Index", (ctx) => ctx.board.index + 1),
+          col("board", "Board", (ctx) => ctx.board.boardNo),
+          col("event", "Event", (ctx) => ctx.board.tags.Event || ""),
+          col("site", "Site", (ctx) => ctx.board.tags.Site || ""),
+          col("date", "Date", (ctx) => ctx.board.tags.Date || firstDirective(analysis, ["HRTitleDate"])),
+          col("dealer", "Dealer", (ctx) => ctx.board.dealer),
+          col("vulnerable", "Vulnerable", (ctx) => ctx.board.vulnerable),
+          col("deal", "Deal", (ctx) => ctx.board.deal.raw),
+          col("par_contract", "Par Contract", (ctx) => ctx.board.tags.ParContract || ""),
+          col("par_side", "Par Side", (ctx) => ctx.board.primaryPar ? ctx.board.primaryPar.pair || ctx.board.primaryPar.side : ""),
+          col("par_level", "Par Level", (ctx) => ctx.board.primaryPar ? ctx.board.primaryPar.level : ""),
+          col("par_strain", "Par Strain", (ctx) => ctx.board.primaryPar ? ctx.board.primaryPar.strain : ""),
+          col("par_class", "Par Class", (ctx) => ctx.board.className),
+          col("optimum_score", "Optimum Score", (ctx) => ctx.board.tags.OptimumScore || ""),
+          col("optimum_side", "Optimum Side", (ctx) => ctx.board.optimum.pair || ctx.board.optimum.side),
+          col("ns_score", "NS Perspective Score", (ctx) => ctx.board.optimum.nsPerspective),
+          col("par_edge", "Par Edge", (ctx) => ctx.board.optimum.edge),
+          col("actual_contract", "Actual Contract", (ctx) => ctx.board.tags.Contract || ""),
+          col("actual_declarer", "Actual Declarer", (ctx) => ctx.board.tags.Declarer || ""),
+          col("actual_result", "Actual Result", (ctx) => ctx.board.tags.Result || ""),
+          col("hcp_n", "HCP N", (ctx) => ctx.board.hands.N.hcp),
+          col("hcp_e", "HCP E", (ctx) => ctx.board.hands.E.hcp),
+          col("hcp_s", "HCP S", (ctx) => ctx.board.hands.S.hcp),
+          col("hcp_w", "HCP W", (ctx) => ctx.board.hands.W.hcp),
+          col("hcp_ns", "HCP NS", (ctx) => ctx.board.hcpNS),
+          col("hcp_ew", "HCP EW", (ctx) => ctx.board.hcpEW),
+          col("hcp_delta_ns", "HCP Delta NS", (ctx) => ctx.board.hcpDeltaNS),
+          col("shape_n", "Shape N", (ctx) => ctx.board.hands.N.shape),
+          col("shape_e", "Shape E", (ctx) => ctx.board.hands.E.shape),
+          col("shape_s", "Shape S", (ctx) => ctx.board.hands.S.shape),
+          col("shape_w", "Shape W", (ctx) => ctx.board.hands.W.shape),
+          col("voids", "Voids", (ctx) => ctx.board.voids.join("; ")),
+          col("long_suits", "Long Suits", (ctx) => ctx.board.longSuits.join("; ")),
+          col("valid_deal", "Valid Deal", (ctx) => ctx.board.validDeal ? "yes" : "no"),
+          col("issues", "Issues", (ctx) => ctx.board.issues.join("; "))
+        ];
+
+        DENOMS.forEach((denom) => {
+          SEATS.forEach((seat) => {
+            boardCols.push(col(`dd_${seat}_${denom.key}`, `DD ${seat} ${denom.label}`, (ctx) => getDoubleDummyTricks(ctx.board, seat, denom.key)));
+          });
+        });
+
+        if (mode === "boards") return boardCols;
+
+        if (mode === "hands") {
+          return [
+            ...boardCols.filter((entry) => ["file_name", "record_index", "board", "event", "site", "date", "dealer", "vulnerable", "par_contract", "optimum_score", "ns_score"].includes(entry.key)),
+            col("seat", "Seat", (ctx) => ctx.seat),
+            col("pair", "Pair", (ctx) => PAIRS[ctx.seat]),
+            col("player", "Player", (ctx) => ctx.board.tags[seatName(ctx.seat)] || ""),
+            col("is_dealer", "Is Dealer", (ctx) => ctx.board.dealer === ctx.seat ? "yes" : "no"),
+            col("hand", "Hand", (ctx) => ctx.hand.display),
+            col("spades", "Spades", (ctx) => ctx.hand.cards.S),
+            col("hearts", "Hearts", (ctx) => ctx.hand.cards.H),
+            col("diamonds", "Diamonds", (ctx) => ctx.hand.cards.D),
+            col("clubs", "Clubs", (ctx) => ctx.hand.cards.C),
+            col("hcp", "HCP", (ctx) => ctx.hand.hcp),
+            col("controls", "Controls", (ctx) => ctx.hand.controls),
+            col("distribution_points", "Distribution Points", (ctx) => ctx.hand.distributionPoints),
+            col("shape", "Shape", (ctx) => ctx.hand.shape),
+            col("length_spades", "Length Spades", (ctx) => ctx.hand.lengths.S),
+            col("length_hearts", "Length Hearts", (ctx) => ctx.hand.lengths.H),
+            col("length_diamonds", "Length Diamonds", (ctx) => ctx.hand.lengths.D),
+            col("length_clubs", "Length Clubs", (ctx) => ctx.hand.lengths.C),
+            col("voids", "Voids", (ctx) => ctx.hand.voids.join("; ")),
+            col("singletons", "Singletons", (ctx) => ctx.hand.singletons.join("; ")),
+            col("longest_suit", "Longest Suit", (ctx) => `${ctx.hand.longestLength}${ctx.hand.longestSuit}`)
+          ];
+        }
+
+        if (mode === "pairs") {
+          return [
+            ...boardCols.filter((entry) => ["file_name", "record_index", "board", "event", "site", "date", "dealer", "vulnerable", "par_contract", "optimum_score", "ns_score", "par_edge"].includes(entry.key)),
+            col("pair", "Pair", (ctx) => ctx.pair),
+            col("hcp", "Pair HCP", (ctx) => ctx.pairStats.hcp),
+            col("hcp_delta_ns", "HCP Delta NS", (ctx) => ctx.board.hcpDeltaNS),
+            col("spades", "Spades", (ctx) => ctx.pairStats.lengths.S),
+            col("hearts", "Hearts", (ctx) => ctx.pairStats.lengths.H),
+            col("diamonds", "Diamonds", (ctx) => ctx.pairStats.lengths.D),
+            col("clubs", "Clubs", (ctx) => ctx.pairStats.lengths.C),
+            col("best_fit", "Best Fit", (ctx) => `${ctx.pairStats.bestFitLength}${ctx.pairStats.bestFitSuit}`),
+            col("major_fit", "Major Fit", (ctx) => ctx.pairStats.majorFit),
+            col("minor_fit", "Minor Fit", (ctx) => ctx.pairStats.minorFit),
+            col("combined_spades", "Combined Spades", (ctx) => ctx.pairStats.holdings.S),
+            col("combined_hearts", "Combined Hearts", (ctx) => ctx.pairStats.holdings.H),
+            col("combined_diamonds", "Combined Diamonds", (ctx) => ctx.pairStats.holdings.D),
+            col("combined_clubs", "Combined Clubs", (ctx) => ctx.pairStats.holdings.C)
+          ];
+        }
+
+        if (mode === "doubleDummy") {
+          return [
+            ...boardCols.filter((entry) => ["file_name", "record_index", "board", "event", "site", "date", "dealer", "vulnerable", "par_contract", "optimum_score", "ns_score"].includes(entry.key)),
+            col("declarer", "Declarer", (ctx) => ctx.dd.declarer),
+            col("pair", "Pair", (ctx) => ctx.dd.pair),
+            col("denomination", "Denomination", (ctx) => denomMeta(ctx.dd.denomination).label),
+            col("denomination_code", "Denomination Code", (ctx) => ctx.dd.denomination),
+            col("tricks", "Tricks", (ctx) => ctx.dd.tricks),
+            col("makeable_level", "Makeable Level", (ctx) => ctx.dd.makeableLevel),
+            col("game_available", "Game Available", (ctx) => isGameAvailable(ctx.dd) ? "yes" : "no")
+          ];
+        }
+
+        if (mode === "tags") {
+          return [
+            col("file_name", "File Name", () => analysis.parsed.fileName),
+            col("record_index", "Record Index", (ctx) => ctx.board.index + 1),
+            col("board", "Board", (ctx) => ctx.board.boardNo),
+            ...analysis.tagKeys.map((key) => col(`tag_${key}`, key, (ctx) => ctx.board.tags[key] || ""))
+          ];
+        }
+
+        return boardCols;
+      }
+
+      function col(key, label, value) {
+        return { key, label, value };
+      }
+
+      function isGameAvailable(dd) {
+        if (!dd || dd.tricks == null) return false;
+        if (dd.denomination === "N") return dd.tricks >= 9;
+        if (dd.denomination === "S" || dd.denomination === "H") return dd.tricks >= 10;
+        return dd.tricks >= 11;
+      }
+
+      function getCsvContexts(mode, analysis) {
+        if (mode === "hands") {
+          return analysis.boards.flatMap((board) => SEATS.map((seat) => ({ board, seat, hand: board.hands[seat] })));
+        }
+        if (mode === "pairs") {
+          return analysis.boards.flatMap((board) => ["NS", "EW"].map((pair) => ({ board, pair, pairStats: board.pairs[pair] })));
+        }
+        if (mode === "doubleDummy") {
+          return analysis.boards.flatMap((board) => board.optimumRows.map((dd) => ({ board, dd })));
+        }
+        return analysis.boards.map((board) => ({ board }));
+      }
+
+      function renderCsvControls() {
+        const analysis = STATE.analysis;
+        if (!analysis) return;
+        const defs = getColumnDefs(STATE.rowMode, analysis);
+        const selected = STATE.selectedColumns;
+
+        document.getElementById("csvCaption").textContent = `${plural(getCsvContexts(STATE.rowMode, analysis).length, "row")} available.`;
+        document.getElementById("columnList").innerHTML = defs.map((entry) => `
+          <label class="column-check" title="${escapeHtml(entry.label)}">
+            <input type="checkbox" data-column-key="${escapeHtml(entry.key)}" ${selected.has(entry.key) ? "checked" : ""}>
+            <span>${escapeHtml(entry.label)}</span>
+          </label>
+        `).join("");
+        renderCsvPreview();
+      }
+
+      function selectedColumnDefs() {
+        const analysis = STATE.analysis;
+        const defs = getColumnDefs(STATE.rowMode, analysis);
+        return defs.filter((entry) => STATE.selectedColumns.has(entry.key));
+      }
+
+      function renderCsvPreview() {
+        const analysis = STATE.analysis;
+        if (!analysis) return;
+        const columns = selectedColumnDefs();
+        const contexts = getCsvContexts(STATE.rowMode, analysis).slice(0, 12);
+        if (!columns.length) {
+          document.getElementById("csvPreview").innerHTML = `<div class="empty-state">Choose at least one column.</div>`;
+          return;
+        }
+        if (!contexts.length) {
+          document.getElementById("csvPreview").innerHTML = `<div class="empty-state">This row mode has no rows for the current file.</div>`;
+          return;
+        }
+
+        document.getElementById("csvPreview").innerHTML = `
+          <table>
+            <thead><tr>${columns.map((colDef) => `<th>${escapeHtml(colDef.label)}</th>`).join("")}</tr></thead>
+            <tbody>
+              ${contexts.map((ctx) => `
+                <tr>${columns.map((colDef) => `<td>${escapeHtml(colDef.value(ctx))}</td>`).join("")}</tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function makeCsv() {
+        const analysis = STATE.analysis;
+        const columns = selectedColumnDefs();
+        const contexts = getCsvContexts(STATE.rowMode, analysis);
+        if (!columns.length) throw new Error("Choose at least one CSV column.");
+        const rows = [
+          columns.map((entry) => csvCell(entry.label)).join(","),
+          ...contexts.map((ctx) => columns.map((entry) => csvCell(entry.value(ctx))).join(","))
+        ];
+        return rows.join("\r\n");
+      }
+
+      function csvCell(value) {
+        const text = String(value == null ? "" : value);
+        if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, "\"\"")}"`;
+        return text;
+      }
+
+      function downloadCsv() {
+        try {
+          const csv = makeCsv();
+          const base = (STATE.analysis.parsed.fileName || "pbn")
+            .replace(/\.[^.]+$/, "")
+            .replace(/[^A-Za-z0-9_-]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "pbn";
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${base}-${STATE.rowMode}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          showToast("CSV downloaded.");
+        } catch (error) {
+          showToast(error.message, "error");
+        }
+      }
+
+      function readFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setCurrentPbn(String(reader.result || ""), file.name);
+        };
+        reader.onerror = () => {
+          showToast("Could not read the selected file.", "error");
+        };
+        reader.readAsText(file, "ISO-8859-1");
+      }
+
+      function setupEvents() {
+        const fileInputs = [document.getElementById("pbnFile"), document.getElementById("pbnFileHero")];
+        fileInputs.forEach((input) => {
+          input.addEventListener("change", (event) => {
+            readFile(event.target.files[0]);
+            event.target.value = "";
+          });
+        });
+
+        const dropZone = document.getElementById("dropZone");
+        ["dragenter", "dragover"].forEach((eventName) => {
+          dropZone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropZone.classList.add("dragging");
+          });
+        });
+        ["dragleave", "drop"].forEach((eventName) => {
+          dropZone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropZone.classList.remove("dragging");
+          });
+        });
+        dropZone.addEventListener("drop", (event) => {
+          readFile(event.dataTransfer.files[0]);
+        });
+
+        document.getElementById("demoButton").addEventListener("click", () => setCurrentPbn(DEMO_PBN, "demo.pbn"));
+        document.getElementById("loadDemoButton").addEventListener("click", () => setCurrentPbn(DEMO_PBN, "demo.pbn"));
+        document.getElementById("clearPasteButton").addEventListener("click", () => {
+          document.getElementById("pbnPaste").value = "";
+        });
+        document.getElementById("parsePasteButton").addEventListener("click", () => {
+          const text = document.getElementById("pbnPaste").value;
+          if (!text.trim()) {
+            showToast("Paste PBN text before analyzing.", "error");
+            return;
+          }
+          setCurrentPbn(text, "pasted.pbn");
+        });
+
+        document.getElementById("boardSearch").addEventListener("input", (event) => {
+          STATE.filters.search = event.target.value;
+          renderBoards();
+        });
+        document.getElementById("sideFilter").addEventListener("change", (event) => {
+          STATE.filters.side = event.target.value;
+          renderBoards();
+        });
+        document.getElementById("classFilter").addEventListener("change", (event) => {
+          STATE.filters.className = event.target.value;
+          renderBoards();
+        });
+        document.getElementById("vulFilter").addEventListener("change", (event) => {
+          STATE.filters.vulnerability = event.target.value;
+          renderBoards();
+        });
+
+        document.getElementById("rowMode").addEventListener("change", (event) => {
+          STATE.rowMode = event.target.value;
+          STATE.selectedColumns = new Set(defaultColumnKeys(STATE.rowMode, STATE.analysis));
+          renderCsvControls();
+        });
+
+        document.getElementById("columnList").addEventListener("change", (event) => {
+          const key = event.target.getAttribute("data-column-key");
+          if (!key) return;
+          if (event.target.checked) STATE.selectedColumns.add(key);
+          else STATE.selectedColumns.delete(key);
+          renderCsvPreview();
+        });
+
+        document.getElementById("selectDefaultColumns").addEventListener("click", () => {
+          STATE.selectedColumns = new Set(defaultColumnKeys(STATE.rowMode, STATE.analysis));
+          renderCsvControls();
+        });
+        document.getElementById("selectAllColumns").addEventListener("click", () => {
+          STATE.selectedColumns = new Set(getColumnDefs(STATE.rowMode, STATE.analysis).map((entry) => entry.key));
+          renderCsvControls();
+        });
+        document.getElementById("clearColumns").addEventListener("click", () => {
+          STATE.selectedColumns = new Set();
+          renderCsvControls();
+        });
+        document.getElementById("downloadCsvButton").addEventListener("click", downloadCsv);
+      }
+
+      function init() {
+        setupEvents();
+      }
+
+      if (typeof window !== "undefined") {
+        window.PBNAnalyzer = {
+          parsePbn,
+          buildAnalysis,
+          parseDeal,
+          getColumnDefs,
+          getCsvContexts
+        };
+        window.addEventListener("DOMContentLoaded", init);
+      }
+    }());
+  </script>
+</body>
+</html>
