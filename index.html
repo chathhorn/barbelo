@@ -597,9 +597,20 @@
     .board-toolbar,
     .csv-toolbar {
       display: grid;
-      grid-template-columns: 1.2fr 180px 180px 180px;
       gap: 10px;
       align-items: end;
+    }
+
+    .board-toolbar {
+      grid-template-columns: 1.2fr 180px 180px 180px;
+    }
+
+    .csv-toolbar {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .csv-toolbar > div {
+      min-width: 0;
     }
 
     .board-grid {
@@ -996,8 +1007,7 @@
         padding-top: 18px;
       }
 
-      .board-toolbar,
-      .csv-toolbar {
+      .board-toolbar {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
