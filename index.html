@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PBN Bridge Analyzer</title>
+  <title>Barbelo Bridge Analyzer</title>
   <style>
     :root {
       color-scheme: light;
@@ -272,6 +272,14 @@
       gap: 8px;
     }
 
+    .results-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
     .paste-panel {
       border-left: 1px solid var(--line);
       padding-left: 22px;
@@ -361,9 +369,7 @@
       margin-top: 8px;
       color: var(--muted);
       font-size: 13px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
     }
 
     .grid-2 {
@@ -535,6 +541,59 @@
       white-space: nowrap;
     }
 
+    .result-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .result-summary-card {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-soft);
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .result-summary-card strong {
+      display: block;
+      font-size: 21px;
+      line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-summary-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .standings-table td:last-child {
+      min-width: 110px;
+    }
+
+    .mp-meter {
+      height: 8px;
+      border-radius: 999px;
+      background: #e9eef3;
+      overflow: hidden;
+    }
+
+    .mp-meter-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--blue));
+    }
+
     .board-toolbar,
     .csv-toolbar {
       display: grid;
@@ -623,7 +682,7 @@
 
     .board-stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
       gap: 8px;
     }
 
@@ -773,6 +832,19 @@
       margin-top: 10px;
       display: grid;
       gap: 12px;
+    }
+
+    .traveler-wrap {
+      overflow-x: auto;
+    }
+
+    .traveler-wrap table {
+      min-width: 720px;
+    }
+
+    .numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
 
     table {
@@ -954,6 +1026,7 @@
       .metric-grid,
       .metadata-grid,
       .count-grid,
+      .result-summary-grid,
       .board-toolbar,
       .csv-toolbar,
       .column-list {
@@ -999,22 +1072,24 @@
           <span class="club">&clubs;</span>
         </div>
         <div>
-          <h1>PBN Bridge Analyzer</h1>
-          <p class="subtitle" id="fileSubtitle">Open a Portable Bridge Notation file.</p>
+          <h1>barbelo</h1>
+          <p class="subtitle" id="fileSubtitle">Open a Portable Bridge Notation hand record.</p>
         </div>
       </div>
       <div class="top-actions">
         <button type="button" id="demoButton" class="ghost">Demo</button>
         <label class="file-button primary" for="pbnFile">Open PBN</label>
         <input id="pbnFile" type="file" accept=".pbn,.txt,text/plain">
+        <label class="file-button" for="resultsFile">Open Results</label>
+        <input id="resultsFile" type="file" accept=".bws,.csv,text/csv,application/vnd.ms-access">
       </div>
     </header>
 
     <main>
       <section class="drop-zone" id="dropZone">
         <div class="drop-copy">
-          <h2>Turn bridge deals into a readable session report.</h2>
-          <p>Drop a PBN file here, choose one with the file picker, or paste PBN text directly.</p>
+          <h2>Turn bridge deals and travelers into a readable session report.</h2>
+          <p>Drop a PBN file here, choose one with the file picker, or paste PBN text directly. Add a BWS or CSV results file after the hand record is loaded.</p>
           <div class="drop-actions">
             <label class="file-button primary" for="pbnFileHero">Choose File</label>
             <input id="pbnFileHero" type="file" accept=".pbn,.txt,text/plain">
@@ -1060,6 +1135,20 @@
           </article>
         </section>
 
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Results File</h2>
+              <p id="resultsCaption"></p>
+            </div>
+            <div class="results-actions">
+              <label class="file-button" for="resultsFilePanel">Upload BWS or CSV</label>
+              <input id="resultsFilePanel" type="file" accept=".bws,.csv,text/csv,application/vnd.ms-access">
+            </div>
+          </div>
+          <div class="panel-body" id="resultsSummary"></div>
+        </section>
+
         <section class="chart-grid">
           <article class="panel">
             <div class="panel-header">
@@ -1086,6 +1175,36 @@
                 <h2>Average HCP</h2>
               </div>
               <div class="panel-body" id="hcpChart"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="chart-grid hidden" id="resultsCharts">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Actual Scores Vs Par</h2>
+                <p>Average table result by board, scored from the NS perspective.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="chart-wrap" id="resultScoreChart"></div>
+            </div>
+          </article>
+
+          <div class="chart-stack">
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Result Contracts</h2>
+              </div>
+              <div class="panel-body" id="resultContractChart"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Pair Standings</h2>
+              </div>
+              <div class="panel-body" id="pairStandings"></div>
             </article>
           </div>
         </section>
@@ -1180,6 +1299,9 @@
                       <option value="pairs">One row per pair</option>
                       <option value="doubleDummy">One row per double-dummy cell</option>
                       <option value="tags">One row per board with raw tags</option>
+                      <option value="results">One row per result</option>
+                      <option value="boardResults">One row per board result summary</option>
+                      <option value="pairResults">One row per pair result summary</option>
                     </select>
                   </div>
                 </div>
@@ -1301,6 +1423,7 @@ W  C  9`;
       const STATE = {
         parsed: null,
         analysis: null,
+        results: null,
         rowMode: "boards",
         selectedColumns: new Set(),
         filters: {
@@ -1895,6 +2018,567 @@ W  C  9`;
         };
       }
 
+      function pickField(row, keys) {
+        for (const key of keys) {
+          if (Object.prototype.hasOwnProperty.call(row, key) && row[key] != null && row[key] !== "") return row[key];
+        }
+        return "";
+      }
+
+      function parseResultsCsv(text, fileName) {
+        const rows = parseCsvRows(text);
+        const warnings = [];
+        if (!rows.length) {
+          return { fileName: fileName || "results.csv", sourceType: "CSV", receivedData: [], playerNumbers: [], warnings: ["No CSV rows were found."] };
+        }
+
+        const headers = rows[0].map((header) => String(header || "").replace(/^\uFEFF/, "").trim());
+        const receivedData = rows.slice(1)
+          .filter((row) => row.some((field) => String(field || "").trim()))
+          .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] == null ? "" : row[index]])))
+          .filter((row) => pickField(row, ["Board", "board", "Board Number", "board_number"]) || pickField(row, ["Contract", "contract"]));
+
+        if (!receivedData.length) warnings.push("The CSV did not contain recognizable result rows.");
+        return {
+          fileName: fileName || "results.csv",
+          sourceType: "CSV",
+          receivedData,
+          playerNumbers: [],
+          warnings
+        };
+      }
+
+      function parseCsvRows(text) {
+        const source = normalizeText(text);
+        const rows = [];
+        let row = [];
+        let field = "";
+        let inQuotes = false;
+
+        for (let index = 0; index < source.length; index += 1) {
+          const char = source[index];
+          const next = source[index + 1];
+          if (inQuotes) {
+            if (char === "\"" && next === "\"") {
+              field += "\"";
+              index += 1;
+            } else if (char === "\"") {
+              inQuotes = false;
+            } else {
+              field += char;
+            }
+          } else if (char === "\"") {
+            inQuotes = true;
+          } else if (char === ",") {
+            row.push(field);
+            field = "";
+          } else if (char === "\n") {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = "";
+          } else {
+            field += char;
+          }
+        }
+
+        if (field || row.length) {
+          row.push(field);
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function parseBwsBuffer(buffer, fileName) {
+        const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        const candidates = [2048, 4096].map((pageSize) => ({
+          pageSize,
+          receivedData: scanBwsReceivedRows(bytes, pageSize)
+        }));
+        const best = candidates.sort((a, b) => b.receivedData.length - a.receivedData.length)[0];
+        const warnings = [];
+        const signature = decodeAscii(bytes.subarray(4, 68)).trim();
+
+        if (!/Jet DB|Standard Jet/i.test(signature)) {
+          warnings.push("The file does not advertise itself as a Microsoft Jet database, but a BWS scan was attempted.");
+        }
+        if (!best.receivedData.length) {
+          warnings.push("No Bridgemate ReceivedData rows were found in the BWS file.");
+        }
+
+        const seen = new Set();
+        const receivedData = best.receivedData
+          .filter((row) => {
+            const key = row.ID ? `id:${row.ID}` : `${row._page}:${row._row}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => safeNumber(a.ID) - safeNumber(b.ID));
+
+        return {
+          fileName: fileName || "results.BWS",
+          sourceType: "BWS",
+          receivedData,
+          playerNumbers: [],
+          metadata: {
+            signature,
+            pageSize: best.pageSize
+          },
+          warnings
+        };
+      }
+
+      function scanBwsReceivedRows(bytes, pageSize) {
+        const rows = [];
+        const pageMask = pageSize - 1;
+        for (let pageStart = 0, pageNo = 0; pageStart + pageSize <= bytes.length; pageStart += pageSize, pageNo += 1) {
+          if (bytes[pageStart] !== 0x01) continue;
+          const rowCount = bytes[pageStart + 8];
+          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) continue;
+          const offsets = [];
+          let plausible = true;
+          for (let index = 0; index < rowCount; index += 1) {
+            const rawOffset = readUInt16LE(bytes, pageStart + 10 + index * 2);
+            const offset = rawOffset & pageMask;
+            if (offset >= pageSize) {
+              plausible = false;
+              break;
+            }
+            offsets.push(offset);
+          }
+          if (!plausible) continue;
+
+          offsets.forEach((offset, index) => {
+            const end = index === 0 ? pageSize : offsets[index - 1];
+            if (end <= offset || end > pageSize) return;
+            const row = bytes.subarray(pageStart + offset, pageStart + end);
+            const parsed = parseBwsReceivedRow(row, pageNo, index, offset);
+            if (parsed) rows.push(parsed);
+          });
+        }
+        return rows;
+      }
+
+      function parseBwsReceivedRow(row, pageNo, rowIndex, offset) {
+        if (row.length < 42 || row[0] !== 0x17) return null;
+        const id = readUInt32LE(row, 1);
+        const section = readInt16LE(row, 5);
+        const tableNo = readInt16LE(row, 7);
+        const round = readInt16LE(row, 9);
+        const board = readInt16LE(row, 11);
+        const pairNS = readInt16LE(row, 13);
+        const pairEW = readInt16LE(row, 15);
+        const declarer = readInt16LE(row, 17);
+        const dateSerial = readDoubleLE(row, 19);
+        const timeSerial = readDoubleLE(row, 27);
+
+        if (!id || id > 100000 || section < 1 || section > 200 || tableNo < 1 || tableNo > 200) return null;
+        if (round < 1 || round > 200 || board < 1 || board > 512) return null;
+        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return null;
+        if (!Number.isFinite(timeSerial) || timeSerial < 0 || timeSerial > 1.2) return null;
+
+        const payload = decodePrintableAscii(row.subarray(37));
+        const match = payload.match(/^([NESW])((?:PASS)|(?:[1-7]\s*(?:NT|N|[CDHS])(?:\s*x{1,2})?))\s*(=|[+-]\d+)?/i);
+        if (!match) return null;
+
+        return {
+          ID: id,
+          Section: section,
+          Table: tableNo,
+          Round: round,
+          Board: board,
+          PairNS: pairNS,
+          PairEW: pairEW,
+          Declarer: declarer,
+          "NS/EW": match[1].toUpperCase(),
+          Contract: normalizePlayedContractText(match[2]),
+          Result: match[3] || "",
+          LeadCard: "",
+          Remarks: "",
+          DateLog: formatAccessDate(dateSerial, "date"),
+          TimeLog: formatAccessDate(timeSerial, "time"),
+          Erased: 0,
+          _page: pageNo,
+          _row: rowIndex,
+          _offset: offset
+        };
+      }
+
+      function decodePrintableAscii(bytes) {
+        let text = "";
+        bytes.forEach((byte) => {
+          if (byte >= 32 && byte < 127) text += String.fromCharCode(byte);
+        });
+        return text;
+      }
+
+      function decodeAscii(bytes) {
+        let text = "";
+        bytes.forEach((byte) => {
+          if (byte >= 32 && byte < 127) text += String.fromCharCode(byte);
+        });
+        return text;
+      }
+
+      function readUInt16LE(bytes, offset) {
+        return bytes[offset] | (bytes[offset + 1] << 8);
+      }
+
+      function readInt16LE(bytes, offset) {
+        const value = readUInt16LE(bytes, offset);
+        return value & 0x8000 ? value - 0x10000 : value;
+      }
+
+      function readUInt32LE(bytes, offset) {
+        return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+      }
+
+      function readDoubleLE(bytes, offset) {
+        return new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true);
+      }
+
+      function formatAccessDate(serial, kind) {
+        if (!Number.isFinite(serial)) return "";
+        const epoch = Date.UTC(1899, 11, 30);
+        const date = new Date(epoch + Math.round(serial * 86400000));
+        const pad = (value) => String(value).padStart(2, "0");
+        if (kind === "time") {
+          return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+        }
+        return `${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}/${pad(date.getUTCFullYear() % 100)}`;
+      }
+
+      function normalizeResultSide(value) {
+        const text = String(value || "").trim().toUpperCase();
+        if (SEATS.includes(text)) return text;
+        return "";
+      }
+
+      function normalizePlayedContractText(value) {
+        const text = String(value || "").trim().toUpperCase().replace(/\s+/g, " ");
+        if (!text) return "";
+        if (/^(PASS|AP|ALL PASS|PASSED OUT)$/.test(text)) return "PASS";
+        const match = text.match(/^([1-7])\s*(NT|N|[SHDC])(?:\s*(XX|X))?$/i);
+        if (!match) return text;
+        const denomination = match[2].toUpperCase() === "N" || match[2].toUpperCase() === "NT" ? "NT" : match[2].toUpperCase();
+        const doubled = match[3] ? ` ${match[3].toUpperCase()}` : "";
+        return `${match[1]} ${denomination}${doubled}`;
+      }
+
+      function normalizeResultValue(value) {
+        return String(value == null ? "" : value).trim().toUpperCase();
+      }
+
+      function parsePlayedContract(value) {
+        const text = normalizePlayedContractText(value);
+        if (!text) return { raw: "", passout: false, level: null, strain: "", doubled: "", className: "Unknown" };
+        if (text === "PASS") return { raw: text, passout: true, level: null, strain: "", doubled: "", className: "Passout" };
+        const match = text.match(/^([1-7])\s*(NT|[SHDC])(?:\s*(XX|X))?$/i);
+        if (!match) return { raw: text, passout: false, level: null, strain: "", doubled: "", className: "Unknown" };
+        const strain = match[2].toUpperCase() === "NT" ? "N" : match[2].toUpperCase();
+        const level = Number(match[1]);
+        return {
+          raw: text,
+          passout: false,
+          level,
+          strain,
+          doubled: (match[3] || "").toUpperCase(),
+          className: classifyContract(level, strain)
+        };
+      }
+
+      function contractTrickScore(contract) {
+        if (!contract || !contract.level || !contract.strain) return 0;
+        if (contract.strain === "N") return 40 + (contract.level - 1) * 30;
+        if (contract.strain === "S" || contract.strain === "H") return contract.level * 30;
+        return contract.level * 20;
+      }
+
+      function overtrickValue(contract) {
+        if (contract.strain === "C" || contract.strain === "D") return 20;
+        return 30;
+      }
+
+      function isVulnerable(vulnerable, pair) {
+        const normalized = normalizeVulnerability(vulnerable);
+        if (normalized === "All") return true;
+        if (normalized === "NS") return pair === "NS";
+        if (normalized === "EW") return pair === "EW";
+        return false;
+      }
+
+      function resultToTricks(contract, resultText) {
+        if (!contract || contract.passout) return 0;
+        if (!contract.level) return null;
+        const target = contract.level + 6;
+        const result = normalizeResultValue(resultText);
+        if (!result || result === "=") return target;
+        const offset = result.match(/^([+-])\s*(\d+)$/);
+        if (offset) return target + (offset[1] === "+" ? 1 : -1) * Number(offset[2]);
+        if (/^\d+$/.test(result)) return Number(result);
+        return null;
+      }
+
+      function undertrickPenalty(undertricks, vulnerable, doubled) {
+        if (!doubled) return undertricks * (vulnerable ? 100 : 50);
+        let penalty = 0;
+        for (let index = 1; index <= undertricks; index += 1) {
+          if (vulnerable) penalty += index === 1 ? 200 : 300;
+          else penalty += index === 1 ? 100 : index <= 3 ? 200 : 300;
+        }
+        return doubled === "XX" ? penalty * 2 : penalty;
+      }
+
+      function scoreDuplicateContract(contractText, resultText, declarerSide, vulnerable, declarerPairOverride) {
+        const contract = parsePlayedContract(contractText);
+        if (contract.passout) {
+          return { contract, tricks: 0, scoreDeclarer: 0, scoreNS: 0, error: "" };
+        }
+        const declarerPair = PAIRS[declarerSide] || declarerPairOverride || "";
+        const tricks = resultToTricks(contract, resultText);
+        if (!contract.level || !declarerPair || tricks == null) {
+          return { contract, tricks, scoreDeclarer: null, scoreNS: null, error: "Could not score the contract." };
+        }
+
+        const target = contract.level + 6;
+        const vulnerablePair = isVulnerable(vulnerable, declarerPair);
+        const madeBy = tricks - target;
+        let scoreDeclarer = 0;
+
+        if (madeBy < 0) {
+          scoreDeclarer = -undertrickPenalty(Math.abs(madeBy), vulnerablePair, contract.doubled);
+        } else {
+          const multiplier = contract.doubled === "XX" ? 4 : contract.doubled === "X" ? 2 : 1;
+          const trickScore = contractTrickScore(contract) * multiplier;
+          const gameBonus = trickScore >= 100 ? (vulnerablePair ? 500 : 300) : 50;
+          const slamBonus = contract.level === 6 ? (vulnerablePair ? 750 : 500) : contract.level === 7 ? (vulnerablePair ? 1500 : 1000) : 0;
+          const insult = contract.doubled === "XX" ? 100 : contract.doubled === "X" ? 50 : 0;
+          let overtricks = 0;
+          if (madeBy > 0) {
+            if (contract.doubled) {
+              const doubledOvertrick = vulnerablePair ? 200 : 100;
+              overtricks = madeBy * (contract.doubled === "XX" ? doubledOvertrick * 2 : doubledOvertrick);
+            } else {
+              overtricks = madeBy * overtrickValue(contract);
+            }
+          }
+          scoreDeclarer = trickScore + gameBonus + slamBonus + insult + overtricks;
+        }
+
+        return {
+          contract,
+          tricks,
+          scoreDeclarer,
+          scoreNS: declarerPair === "NS" ? scoreDeclarer : -scoreDeclarer,
+          error: ""
+        };
+      }
+
+      function boardMapByNumber(analysis) {
+        return new Map((analysis ? analysis.boards : []).map((board) => [String(board.boardNo), board]));
+      }
+
+      function normalizeResultRow(row, index, analysis, boardMap) {
+        const boardNo = safeNumber(pickField(row, ["Board", "board", "Board Number", "board_number"]));
+        if (boardNo == null) return null;
+        const pairNS = safeNumber(pickField(row, ["PairNS", "Pair NS", "NSPair", "NS Pair", "pair_ns"]));
+        const pairEW = safeNumber(pickField(row, ["PairEW", "Pair EW", "EWPair", "EW Pair", "pair_ew"]));
+        const declarerNumber = safeNumber(pickField(row, ["Declarer", "declarer"]));
+        const declarerSide = normalizeResultSide(pickField(row, ["NS/EW", "NSEW", "Direction", "DeclarerSide", "Declarer Side", "declarer_side"]));
+        const contract = normalizePlayedContractText(pickField(row, ["Contract", "contract", "Actual Contract"]));
+        const result = normalizeResultValue(pickField(row, ["Result", "result", "Tricks Result"]));
+        const board = boardMap.get(String(boardNo));
+        const declarerPairOverride = declarerNumber === pairNS ? "NS" : declarerNumber === pairEW ? "EW" : "";
+        const scored = scoreDuplicateContract(contract, result, declarerSide, board ? board.vulnerable : "", declarerPairOverride);
+        const parNS = board && board.optimum.nsPerspective != null ? board.optimum.nsPerspective : null;
+        const ddTricksRaw = board && scored.contract.strain && declarerSide ? getDoubleDummyTricks(board, declarerSide, scored.contract.strain) : "";
+        const ddTricks = ddTricksRaw === "" ? null : Number(ddTricksRaw);
+        const erased = safeNumber(pickField(row, ["Erased", "erased", "Deleted", "deleted"])) || 0;
+
+        return {
+          index,
+          id: pickField(row, ["ID", "id"]),
+          section: safeNumber(pickField(row, ["Section", "section"])),
+          tableNo: safeNumber(pickField(row, ["Table", "table"])),
+          round: safeNumber(pickField(row, ["Round", "round"])),
+          boardNo,
+          pairNS,
+          pairEW,
+          declarerNumber,
+          declarerSide,
+          declarerPair: PAIRS[declarerSide] || declarerPairOverride,
+          contract,
+          result,
+          parsedContract: scored.contract,
+          contractClass: scored.contract.className,
+          tricks: scored.tricks,
+          scoreDeclarer: scored.scoreDeclarer,
+          scoreNS: scored.scoreNS,
+          parNS,
+          vsParNS: scored.scoreNS != null && parNS != null ? scored.scoreNS - parNS : null,
+          ddTricks,
+          ddDelta: scored.tricks != null && ddTricks != null ? scored.tricks - ddTricks : null,
+          leadCard: pickField(row, ["LeadCard", "Lead Card", "lead_card"]),
+          remarks: pickField(row, ["Remarks", "remarks"]),
+          dateLog: pickField(row, ["DateLog", "Date Log", "date_log"]),
+          timeLog: pickField(row, ["TimeLog", "Time Log", "time_log"]),
+          erased,
+          scoringError: scored.error,
+          board
+        };
+      }
+
+      function addPairStanding(map, pairNo, side, row) {
+        if (pairNo == null || row.nsMatchpoints == null || row.boardTop == null) return;
+        const key = String(pairNo);
+        if (!map.has(key)) {
+          map.set(key, {
+            pairNo,
+            matchpoints: 0,
+            top: 0,
+            boards: 0,
+            nsBoards: 0,
+            ewBoards: 0,
+            scores: []
+          });
+        }
+        const standing = map.get(key);
+        const mp = side === "NS" ? row.nsMatchpoints : row.ewMatchpoints;
+        standing.matchpoints += mp;
+        standing.top += row.boardTop;
+        standing.boards += 1;
+        standing.scores.push(side === "NS" ? row.scoreNS : -row.scoreNS);
+        if (side === "NS") standing.nsBoards += 1;
+        else standing.ewBoards += 1;
+      }
+
+      function applyMatchpoints(rowsByBoard) {
+        rowsByBoard.forEach((rows) => {
+          const scoredRows = rows.filter((row) => row.scoreNS != null);
+          const top = Math.max(0, scoredRows.length - 1);
+          scoredRows.forEach((row) => {
+            let mp = 0;
+            scoredRows.forEach((other) => {
+              if (other === row) return;
+              if (row.scoreNS > other.scoreNS) mp += 1;
+              else if (row.scoreNS === other.scoreNS) mp += 0.5;
+            });
+            row.boardTop = top;
+            row.nsMatchpoints = mp;
+            row.ewMatchpoints = top - mp;
+            row.nsPercent = top ? (mp / top) * 100 : 100;
+            row.ewPercent = top ? ((top - mp) / top) * 100 : 100;
+          });
+        });
+      }
+
+      function summarizeResultBoard(boardNo, rows, board) {
+        const scored = rows.filter((row) => row.scoreNS != null);
+        const scores = scored.map((row) => row.scoreNS);
+        const ddDeltas = rows.map((row) => row.ddDelta).filter((value) => value != null);
+        const parNS = board && board.optimum.nsPerspective != null ? board.optimum.nsPerspective : null;
+        const maxScore = scores.length ? Math.max(...scores) : null;
+        const minScore = scores.length ? Math.min(...scores) : null;
+        const topNs = maxScore == null ? [] : scored.filter((row) => row.scoreNS === maxScore).map((row) => row.pairNS).filter((value) => value != null);
+        const topEw = minScore == null ? [] : scored.filter((row) => row.scoreNS === minScore).map((row) => row.pairEW).filter((value) => value != null);
+        const averageNsScore = scores.length ? average(scores) : null;
+        const contractCounts = countBy(rows.map((row) => row.contract || "Unknown"));
+        const contractSummary = Object.entries(contractCounts)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { numeric: true }))
+          .slice(0, 4)
+          .map(([contract, count]) => `${contract} (${count})`)
+          .join(", ");
+
+        return {
+          boardNo,
+          board,
+          rows,
+          resultCount: rows.length,
+          scoredCount: scored.length,
+          parNS,
+          averageNsScore,
+          averageVsPar: averageNsScore != null && parNS != null ? averageNsScore - parNS : null,
+          minNsScore: minScore,
+          maxNsScore: maxScore,
+          scoreSpread: maxScore != null && minScore != null ? maxScore - minScore : null,
+          averageDdDelta: ddDeltas.length ? average(ddDeltas) : null,
+          contractSummary,
+          topNs: uniqueSorted(topNs.map(String)),
+          topEw: uniqueSorted(topEw.map(String))
+        };
+      }
+
+      function buildResultsAnalysis(rawResults, analysis) {
+        const boardMap = boardMapByNumber(analysis);
+        const warnings = [...(rawResults.warnings || [])];
+        const rows = (rawResults.receivedData || [])
+          .map((row, index) => normalizeResultRow(row, index, analysis, boardMap))
+          .filter((row) => row && !row.erased);
+        const rowsByBoard = new Map();
+        rows.forEach((row) => {
+          const key = String(row.boardNo);
+          if (!rowsByBoard.has(key)) rowsByBoard.set(key, []);
+          rowsByBoard.get(key).push(row);
+        });
+
+        applyMatchpoints(rowsByBoard);
+
+        const pairMap = new Map();
+        rows.forEach((row) => {
+          addPairStanding(pairMap, row.pairNS, "NS", row);
+          addPairStanding(pairMap, row.pairEW, "EW", row);
+          if (row.scoringError) warnings.push(`Board ${row.boardNo}, row ${row.id || row.index + 1}: ${row.scoringError}`);
+        });
+
+        const pairStandings = Array.from(pairMap.values())
+          .map((standing) => ({
+            ...standing,
+            averageScore: standing.scores.length ? average(standing.scores) : 0,
+            percent: standing.top ? (standing.matchpoints / standing.top) * 100 : null
+          }))
+          .sort((a, b) => (b.percent || 0) - (a.percent || 0) || String(a.pairNo).localeCompare(String(b.pairNo), undefined, { numeric: true }))
+          .map((standing, index) => ({ ...standing, rank: index + 1 }));
+
+        const boardSummaries = Array.from(rowsByBoard.entries())
+          .map(([boardNo, boardRows]) => summarizeResultBoard(Number(boardNo), boardRows, boardMap.get(String(boardNo))))
+          .sort((a, b) => a.boardNo - b.boardNo);
+        const boardsByNumber = new Map(boardSummaries.map((summary) => [String(summary.boardNo), summary]));
+        const pbnBoardNumbers = new Set(analysis.boards.map((board) => String(board.boardNo)));
+        const resultBoardNumbers = new Set(boardSummaries.map((summary) => String(summary.boardNo)));
+        const vsPar = rows.map((row) => row.vsParNS).filter((value) => value != null);
+        const ddDeltas = rows.map((row) => row.ddDelta).filter((value) => value != null);
+
+        return {
+          fileName: rawResults.fileName,
+          sourceType: rawResults.sourceType,
+          metadata: rawResults.metadata || {},
+          raw: rawResults,
+          rows,
+          rowsByBoard,
+          boardSummaries,
+          boardsByNumber,
+          pairStandings,
+          warnings,
+          summary: {
+            resultCount: rows.length,
+            scoredCount: rows.filter((row) => row.scoreNS != null).length,
+            boardsCovered: boardSummaries.length,
+            tables: uniqueSorted(rows.map((row) => row.tableNo)).length,
+            rounds: uniqueSorted(rows.map((row) => row.round)).length,
+            pairs: pairStandings.length,
+            contractClasses: countBy(rows.map((row) => row.contractClass)),
+            declarerSides: countBy(rows.map((row) => row.declarerSide)),
+            missingResultBoards: analysis.boards.filter((board) => !resultBoardNumbers.has(String(board.boardNo))).map((board) => board.boardNo),
+            extraResultBoards: boardSummaries.filter((summary) => !pbnBoardNumbers.has(String(summary.boardNo))).map((summary) => summary.boardNo),
+            averageVsPar: vsPar.length ? average(vsPar) : null,
+            averageAbsVsPar: vsPar.length ? average(vsPar.map((value) => Math.abs(value))) : null,
+            ddExact: ddDeltas.filter((value) => value === 0).length,
+            ddCompared: ddDeltas.length
+          }
+        };
+      }
+
       function suitMeta(key) {
         return SUITS.find((suit) => suit.key === key) || SUITS[0];
       }
@@ -1908,6 +2592,7 @@ W  C  9`;
       }
 
       function boardSearchText(board) {
+        const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
         return [
           board.boardNo,
           board.dealer,
@@ -1916,7 +2601,8 @@ W  C  9`;
           board.tags.OptimumScore,
           board.deal.raw,
           board.voids.join(" "),
-          board.longSuits.join(" ")
+          board.longSuits.join(" "),
+          resultSummary ? resultSummary.rows.map((row) => `${row.contract} ${row.result} ${row.pairNS} ${row.pairEW} ${row.scoreNS}`).join(" ") : ""
         ].join(" ").toLowerCase();
       }
 
@@ -1925,6 +2611,7 @@ W  C  9`;
         const analysis = buildAnalysis(parsed);
         STATE.parsed = parsed;
         STATE.analysis = analysis;
+        STATE.results = null;
         STATE.rowMode = "boards";
         STATE.selectedColumns = new Set(defaultColumnKeys("boards", analysis));
         STATE.filters = {
@@ -1935,6 +2622,19 @@ W  C  9`;
         };
         renderAll();
         showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}.`);
+      }
+
+      function setCurrentResults(rawResults) {
+        if (!STATE.analysis) {
+          showToast("Load a PBN file before adding results.", "error");
+          return;
+        }
+        const results = buildResultsAnalysis(rawResults, STATE.analysis);
+        STATE.results = results;
+        STATE.rowMode = "results";
+        STATE.selectedColumns = new Set(defaultColumnKeys("results", STATE.analysis));
+        renderAll();
+        showToast(`Loaded ${plural(results.summary.resultCount, "result")} from ${rawResults.sourceType}.`);
       }
 
       function showToast(message, type) {
@@ -1956,7 +2656,7 @@ W  C  9`;
         }
 
         dashboard.classList.remove("hidden");
-        document.getElementById("fileSubtitle").textContent = `${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}`;
+        document.getElementById("fileSubtitle").textContent = `${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}${STATE.results ? `, ${plural(STATE.results.summary.resultCount, "result")}` : ""}`;
         document.getElementById("boardSearch").value = "";
         document.getElementById("sideFilter").value = "all";
         document.getElementById("classFilter").value = "all";
@@ -1966,7 +2666,9 @@ W  C  9`;
         renderMetrics(analysis);
         renderMetadata(analysis);
         renderQuality(analysis);
+        renderResultsPanel(analysis, STATE.results);
         renderCharts(analysis);
+        renderResultsCharts(analysis, STATE.results);
         renderNotables(analysis);
         renderBoards();
         renderCsvControls();
@@ -1974,6 +2676,7 @@ W  C  9`;
 
       function renderMetrics(analysis) {
         const summary = analysis.summary;
+        const results = STATE.results;
         const edgeNS = summary.parEdges.NS || 0;
         const edgeEW = summary.parEdges.EW || 0;
         const slamCount = summary.slamLevelBoards.length;
@@ -1988,7 +2691,13 @@ W  C  9`;
           { label: "Slam-Level", value: slamCount, note: "Par contracts at 6 or 7" },
           { label: "Games", value: gameCount, note: `${partCount} partscore boards` },
           { label: "Avg Pair HCP", value: `${avgNS}/${avgEW}`, note: "NS / EW" },
-          { label: "Results", value: summary.boardsWithActualResults, note: "Played contracts found" }
+          {
+            label: "Results",
+            value: results ? results.summary.resultCount : summary.boardsWithActualResults,
+            note: results
+              ? `${results.summary.boardsCovered} boards, ${results.summary.pairs} pairs`
+              : "Played contracts found"
+          }
         ];
 
         document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
@@ -2029,6 +2738,7 @@ W  C  9`;
 
       function renderQuality(analysis) {
         const summary = analysis.summary;
+        const results = STATE.results;
         const parseWarnings = analysis.parsed.warnings.length;
         const issueBoards = analysis.boards.filter((board) => board.issues.length).length;
         const quality = [
@@ -2039,7 +2749,7 @@ W  C  9`;
           {
             tone: summary.boardsMissingActualResults ? "gold" : "",
             text: summary.boardsMissingActualResults
-              ? `${summary.boardsMissingActualResults} boards do not contain played contract, declarer, or result data.`
+              ? `${summary.boardsMissingActualResults} PBN records do not contain played contract, declarer, or result tags.`
               : "Played contract and result fields are present."
           },
           {
@@ -2052,12 +2762,167 @@ W  C  9`;
           }
         ];
 
-        document.getElementById("qualityCaption").textContent = summary.boardsWithActualResults
-          ? `${summary.boardsWithActualResults} boards include played-result fields.`
-          : "This looks like a hand record rather than a result file.";
+        if (results) {
+          quality.push({
+            tone: results.summary.extraResultBoards.length ? "gold" : "",
+            text: results.summary.extraResultBoards.length
+              ? `${results.summary.extraResultBoards.length} result boards do not appear in the PBN.`
+              : "Every result board maps to a PBN board."
+          });
+          quality.push({
+            tone: results.summary.missingResultBoards.length ? "gold" : "",
+            text: results.summary.missingResultBoards.length
+              ? `${results.summary.missingResultBoards.length} PBN boards have no uploaded result.`
+              : "Every PBN board has uploaded results."
+          });
+          quality.push({
+            tone: results.warnings.length ? "gold" : "",
+            text: results.warnings.length ? `${results.warnings.length} result import or scoring warnings.` : "No result import warnings."
+          });
+        }
+
+        document.getElementById("qualityCaption").textContent = results
+          ? `${results.summary.resultCount} uploaded traveler rows are joined to the hand record.`
+          : summary.boardsWithActualResults
+            ? `${summary.boardsWithActualResults} boards include played-result fields.`
+            : "This looks like a hand record rather than a result file.";
         document.getElementById("qualityList").innerHTML = quality.map((item) => `
           <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
         `).join("");
+      }
+
+      function renderResultsPanel(analysis, results) {
+        const caption = document.getElementById("resultsCaption");
+        const body = document.getElementById("resultsSummary");
+        if (!results) {
+          caption.textContent = "Optional Bridgemate BWS or CSV traveler import.";
+          body.innerHTML = `<div class="empty-state">Upload a BWS database or a CSV export with Board, PairNS, PairEW, NS/EW, Contract, and Result columns.</div>`;
+          return;
+        }
+
+        const avgVsPar = results.summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(results.summary.averageVsPar));
+        const avgAbsVsPar = results.summary.averageAbsVsPar == null ? "n/a" : Math.round(results.summary.averageAbsVsPar);
+        const ddText = results.summary.ddCompared ? `${results.summary.ddExact}/${results.summary.ddCompared}` : "n/a";
+        caption.textContent = `${results.fileName || "Results"} - ${results.sourceType}${results.metadata && results.metadata.pageSize ? `, ${results.metadata.pageSize} byte pages` : ""}.`;
+        body.innerHTML = `
+          <div class="result-summary-grid">
+            <div class="result-summary-card"><strong>${escapeHtml(results.summary.resultCount)}</strong><span>Result Rows</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(results.summary.boardsCovered)}</strong><span>Boards</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(results.summary.pairs)}</strong><span>Pairs</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(avgVsPar)}</strong><span>Avg Vs Par</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(avgAbsVsPar)}</strong><span>Avg Abs Par</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(ddText)}</strong><span>DD Exact</span></div>
+          </div>
+        `;
+      }
+
+      function renderResultsCharts(analysis, results) {
+        const section = document.getElementById("resultsCharts");
+        if (!results) {
+          section.classList.add("hidden");
+          return;
+        }
+        section.classList.remove("hidden");
+        document.getElementById("resultScoreChart").innerHTML = renderResultScoreChart(results);
+        document.getElementById("resultContractChart").innerHTML = renderResultContractChart(results);
+        document.getElementById("pairStandings").innerHTML = renderPairStandings(results);
+      }
+
+      function renderResultScoreChart(results) {
+        const summaries = results.boardSummaries.filter((summary) => summary.averageNsScore != null);
+        if (!summaries.length) return `<div class="empty-state">No scored results to chart.</div>`;
+        const width = Math.max(860, summaries.length * 28 + 92);
+        const height = 310;
+        const left = 48;
+        const right = 22;
+        const top = 20;
+        const bottom = 44;
+        const plotWidth = width - left - right;
+        const plotHeight = height - top - bottom;
+        const maxAbs = Math.max(100, ...summaries.flatMap((summary) => [Math.abs(summary.averageNsScore || 0), Math.abs(summary.parNS || 0)]));
+        const zeroY = top + plotHeight / 2;
+        const step = plotWidth / summaries.length;
+        const barWidth = Math.max(7, step - 6);
+        const yFor = (value) => zeroY - (value / maxAbs) * (plotHeight / 2);
+        const gridValues = [-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs];
+        const grid = gridValues.map((value) => {
+          const y = yFor(value);
+          return `
+            <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#8ca0b2" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
+            <text x="${left - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end" fill="#607083" font-size="11">${escapeHtml(Math.round(value))}</text>
+          `;
+        }).join("");
+        const bars = summaries.map((summary, index) => {
+          const value = summary.averageNsScore || 0;
+          const x = left + index * step + (step - barWidth) / 2;
+          const y = Math.min(zeroY, yFor(value));
+          const h = Math.abs(yFor(value) - zeroY);
+          const parY = summary.parNS == null ? null : yFor(summary.parNS);
+          const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
+          return `
+            <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
+              <title>Board ${escapeHtml(summary.boardNo)}: average NS ${escapeHtml(Math.round(value))}${summary.parNS == null ? "" : `, par ${escapeHtml(summary.parNS)}`}</title>
+            </rect>
+            ${parY == null ? "" : `<line x1="${(x - 2).toFixed(2)}" x2="${(x + barWidth + 2).toFixed(2)}" y1="${parY.toFixed(2)}" y2="${parY.toFixed(2)}" stroke="#17212b" stroke-width="2"><title>Par ${escapeHtml(summary.parNS)}</title></line>`}
+          `;
+        }).join("");
+        const labels = summaries.map((summary, index) => {
+          if (index % Math.ceil(summaries.length / 12) !== 0 && index !== summaries.length - 1) return "";
+          const x = left + index * step + step / 2;
+          return `<text x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
+        }).join("");
+
+        return `
+          <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Actual average scores versus par by board">
+            <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+            ${grid}
+            ${bars}
+            ${labels}
+            <text x="${left}" y="${height - 4}" fill="#607083" font-size="11">Board</text>
+          </svg>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#0f7b6c"></span>Avg NS plus</span>
+            <span class="legend-item"><span class="swatch" style="background:#bb3f45"></span>Avg NS minus</span>
+            <span class="legend-item"><span class="swatch" style="background:#17212b"></span>PBN par</span>
+          </div>
+        `;
+      }
+
+      function renderResultContractChart(results) {
+        const counts = results.summary.contractClasses;
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        if (!entries.length) return `<div class="empty-state">No contracts were found.</div>`;
+        return `
+          <div class="count-grid">
+            ${entries.map(([key, value]) => `
+              <div class="count-tile">
+                <strong>${escapeHtml(value)}</strong>
+                <span>${escapeHtml(key)}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      function renderPairStandings(results) {
+        const standings = results.pairStandings.slice(0, 10);
+        if (!standings.length) return `<div class="empty-state">No pair standings could be calculated.</div>`;
+        return `
+          <table class="standings-table">
+            <thead><tr><th>Rank</th><th>Pair</th><th class="numeric">MP</th><th class="numeric">Pct</th><th>Form</th></tr></thead>
+            <tbody>
+              ${standings.map((standing) => `
+                <tr>
+                  <td>${escapeHtml(standing.rank)}</td>
+                  <td>${escapeHtml(standing.pairNo)}</td>
+                  <td class="numeric">${escapeHtml(standing.matchpoints.toFixed(1))}</td>
+                  <td class="numeric">${escapeHtml(standing.percent == null ? "" : `${standing.percent.toFixed(1)}%`)}</td>
+                  <td><div class="mp-meter"><div class="mp-meter-fill" style="width:${Math.max(0, Math.min(100, standing.percent || 0)).toFixed(1)}%"></div></div></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
       }
 
       function renderCharts(analysis) {
@@ -2283,11 +3148,16 @@ W  C  9`;
 
       function renderBoardCard(board) {
         const opt = board.optimum;
+        const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
         const scoreText = opt.nsPerspective == null ? "" : `NS ${formatSigned(opt.nsPerspective)}`;
         const edgeChip = opt.edge && opt.edge !== "Flat"
           ? `<span class="side-chip ${sideClass(opt.edge)}">${escapeHtml(opt.edge)} edge</span>`
           : `<span class="side-chip">No edge</span>`;
         const parText = board.tags.ParContract || "No par";
+        const resultStat = resultSummary
+          ? `<div class="board-stat"><span>Travelers</span><strong>${escapeHtml(resultSummary.resultCount)} scores</strong></div>
+             <div class="board-stat"><span>Avg Result</span><strong>${escapeHtml(resultSummary.averageNsScore == null ? "Unknown" : `NS ${formatSigned(Math.round(resultSummary.averageNsScore))}`)}</strong></div>`
+          : "";
         return `
           <article class="board-card">
             <div class="board-card-header">
@@ -2302,18 +3172,62 @@ W  C  9`;
                 <div class="board-stat"><span>Optimum</span><strong>${escapeHtml(board.tags.OptimumScore || "Missing")}</strong></div>
                 <div class="board-stat"><span>NS Score</span><strong>${escapeHtml(scoreText || "Unknown")}</strong></div>
                 <div class="board-stat"><span>HCP</span><strong>NS ${board.hcpNS} / EW ${board.hcpEW}</strong></div>
+                ${resultStat}
               </div>
               <div>${edgeChip}</div>
               ${renderDealDiagram(board)}
               <details class="board-details">
-                <summary>Double dummy, tags, and notes</summary>
+                <summary>Double dummy, traveler, tags, and notes</summary>
                 <div class="detail-grid">
+                  ${renderBoardTraveler(board)}
                   ${renderDoubleDummyTable(board)}
                   ${renderBoardTagTable(board)}
                 </div>
               </details>
             </div>
           </article>
+        `;
+      }
+
+      function renderBoardTraveler(board) {
+        const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
+        if (!resultSummary) return `<div class="empty-state">No uploaded traveler rows for this board.</div>`;
+        const rows = [...resultSummary.rows].sort((a, b) => (b.scoreNS || 0) - (a.scoreNS || 0) || (a.tableNo || 0) - (b.tableNo || 0));
+        return `
+          <div class="traveler-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Table</th>
+                  <th>NS</th>
+                  <th>EW</th>
+                  <th>Decl</th>
+                  <th>Contract</th>
+                  <th>Result</th>
+                  <th class="numeric">NS Score</th>
+                  <th class="numeric">NS MP</th>
+                  <th class="numeric">Vs Par</th>
+                  <th class="numeric">DD</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map((row) => `
+                  <tr>
+                    <td>${escapeHtml(row.tableNo || "")}</td>
+                    <td>${escapeHtml(row.pairNS || "")}</td>
+                    <td>${escapeHtml(row.pairEW || "")}</td>
+                    <td>${escapeHtml(row.declarerSide || "")}</td>
+                    <td>${escapeHtml(row.contract || "")}</td>
+                    <td>${escapeHtml(row.result || "")}</td>
+                    <td class="numeric">${escapeHtml(row.scoreNS == null ? "" : row.scoreNS)}</td>
+                    <td class="numeric">${escapeHtml(row.nsMatchpoints == null ? "" : row.nsMatchpoints.toFixed(1))}</td>
+                    <td class="numeric">${escapeHtml(row.vsParNS == null ? "" : formatSigned(row.vsParNS))}</td>
+                    <td class="numeric">${escapeHtml(row.ddDelta == null ? "" : formatSigned(row.ddDelta))}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
         `;
       }
 
@@ -2395,12 +3309,15 @@ W  C  9`;
           hands: ["board", "dealer", "vulnerable", "seat", "pair", "hand", "hcp", "shape", "spades", "hearts", "diamonds", "clubs", "voids", "longest_suit"],
           pairs: ["board", "dealer", "vulnerable", "pair", "hcp", "hcp_delta_ns", "spades", "hearts", "diamonds", "clubs", "best_fit", "major_fit", "minor_fit", "par_contract", "ns_score"],
           doubleDummy: ["board", "dealer", "vulnerable", "declarer", "pair", "denomination", "tricks", "makeable_level"],
-          tags: ["record_index", "board", ...((analysis && analysis.tagKeys) || []).slice(0, 12).map((key) => `tag_${key}`)]
+          tags: ["record_index", "board", ...((analysis && analysis.tagKeys) || []).slice(0, 12).map((key) => `tag_${key}`)],
+          results: ["board", "round", "table", "pair_ns", "pair_ew", "declarer_side", "contract", "result", "score_ns", "par_ns", "vs_par_ns", "ns_matchpoints", "ns_percent", "dd_delta"],
+          boardResults: ["board", "result_count", "par_ns", "average_ns_score", "average_vs_par", "score_spread", "contract_summary", "top_ns", "top_ew"],
+          pairResults: ["rank", "pair", "matchpoints", "top", "percent", "boards", "ns_boards", "ew_boards", "average_score"]
         };
         return defaults[mode] || defaults.boards;
       }
 
-      function getColumnDefs(mode, analysis) {
+      function getColumnDefs(mode, analysis, results) {
         const boardCols = [
           col("file_name", "File Name", (ctx) => analysis.parsed.fileName),
           col("record_index", "Record Index", (ctx) => ctx.board.index + 1),
@@ -2516,6 +3433,82 @@ W  C  9`;
           ];
         }
 
+        if (mode === "results") {
+          return [
+            col("pbn_file", "PBN File", () => analysis.parsed.fileName),
+            col("result_file", "Result File", () => results ? results.fileName : ""),
+            col("result_source", "Result Source", () => results ? results.sourceType : ""),
+            col("row_id", "Row ID", (ctx) => ctx.result.id),
+            col("board", "Board", (ctx) => ctx.result.boardNo),
+            col("section", "Section", (ctx) => ctx.result.section),
+            col("round", "Round", (ctx) => ctx.result.round),
+            col("table", "Table", (ctx) => ctx.result.tableNo),
+            col("pair_ns", "Pair NS", (ctx) => ctx.result.pairNS),
+            col("pair_ew", "Pair EW", (ctx) => ctx.result.pairEW),
+            col("declarer_number", "Declarer Number", (ctx) => ctx.result.declarerNumber),
+            col("declarer_side", "Declarer Side", (ctx) => ctx.result.declarerSide),
+            col("declarer_pair", "Declarer Pair", (ctx) => ctx.result.declarerPair),
+            col("contract", "Contract", (ctx) => ctx.result.contract),
+            col("result", "Result", (ctx) => ctx.result.result),
+            col("contract_class", "Contract Class", (ctx) => ctx.result.contractClass),
+            col("tricks", "Tricks Taken", (ctx) => ctx.result.tricks),
+            col("score_declarer", "Declarer Score", (ctx) => ctx.result.scoreDeclarer),
+            col("score_ns", "NS Score", (ctx) => ctx.result.scoreNS),
+            col("par_contract", "PBN Par Contract", (ctx) => ctx.board ? ctx.board.tags.ParContract || "" : ""),
+            col("par_ns", "PBN Par NS Score", (ctx) => ctx.result.parNS),
+            col("vs_par_ns", "NS Score Vs Par", (ctx) => ctx.result.vsParNS),
+            col("dd_tricks", "Double Dummy Tricks", (ctx) => ctx.result.ddTricks),
+            col("dd_delta", "Tricks Vs Double Dummy", (ctx) => ctx.result.ddDelta),
+            col("ns_matchpoints", "NS Matchpoints", (ctx) => ctx.result.nsMatchpoints == null ? "" : ctx.result.nsMatchpoints.toFixed(1)),
+            col("ns_percent", "NS Percent", (ctx) => ctx.result.nsPercent == null ? "" : ctx.result.nsPercent.toFixed(1)),
+            col("ew_matchpoints", "EW Matchpoints", (ctx) => ctx.result.ewMatchpoints == null ? "" : ctx.result.ewMatchpoints.toFixed(1)),
+            col("ew_percent", "EW Percent", (ctx) => ctx.result.ewPercent == null ? "" : ctx.result.ewPercent.toFixed(1)),
+            col("date_log", "Date Log", (ctx) => ctx.result.dateLog),
+            col("time_log", "Time Log", (ctx) => ctx.result.timeLog),
+            col("lead_card", "Lead Card", (ctx) => ctx.result.leadCard),
+            col("remarks", "Remarks", (ctx) => ctx.result.remarks)
+          ];
+        }
+
+        if (mode === "boardResults") {
+          return [
+            col("pbn_file", "PBN File", () => analysis.parsed.fileName),
+            col("result_file", "Result File", () => results ? results.fileName : ""),
+            col("board", "Board", (ctx) => ctx.boardSummary.boardNo),
+            col("dealer", "Dealer", (ctx) => ctx.boardSummary.board ? ctx.boardSummary.board.dealer : ""),
+            col("vulnerable", "Vulnerable", (ctx) => ctx.boardSummary.board ? ctx.boardSummary.board.vulnerable : ""),
+            col("result_count", "Result Count", (ctx) => ctx.boardSummary.resultCount),
+            col("scored_count", "Scored Count", (ctx) => ctx.boardSummary.scoredCount),
+            col("par_contract", "PBN Par Contract", (ctx) => ctx.boardSummary.board ? ctx.boardSummary.board.tags.ParContract || "" : ""),
+            col("par_ns", "PBN Par NS Score", (ctx) => ctx.boardSummary.parNS),
+            col("average_ns_score", "Average NS Score", (ctx) => ctx.boardSummary.averageNsScore == null ? "" : Math.round(ctx.boardSummary.averageNsScore)),
+            col("average_vs_par", "Average NS Vs Par", (ctx) => ctx.boardSummary.averageVsPar == null ? "" : Math.round(ctx.boardSummary.averageVsPar)),
+            col("min_ns_score", "Min NS Score", (ctx) => ctx.boardSummary.minNsScore),
+            col("max_ns_score", "Max NS Score", (ctx) => ctx.boardSummary.maxNsScore),
+            col("score_spread", "Score Spread", (ctx) => ctx.boardSummary.scoreSpread),
+            col("average_dd_delta", "Average DD Delta", (ctx) => ctx.boardSummary.averageDdDelta == null ? "" : ctx.boardSummary.averageDdDelta.toFixed(2)),
+            col("contract_summary", "Contract Summary", (ctx) => ctx.boardSummary.contractSummary),
+            col("top_ns", "Top NS Pairs", (ctx) => ctx.boardSummary.topNs.join("; ")),
+            col("top_ew", "Top EW Pairs", (ctx) => ctx.boardSummary.topEw.join("; "))
+          ];
+        }
+
+        if (mode === "pairResults") {
+          return [
+            col("pbn_file", "PBN File", () => analysis.parsed.fileName),
+            col("result_file", "Result File", () => results ? results.fileName : ""),
+            col("rank", "Rank", (ctx) => ctx.pairStanding.rank),
+            col("pair", "Pair", (ctx) => ctx.pairStanding.pairNo),
+            col("matchpoints", "Matchpoints", (ctx) => ctx.pairStanding.matchpoints.toFixed(1)),
+            col("top", "Top", (ctx) => ctx.pairStanding.top.toFixed(1)),
+            col("percent", "Percent", (ctx) => ctx.pairStanding.percent == null ? "" : ctx.pairStanding.percent.toFixed(2)),
+            col("boards", "Boards", (ctx) => ctx.pairStanding.boards),
+            col("ns_boards", "NS Boards", (ctx) => ctx.pairStanding.nsBoards),
+            col("ew_boards", "EW Boards", (ctx) => ctx.pairStanding.ewBoards),
+            col("average_score", "Average Score", (ctx) => ctx.pairStanding.averageScore.toFixed(1))
+          ];
+        }
+
         return boardCols;
       }
 
@@ -2530,7 +3523,16 @@ W  C  9`;
         return dd.tricks >= 11;
       }
 
-      function getCsvContexts(mode, analysis) {
+      function getCsvContexts(mode, analysis, results) {
+        if (mode === "results") {
+          return results ? results.rows.map((result) => ({ result, board: result.board })) : [];
+        }
+        if (mode === "boardResults") {
+          return results ? results.boardSummaries.map((boardSummary) => ({ boardSummary, board: boardSummary.board })) : [];
+        }
+        if (mode === "pairResults") {
+          return results ? results.pairStandings.map((pairStanding) => ({ pairStanding })) : [];
+        }
         if (mode === "hands") {
           return analysis.boards.flatMap((board) => SEATS.map((seat) => ({ board, seat, hand: board.hands[seat] })));
         }
@@ -2546,10 +3548,10 @@ W  C  9`;
       function renderCsvControls() {
         const analysis = STATE.analysis;
         if (!analysis) return;
-        const defs = getColumnDefs(STATE.rowMode, analysis);
+        const defs = getColumnDefs(STATE.rowMode, analysis, STATE.results);
         const selected = STATE.selectedColumns;
 
-        document.getElementById("csvCaption").textContent = `${plural(getCsvContexts(STATE.rowMode, analysis).length, "row")} available.`;
+        document.getElementById("csvCaption").textContent = `${plural(getCsvContexts(STATE.rowMode, analysis, STATE.results).length, "row")} available.`;
         document.getElementById("columnList").innerHTML = defs.map((entry) => `
           <label class="column-check" title="${escapeHtml(entry.label)}">
             <input type="checkbox" data-column-key="${escapeHtml(entry.key)}" ${selected.has(entry.key) ? "checked" : ""}>
@@ -2561,7 +3563,7 @@ W  C  9`;
 
       function selectedColumnDefs() {
         const analysis = STATE.analysis;
-        const defs = getColumnDefs(STATE.rowMode, analysis);
+        const defs = getColumnDefs(STATE.rowMode, analysis, STATE.results);
         return defs.filter((entry) => STATE.selectedColumns.has(entry.key));
       }
 
@@ -2569,7 +3571,7 @@ W  C  9`;
         const analysis = STATE.analysis;
         if (!analysis) return;
         const columns = selectedColumnDefs();
-        const contexts = getCsvContexts(STATE.rowMode, analysis).slice(0, 12);
+        const contexts = getCsvContexts(STATE.rowMode, analysis, STATE.results).slice(0, 12);
         if (!columns.length) {
           document.getElementById("csvPreview").innerHTML = `<div class="empty-state">Choose at least one column.</div>`;
           return;
@@ -2594,7 +3596,7 @@ W  C  9`;
       function makeCsv() {
         const analysis = STATE.analysis;
         const columns = selectedColumnDefs();
-        const contexts = getCsvContexts(STATE.rowMode, analysis);
+        const contexts = getCsvContexts(STATE.rowMode, analysis, STATE.results);
         if (!columns.length) throw new Error("Choose at least one CSV column.");
         const rows = [
           columns.map((entry) => csvCell(entry.label)).join(","),
@@ -2643,11 +3645,44 @@ W  C  9`;
         reader.readAsText(file, "ISO-8859-1");
       }
 
+      function readResultsFile(file) {
+        if (!file) return;
+        if (!STATE.analysis) {
+          showToast("Load a PBN file before adding results.", "error");
+          return;
+        }
+        const lowerName = file.name.toLowerCase();
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const raw = lowerName.endsWith(".bws")
+              ? parseBwsBuffer(reader.result, file.name)
+              : parseResultsCsv(String(reader.result || ""), file.name);
+            setCurrentResults(raw);
+          } catch (error) {
+            showToast(`Could not import results: ${error.message}`, "error");
+          }
+        };
+        reader.onerror = () => {
+          showToast("Could not read the selected results file.", "error");
+        };
+        if (lowerName.endsWith(".bws")) reader.readAsArrayBuffer(file);
+        else reader.readAsText(file, "ISO-8859-1");
+      }
+
       function setupEvents() {
         const fileInputs = [document.getElementById("pbnFile"), document.getElementById("pbnFileHero")];
         fileInputs.forEach((input) => {
           input.addEventListener("change", (event) => {
             readFile(event.target.files[0]);
+            event.target.value = "";
+          });
+        });
+
+        const resultInputs = [document.getElementById("resultsFile"), document.getElementById("resultsFilePanel")];
+        resultInputs.forEach((input) => {
+          input.addEventListener("change", (event) => {
+            readResultsFile(event.target.files[0]);
             event.target.value = "";
           });
         });
@@ -2719,7 +3754,7 @@ W  C  9`;
           renderCsvControls();
         });
         document.getElementById("selectAllColumns").addEventListener("click", () => {
-          STATE.selectedColumns = new Set(getColumnDefs(STATE.rowMode, STATE.analysis).map((entry) => entry.key));
+          STATE.selectedColumns = new Set(getColumnDefs(STATE.rowMode, STATE.analysis, STATE.results).map((entry) => entry.key));
           renderCsvControls();
         });
         document.getElementById("clearColumns").addEventListener("click", () => {
@@ -2737,6 +3772,10 @@ W  C  9`;
         window.PBNAnalyzer = {
           parsePbn,
           buildAnalysis,
+          parseBwsBuffer,
+          parseResultsCsv,
+          buildResultsAnalysis,
+          scoreDuplicateContract,
           parseDeal,
           getColumnDefs,
           getCsvContexts
