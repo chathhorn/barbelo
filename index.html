@@ -543,7 +543,7 @@
 
     .result-summary-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px;
     }
 
@@ -602,7 +602,7 @@
     }
 
     .board-toolbar {
-      grid-template-columns: 1.2fr 180px 180px 180px;
+      grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(140px, 180px));
     }
 
     .csv-toolbar {
@@ -856,6 +856,14 @@
     .numeric {
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+
+    .cell-note {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
     }
 
     table {
@@ -1284,6 +1292,14 @@
                   <option value="All">All vul</option>
                 </select>
               </div>
+              <div>
+                <label for="playedFilter">Boards</label>
+                <select id="playedFilter">
+                  <option value="all">All PBN boards</option>
+                  <option value="played">Played in results</option>
+                  <option value="unplayed">Not in results</option>
+                </select>
+              </div>
             </div>
             <div class="board-grid" id="boardGrid"></div>
           </div>
@@ -1440,7 +1456,8 @@ W  C  9`;
           search: "",
           side: "all",
           className: "all",
-          vulnerability: "all"
+          vulnerability: "all",
+          played: "all"
         }
       };
 
@@ -2103,7 +2120,8 @@ W  C  9`;
         const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
         const candidates = [2048, 4096].map((pageSize) => ({
           pageSize,
-          receivedData: scanBwsReceivedRows(bytes, pageSize)
+          receivedData: scanBwsReceivedRows(bytes, pageSize),
+          playerNumbers: scanBwsPlayerNumberRows(bytes, pageSize)
         }));
         const best = candidates.sort((a, b) => b.receivedData.length - a.receivedData.length)[0];
         const warnings = [];
@@ -2130,13 +2148,43 @@ W  C  9`;
           fileName: fileName || "results.BWS",
           sourceType: "BWS",
           receivedData,
-          playerNumbers: [],
+          playerNumbers: best.playerNumbers,
           metadata: {
             signature,
             pageSize: best.pageSize
           },
           warnings
         };
+      }
+
+      function scanBwsPlayerNumberRows(bytes, pageSize) {
+        const rows = [];
+        const pageMask = pageSize - 1;
+        for (let pageStart = 0, pageNo = 0; pageStart + pageSize <= bytes.length; pageStart += pageSize, pageNo += 1) {
+          if (bytes[pageStart] !== 0x01) continue;
+          const rowCount = bytes[pageStart + 8];
+          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) continue;
+          const offsets = [];
+          let plausible = true;
+          for (let index = 0; index < rowCount; index += 1) {
+            const offset = readUInt16LE(bytes, pageStart + 10 + index * 2) & pageMask;
+            if (offset >= pageSize) {
+              plausible = false;
+              break;
+            }
+            offsets.push(offset);
+          }
+          if (!plausible) continue;
+
+          offsets.forEach((offset, index) => {
+            const end = index === 0 ? pageSize : offsets[index - 1];
+            if (end <= offset || end > pageSize) return;
+            const row = bytes.subarray(pageStart + offset, pageStart + end);
+            const parsed = parseBwsPlayerNumberRow(row, pageNo, index, offset);
+            if (parsed) rows.push(parsed);
+          });
+        }
+        return rows.sort((a, b) => a.tableNo - b.tableNo || SEATS.indexOf(a.direction) - SEATS.indexOf(b.direction));
       }
 
       function scanBwsReceivedRows(bytes, pageSize) {
@@ -2168,6 +2216,50 @@ W  C  9`;
           });
         }
         return rows;
+      }
+
+      function parseBwsPlayerNumberRow(row, pageNo, rowIndex, offset) {
+        if (row.length < 14 || (row[0] !== 0x08 && row[0] !== 0x09)) return null;
+        const section = readInt16LE(row, 1);
+        const tableNo = readInt16LE(row, 3);
+        const round = readInt16LE(row, 5);
+        if (section < 1 || section > 50 || tableNo < 1 || tableNo > 200 || round < 0 || round > 200) return null;
+
+        if (row[0] === 0x08) {
+          const direction = String.fromCharCode(row[7] || 0);
+          if (!SEATS.includes(direction)) return null;
+          return {
+            Section: section,
+            Table: tableNo,
+            Direction: direction,
+            Number: "",
+            Name: "",
+            Round: round,
+            _page: pageNo,
+            _row: rowIndex,
+            _offset: offset
+          };
+        }
+
+        if (row.length < 23) return null;
+        const dateSerial = readDoubleLE(row, 7);
+        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return null;
+        const rawText = decodePrintableAscii(row.subarray(15, Math.max(15, row.length - 6))).trim();
+        const text = rawText.replace(/[^A-Za-z0-9 ]+$/g, "").trim();
+        const match = text.match(/^([NESW])(\d*)(.*)$/);
+        if (!match) return null;
+        return {
+          Section: section,
+          Table: tableNo,
+          Direction: match[1],
+          Number: match[2] || "",
+          Name: (match[3] || "").trim(),
+          Round: round,
+          TimeLog: formatAccessDate(dateSerial, "datetime"),
+          _page: pageNo,
+          _row: rowIndex,
+          _offset: offset
+        };
       }
 
       function parseBwsReceivedRow(row, pageNo, rowIndex, offset) {
@@ -2253,6 +2345,9 @@ W  C  9`;
         const epoch = Date.UTC(1899, 11, 30);
         const date = new Date(epoch + Math.round(serial * 86400000));
         const pad = (value) => String(value).padStart(2, "0");
+        if (kind === "datetime") {
+          return `${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}/${pad(date.getUTCFullYear() % 100)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+        }
         if (kind === "time") {
           return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
         }
@@ -2439,6 +2534,74 @@ W  C  9`;
         };
       }
 
+      function normalizePlayerNumbers(rows) {
+        return (rows || [])
+          .map((row) => ({
+            section: safeNumber(pickField(row, ["Section", "section"])),
+            tableNo: safeNumber(pickField(row, ["Table", "table"])),
+            direction: normalizeResultSide(pickField(row, ["Direction", "direction", "Seat", "seat"])),
+            number: String(pickField(row, ["Number", "number", "PlayerNumber", "player_number"]) || "").trim(),
+            name: String(pickField(row, ["Name", "name", "Player", "player"]) || "").trim(),
+            round: safeNumber(pickField(row, ["Round", "round"])) || 0
+          }))
+          .filter((row) => row.section != null && row.tableNo != null && row.direction);
+      }
+
+      function playerDisplay(player) {
+        if (!player) return "";
+        return player.name || player.number || "";
+      }
+
+      function buildPairRosters(playerNumbers, rows) {
+        const earliestByTable = new Map();
+        rows.forEach((row) => {
+          if (row.tableNo == null || row.round == null) return;
+          const key = String(row.tableNo);
+          const existing = earliestByTable.get(key);
+          if (!existing || row.round < existing.round) earliestByTable.set(key, row);
+        });
+
+        const pairRosters = new Map();
+        playerNumbers.forEach((player) => {
+          const tableRow = earliestByTable.get(String(player.tableNo));
+          if (!tableRow) return;
+          const pairNo = player.direction === "N" || player.direction === "S" ? tableRow.pairNS : tableRow.pairEW;
+          if (pairNo == null) return;
+          const key = String(pairNo);
+          if (!pairRosters.has(key)) {
+            pairRosters.set(key, { pairNo, playersBySeat: {}, players: [], label: "" });
+          }
+          const roster = pairRosters.get(key);
+          roster.playersBySeat[player.direction] = player;
+        });
+
+        pairRosters.forEach((roster) => {
+          roster.players = SEATS.map((seat) => roster.playersBySeat[seat]).filter((player) => player && playerDisplay(player));
+          roster.label = roster.players.map(playerDisplay).join(" / ");
+        });
+        return pairRosters;
+      }
+
+      function pairRosterLabel(pairRosters, pairNo) {
+        const roster = pairRosters.get(String(pairNo));
+        return roster ? roster.label : "";
+      }
+
+      function pairSeatPlayer(pairRosters, pairNo, seat) {
+        const roster = pairRosters.get(String(pairNo));
+        return roster ? playerDisplay(roster.playersBySeat[seat]) : "";
+      }
+
+      function attachPlayerNames(rows, pairRosters) {
+        rows.forEach((row) => {
+          row.nsPlayers = pairRosterLabel(pairRosters, row.pairNS);
+          row.ewPlayers = pairRosterLabel(pairRosters, row.pairEW);
+          row.declarerName = row.declarerSide === "N" || row.declarerSide === "S"
+            ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide)
+            : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide);
+        });
+      }
+
       function addPairStanding(map, pairNo, side, row) {
         if (pairNo == null || row.nsMatchpoints == null || row.boardTop == null) return;
         const key = String(pairNo);
@@ -2522,9 +2685,12 @@ W  C  9`;
       function buildResultsAnalysis(rawResults, analysis) {
         const boardMap = boardMapByNumber(analysis);
         const warnings = [...(rawResults.warnings || [])];
+        const playerNumbers = normalizePlayerNumbers(rawResults.playerNumbers || []);
         const rows = (rawResults.receivedData || [])
           .map((row, index) => normalizeResultRow(row, index, analysis, boardMap))
           .filter((row) => row && !row.erased);
+        const pairRosters = buildPairRosters(playerNumbers, rows);
+        attachPlayerNames(rows, pairRosters);
         const rowsByBoard = new Map();
         rows.forEach((row) => {
           const key = String(row.boardNo);
@@ -2544,6 +2710,7 @@ W  C  9`;
         const pairStandings = Array.from(pairMap.values())
           .map((standing) => ({
             ...standing,
+            players: pairRosterLabel(pairRosters, standing.pairNo),
             averageScore: standing.scores.length ? average(standing.scores) : 0,
             percent: standing.top ? (standing.matchpoints / standing.top) * 100 : null
           }))
@@ -2565,6 +2732,8 @@ W  C  9`;
           metadata: rawResults.metadata || {},
           raw: rawResults,
           rows,
+          playerNumbers,
+          pairRosters,
           rowsByBoard,
           boardSummaries,
           boardsByNumber,
@@ -2577,6 +2746,8 @@ W  C  9`;
             tables: uniqueSorted(rows.map((row) => row.tableNo)).length,
             rounds: uniqueSorted(rows.map((row) => row.round)).length,
             pairs: pairStandings.length,
+            playerRecords: playerNumbers.length,
+            namedPlayers: playerNumbers.filter((player) => player.name).length,
             contractClasses: countBy(rows.map((row) => row.contractClass)),
             declarerSides: countBy(rows.map((row) => row.declarerSide)),
             missingResultBoards: analysis.boards.filter((board) => !resultBoardNumbers.has(String(board.boardNo))).map((board) => board.boardNo),
@@ -2612,7 +2783,7 @@ W  C  9`;
           board.deal.raw,
           board.voids.join(" "),
           board.longSuits.join(" "),
-          resultSummary ? resultSummary.rows.map((row) => `${row.contract} ${row.result} ${row.pairNS} ${row.pairEW} ${row.scoreNS}`).join(" ") : ""
+          resultSummary ? resultSummary.rows.map((row) => `${row.contract} ${row.result} ${row.pairNS} ${row.pairEW} ${row.scoreNS} ${row.nsPlayers} ${row.ewPlayers} ${row.declarerName}`).join(" ") : ""
         ].join(" ").toLowerCase();
       }
 
@@ -2628,7 +2799,8 @@ W  C  9`;
           search: "",
           side: "all",
           className: "all",
-          vulnerability: "all"
+          vulnerability: "all",
+          played: "all"
         };
         renderAll();
         showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}.`);
@@ -2667,10 +2839,11 @@ W  C  9`;
 
         dashboard.classList.remove("hidden");
         document.getElementById("fileSubtitle").textContent = `${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}${STATE.results ? `, ${plural(STATE.results.summary.resultCount, "result")}` : ""}`;
-        document.getElementById("boardSearch").value = "";
-        document.getElementById("sideFilter").value = "all";
-        document.getElementById("classFilter").value = "all";
-        document.getElementById("vulFilter").value = "all";
+        document.getElementById("boardSearch").value = STATE.filters.search;
+        document.getElementById("sideFilter").value = STATE.filters.side;
+        document.getElementById("classFilter").value = STATE.filters.className;
+        document.getElementById("vulFilter").value = STATE.filters.vulnerability;
+        document.getElementById("playedFilter").value = STATE.filters.played;
         document.getElementById("rowMode").value = STATE.rowMode;
 
         renderMetrics(analysis);
@@ -2813,12 +2986,13 @@ W  C  9`;
         const avgVsPar = results.summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(results.summary.averageVsPar));
         const avgAbsVsPar = results.summary.averageAbsVsPar == null ? "n/a" : Math.round(results.summary.averageAbsVsPar);
         const ddText = results.summary.ddCompared ? `${results.summary.ddExact}/${results.summary.ddCompared}` : "n/a";
-        caption.textContent = `${results.fileName || "Results"} - ${results.sourceType}${results.metadata && results.metadata.pageSize ? `, ${results.metadata.pageSize} byte pages` : ""}.`;
+        caption.textContent = `${results.fileName || "Results"} - ${results.sourceType}${results.metadata && results.metadata.pageSize ? `, ${results.metadata.pageSize} byte pages` : ""}${results.summary.namedPlayers ? `, ${results.summary.namedPlayers} named players` : ""}.`;
         body.innerHTML = `
           <div class="result-summary-grid">
             <div class="result-summary-card"><strong>${escapeHtml(results.summary.resultCount)}</strong><span>Result Rows</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(results.summary.boardsCovered)}</strong><span>Boards</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(results.summary.pairs)}</strong><span>Pairs</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(results.summary.namedPlayers || 0)}</strong><span>Named Players</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(avgVsPar)}</strong><span>Avg Vs Par</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(avgAbsVsPar)}</strong><span>Avg Abs Par</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(ddText)}</strong><span>DD Exact</span></div>
@@ -2919,12 +3093,13 @@ W  C  9`;
         if (!standings.length) return `<div class="empty-state">No pair standings could be calculated.</div>`;
         return `
           <table class="standings-table">
-            <thead><tr><th>Rank</th><th>Pair</th><th class="numeric">MP</th><th class="numeric">Pct</th><th>Form</th></tr></thead>
+            <thead><tr><th>Rank</th><th>Pair</th><th>Players</th><th class="numeric">MP</th><th class="numeric">Pct</th><th>Form</th></tr></thead>
             <tbody>
               ${standings.map((standing) => `
                 <tr>
                   <td>${escapeHtml(standing.rank)}</td>
                   <td>${escapeHtml(standing.pairNo)}</td>
+                  <td>${escapeHtml(standing.players || "")}</td>
                   <td class="numeric">${escapeHtml(standing.matchpoints.toFixed(1))}</td>
                   <td class="numeric">${escapeHtml(standing.percent == null ? "" : `${standing.percent.toFixed(1)}%`)}</td>
                   <td><div class="mp-meter"><div class="mp-meter-fill" style="width:${Math.max(0, Math.min(100, standing.percent || 0)).toFixed(1)}%"></div></div></td>
@@ -3143,10 +3318,13 @@ W  C  9`;
 
         const search = STATE.filters.search.trim().toLowerCase();
         const filtered = analysis.boards.filter((board) => {
+          const hasResult = Boolean(STATE.results && STATE.results.boardsByNumber.has(String(board.boardNo)));
           if (search && !boardSearchText(board).includes(search)) return false;
           if (STATE.filters.side !== "all" && board.optimum.edge !== STATE.filters.side) return false;
           if (STATE.filters.className !== "all" && board.className !== STATE.filters.className) return false;
           if (STATE.filters.vulnerability !== "all" && board.vulnerable !== STATE.filters.vulnerability) return false;
+          if (STATE.filters.played === "played" && !hasResult) return false;
+          if (STATE.filters.played === "unplayed" && hasResult) return false;
           return true;
         });
 
@@ -3224,9 +3402,9 @@ W  C  9`;
                 ${rows.map((row) => `
                   <tr>
                     <td>${escapeHtml(row.tableNo || "")}</td>
-                    <td>${escapeHtml(row.pairNS || "")}</td>
-                    <td>${escapeHtml(row.pairEW || "")}</td>
-                    <td>${escapeHtml(row.declarerSide || "")}</td>
+                    <td>${renderPairCell(row.pairNS, row.nsPlayers)}</td>
+                    <td>${renderPairCell(row.pairEW, row.ewPlayers)}</td>
+                    <td>${escapeHtml(row.declarerSide || "")}${row.declarerName ? `<span class="cell-note">${escapeHtml(row.declarerName)}</span>` : ""}</td>
                     <td>${escapeHtml(row.contract || "")}</td>
                     <td>${escapeHtml(row.result || "")}</td>
                     <td class="numeric">${escapeHtml(row.scoreNS == null ? "" : row.scoreNS)}</td>
@@ -3239,6 +3417,10 @@ W  C  9`;
             </table>
           </div>
         `;
+      }
+
+      function renderPairCell(pairNo, players) {
+        return `${escapeHtml(pairNo || "")}${players ? `<span class="cell-note">${escapeHtml(players)}</span>` : ""}`;
       }
 
       function renderDealDiagram(board) {
@@ -3320,9 +3502,9 @@ W  C  9`;
           pairs: ["board", "dealer", "vulnerable", "pair", "hcp", "hcp_delta_ns", "spades", "hearts", "diamonds", "clubs", "best_fit", "major_fit", "minor_fit", "par_contract", "ns_score"],
           doubleDummy: ["board", "dealer", "vulnerable", "declarer", "pair", "denomination", "tricks", "makeable_level"],
           tags: ["record_index", "board", ...((analysis && analysis.tagKeys) || []).slice(0, 12).map((key) => `tag_${key}`)],
-          results: ["board", "round", "table", "pair_ns", "pair_ew", "declarer_side", "contract", "result", "score_ns", "par_ns", "vs_par_ns", "ns_matchpoints", "ns_percent", "dd_delta"],
+          results: ["board", "round", "table", "pair_ns", "ns_players", "pair_ew", "ew_players", "declarer_side", "declarer_name", "contract", "result", "score_ns", "par_ns", "vs_par_ns", "ns_matchpoints", "ns_percent", "dd_delta"],
           boardResults: ["board", "result_count", "par_ns", "average_ns_score", "average_vs_par", "score_spread", "contract_summary", "top_ns", "top_ew"],
-          pairResults: ["rank", "pair", "matchpoints", "top", "percent", "boards", "ns_boards", "ew_boards", "average_score"]
+          pairResults: ["rank", "pair", "players", "matchpoints", "top", "percent", "boards", "ns_boards", "ew_boards", "average_score"]
         };
         return defaults[mode] || defaults.boards;
       }
@@ -3454,9 +3636,12 @@ W  C  9`;
             col("round", "Round", (ctx) => ctx.result.round),
             col("table", "Table", (ctx) => ctx.result.tableNo),
             col("pair_ns", "Pair NS", (ctx) => ctx.result.pairNS),
+            col("ns_players", "NS Players", (ctx) => ctx.result.nsPlayers),
             col("pair_ew", "Pair EW", (ctx) => ctx.result.pairEW),
+            col("ew_players", "EW Players", (ctx) => ctx.result.ewPlayers),
             col("declarer_number", "Declarer Number", (ctx) => ctx.result.declarerNumber),
             col("declarer_side", "Declarer Side", (ctx) => ctx.result.declarerSide),
+            col("declarer_name", "Declarer Name", (ctx) => ctx.result.declarerName),
             col("declarer_pair", "Declarer Pair", (ctx) => ctx.result.declarerPair),
             col("contract", "Contract", (ctx) => ctx.result.contract),
             col("result", "Result", (ctx) => ctx.result.result),
@@ -3509,6 +3694,7 @@ W  C  9`;
             col("result_file", "Result File", () => results ? results.fileName : ""),
             col("rank", "Rank", (ctx) => ctx.pairStanding.rank),
             col("pair", "Pair", (ctx) => ctx.pairStanding.pairNo),
+            col("players", "Players", (ctx) => ctx.pairStanding.players || ""),
             col("matchpoints", "Matchpoints", (ctx) => ctx.pairStanding.matchpoints.toFixed(1)),
             col("top", "Top", (ctx) => ctx.pairStanding.top.toFixed(1)),
             col("percent", "Percent", (ctx) => ctx.pairStanding.percent == null ? "" : ctx.pairStanding.percent.toFixed(2)),
@@ -3742,6 +3928,10 @@ W  C  9`;
         });
         document.getElementById("vulFilter").addEventListener("change", (event) => {
           STATE.filters.vulnerability = event.target.value;
+          renderBoards();
+        });
+        document.getElementById("playedFilter").addEventListener("change", (event) => {
+          STATE.filters.played = event.target.value;
           renderBoards();
         });
 
