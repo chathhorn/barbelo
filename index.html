@@ -848,6 +848,38 @@
       margin-bottom: 14px;
     }
 
+    .diagnostics-panel {
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .diagnostics-panel h3 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    .diagnostics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .diagnostics-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rejection-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
     .review-list {
       display: grid;
       gap: 10px;
@@ -2050,11 +2082,27 @@
         return "";
       }
 
-      function parseResultsCsv(text, fileName) {
+      function parseResultsCsv(text, fileName, fileSize) {
         const rows = parseCsvRows(text);
         const warnings = [];
         if (!rows.length) {
-          return { fileName: fileName || "results.csv", sourceType: "CSV", receivedData: [], playerNumbers: [], warnings: ["No CSV rows were found."] };
+          return {
+            fileName: fileName || "results.csv",
+            sourceType: "CSV",
+            receivedData: [],
+            playerNumbers: [],
+            metadata: {
+              diagnostics: {
+                sourceType: "CSV",
+                fileSize: fileSize == null ? text.length : fileSize,
+                csvRows: 0,
+                dataRows: 0,
+                recognizedRows: 0,
+                headers: []
+              }
+            },
+            warnings: ["No CSV rows were found."]
+          };
         }
 
         const headers = rows[0].map((header) => String(header || "").replace(/^\uFEFF/, "").trim());
@@ -2069,6 +2117,16 @@
           sourceType: "CSV",
           receivedData,
           playerNumbers: [],
+          metadata: {
+            diagnostics: {
+              sourceType: "CSV",
+              fileSize: fileSize == null ? text.length : fileSize,
+              csvRows: rows.length,
+              dataRows: Math.max(0, rows.length - 1),
+              recognizedRows: receivedData.length,
+              headers
+            }
+          },
           warnings
         };
       }
@@ -2116,16 +2174,30 @@
 
       function parseBwsBuffer(buffer, fileName) {
         const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-        const candidates = [2048, 4096].map((pageSize) => ({
-          pageSize,
-          receivedData: scanBwsReceivedRows(bytes, pageSize),
-          playerNumbers: scanBwsPlayerNumberRows(bytes, pageSize)
-        }));
+        const signature = decodeAscii(bytes.subarray(4, 68)).trim();
+        const candidates = [2048, 4096].map((pageSize) => {
+          const receivedStats = makeBwsScanStats(bytes, pageSize, "ReceivedData");
+          const playerStats = makeBwsScanStats(bytes, pageSize, "PlayerNumbers");
+          const receivedData = scanBwsReceivedRows(bytes, pageSize, receivedStats);
+          const playerNumbers = scanBwsPlayerNumberRows(bytes, pageSize, playerStats);
+          receivedStats.acceptedRows = receivedData.length;
+          playerStats.acceptedRows = playerNumbers.length;
+          return {
+            pageSize,
+            receivedData,
+            playerNumbers,
+            diagnostics: {
+              pageSize,
+              received: receivedStats,
+              players: playerStats
+            }
+          };
+        });
         const best = candidates.sort((a, b) => b.receivedData.length - a.receivedData.length)[0];
         const warnings = [];
-        const signature = decodeAscii(bytes.subarray(4, 68)).trim();
+        const recognizedJet = /Jet DB|Standard Jet/i.test(signature);
 
-        if (!/Jet DB|Standard Jet/i.test(signature)) {
+        if (!recognizedJet) {
           warnings.push("The file does not advertise itself as a Microsoft Jet database, but a BWS scan was attempted.");
         }
         if (!best.receivedData.length) {
@@ -2141,6 +2213,17 @@
             return true;
           })
           .sort((a, b) => safeNumber(a.ID) - safeNumber(b.ID));
+        const diagnostics = {
+          sourceType: "BWS",
+          fileSize: bytes.length,
+          signature,
+          recognizedJet,
+          selectedPageSize: best.pageSize,
+          acceptedReceivedRows: receivedData.length,
+          duplicateReceivedRows: Math.max(0, best.receivedData.length - receivedData.length),
+          acceptedPlayerRows: best.playerNumbers.length,
+          candidates: candidates.map((candidate) => candidate.diagnostics)
+        };
 
         return {
           fileName: fileName || "results.BWS",
@@ -2149,19 +2232,50 @@
           playerNumbers: best.playerNumbers,
           metadata: {
             signature,
-            pageSize: best.pageSize
+            pageSize: best.pageSize,
+            diagnostics
           },
           warnings
         };
       }
 
-      function scanBwsPlayerNumberRows(bytes, pageSize) {
+      function makeBwsScanStats(bytes, pageSize, tableName) {
+        return {
+          tableName,
+          pageSize,
+          filePages: Math.floor(bytes.length / pageSize),
+          trailingBytes: bytes.length % pageSize,
+          dataPages: 0,
+          rowDirectories: 0,
+          rowSlots: 0,
+          rowSlices: 0,
+          acceptedRows: 0,
+          rejectedRows: 0,
+          rejections: {}
+        };
+      }
+
+      function addScanRejection(stats, reason) {
+        if (!stats) return;
+        stats.rejectedRows += 1;
+        stats.rejections[reason] = (stats.rejections[reason] || 0) + 1;
+      }
+
+      function scanBwsPlayerNumberRows(bytes, pageSize, stats) {
         const rows = [];
         const pageMask = pageSize - 1;
         for (let pageStart = 0, pageNo = 0; pageStart + pageSize <= bytes.length; pageStart += pageSize, pageNo += 1) {
           if (bytes[pageStart] !== 0x01) continue;
+          if (stats) stats.dataPages += 1;
           const rowCount = bytes[pageStart + 8];
-          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) continue;
+          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) {
+            addScanRejection(stats, "invalid_row_directory");
+            continue;
+          }
+          if (stats) {
+            stats.rowDirectories += 1;
+            stats.rowSlots += rowCount;
+          }
           const offsets = [];
           let plausible = true;
           for (let index = 0; index < rowCount; index += 1) {
@@ -2172,26 +2286,42 @@
             }
             offsets.push(offset);
           }
-          if (!plausible) continue;
+          if (!plausible) {
+            addScanRejection(stats, "invalid_row_offset");
+            continue;
+          }
 
           offsets.forEach((offset, index) => {
             const end = index === 0 ? pageSize : offsets[index - 1];
-            if (end <= offset || end > pageSize) return;
+            if (end <= offset || end > pageSize) {
+              addScanRejection(stats, "invalid_row_bounds");
+              return;
+            }
             const row = bytes.subarray(pageStart + offset, pageStart + end);
-            const parsed = parseBwsPlayerNumberRow(row, pageNo, index, offset);
-            if (parsed) rows.push(parsed);
+            if (stats) stats.rowSlices += 1;
+            const parsed = parseBwsPlayerNumberRowDetailed(row, pageNo, index, offset);
+            if (parsed.row) rows.push(parsed.row);
+            else addScanRejection(stats, parsed.reason);
           });
         }
-        return rows.sort((a, b) => a.tableNo - b.tableNo || SEATS.indexOf(a.direction) - SEATS.indexOf(b.direction));
+        return rows.sort((a, b) => a.Table - b.Table || SEATS.indexOf(a.Direction) - SEATS.indexOf(b.Direction));
       }
 
-      function scanBwsReceivedRows(bytes, pageSize) {
+      function scanBwsReceivedRows(bytes, pageSize, stats) {
         const rows = [];
         const pageMask = pageSize - 1;
         for (let pageStart = 0, pageNo = 0; pageStart + pageSize <= bytes.length; pageStart += pageSize, pageNo += 1) {
           if (bytes[pageStart] !== 0x01) continue;
+          if (stats) stats.dataPages += 1;
           const rowCount = bytes[pageStart + 8];
-          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) continue;
+          if (!rowCount || rowCount > 120 || 10 + rowCount * 2 >= pageSize) {
+            addScanRejection(stats, "invalid_row_directory");
+            continue;
+          }
+          if (stats) {
+            stats.rowDirectories += 1;
+            stats.rowSlots += rowCount;
+          }
           const offsets = [];
           let plausible = true;
           for (let index = 0; index < rowCount; index += 1) {
@@ -2203,65 +2333,85 @@
             }
             offsets.push(offset);
           }
-          if (!plausible) continue;
+          if (!plausible) {
+            addScanRejection(stats, "invalid_row_offset");
+            continue;
+          }
 
           offsets.forEach((offset, index) => {
             const end = index === 0 ? pageSize : offsets[index - 1];
-            if (end <= offset || end > pageSize) return;
+            if (end <= offset || end > pageSize) {
+              addScanRejection(stats, "invalid_row_bounds");
+              return;
+            }
             const row = bytes.subarray(pageStart + offset, pageStart + end);
-            const parsed = parseBwsReceivedRow(row, pageNo, index, offset);
-            if (parsed) rows.push(parsed);
+            if (stats) stats.rowSlices += 1;
+            const parsed = parseBwsReceivedRowDetailed(row, pageNo, index, offset);
+            if (parsed.row) rows.push(parsed.row);
+            else addScanRejection(stats, parsed.reason);
           });
         }
         return rows;
       }
 
       function parseBwsPlayerNumberRow(row, pageNo, rowIndex, offset) {
-        if (row.length < 14 || (row[0] !== 0x08 && row[0] !== 0x09)) return null;
+        return parseBwsPlayerNumberRowDetailed(row, pageNo, rowIndex, offset).row || null;
+      }
+
+      function parseBwsPlayerNumberRowDetailed(row, pageNo, rowIndex, offset) {
+        if (row.length < 14 || (row[0] !== 0x08 && row[0] !== 0x09)) return { reason: "wrong_row_type_or_short" };
         const section = readInt16LE(row, 1);
         const tableNo = readInt16LE(row, 3);
         const round = readInt16LE(row, 5);
-        if (section < 1 || section > 50 || tableNo < 1 || tableNo > 200 || round < 0 || round > 200) return null;
+        if (section < 1 || section > 50 || tableNo < 1 || tableNo > 200 || round < 0 || round > 200) return { reason: "invalid_section_table_round" };
 
         if (row[0] === 0x08) {
           const direction = String.fromCharCode(row[7] || 0);
-          if (!SEATS.includes(direction)) return null;
+          if (!SEATS.includes(direction)) return { reason: "invalid_direction" };
           return {
-            Section: section,
-            Table: tableNo,
-            Direction: direction,
-            Number: "",
-            Name: "",
-            Round: round,
-            _page: pageNo,
-            _row: rowIndex,
-            _offset: offset
+            row: {
+              Section: section,
+              Table: tableNo,
+              Direction: direction,
+              Number: "",
+              Name: "",
+              Round: round,
+              _page: pageNo,
+              _row: rowIndex,
+              _offset: offset
+            }
           };
         }
 
-        if (row.length < 23) return null;
+        if (row.length < 23) return { reason: "named_row_too_short" };
         const dateSerial = readDoubleLE(row, 7);
-        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return null;
+        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return { reason: "invalid_datetime_serial" };
         const rawText = decodePrintableAscii(row.subarray(15, Math.max(15, row.length - 6))).trim();
         const text = rawText.replace(/[^A-Za-z0-9 ]+$/g, "").trim();
         const match = text.match(/^([NESW])(\d*)(.*)$/);
-        if (!match) return null;
+        if (!match) return { reason: "player_text_miss" };
         return {
-          Section: section,
-          Table: tableNo,
-          Direction: match[1],
-          Number: match[2] || "",
-          Name: (match[3] || "").trim(),
-          Round: round,
-          TimeLog: formatAccessDate(dateSerial, "datetime"),
-          _page: pageNo,
-          _row: rowIndex,
-          _offset: offset
+          row: {
+            Section: section,
+            Table: tableNo,
+            Direction: match[1],
+            Number: match[2] || "",
+            Name: (match[3] || "").trim(),
+            Round: round,
+            TimeLog: formatAccessDate(dateSerial, "datetime"),
+            _page: pageNo,
+            _row: rowIndex,
+            _offset: offset
+          }
         };
       }
 
       function parseBwsReceivedRow(row, pageNo, rowIndex, offset) {
-        if (row.length < 42 || row[0] !== 0x17) return null;
+        return parseBwsReceivedRowDetailed(row, pageNo, rowIndex, offset).row || null;
+      }
+
+      function parseBwsReceivedRowDetailed(row, pageNo, rowIndex, offset) {
+        if (row.length < 42 || row[0] !== 0x17) return { reason: "wrong_row_type_or_short" };
         const id = readUInt32LE(row, 1);
         const section = readInt16LE(row, 5);
         const tableNo = readInt16LE(row, 7);
@@ -2273,35 +2423,37 @@
         const dateSerial = readDoubleLE(row, 19);
         const timeSerial = readDoubleLE(row, 27);
 
-        if (!id || id > 100000 || section < 1 || section > 200 || tableNo < 1 || tableNo > 200) return null;
-        if (round < 1 || round > 200 || board < 1 || board > 512) return null;
-        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return null;
-        if (!Number.isFinite(timeSerial) || timeSerial < 0 || timeSerial > 1.2) return null;
+        if (!id || id > 100000 || section < 1 || section > 200 || tableNo < 1 || tableNo > 200) return { reason: "invalid_id_section_table" };
+        if (round < 1 || round > 200 || board < 1 || board > 512) return { reason: "invalid_round_board" };
+        if (!Number.isFinite(dateSerial) || dateSerial < 20000 || dateSerial > 80000) return { reason: "invalid_date_serial" };
+        if (!Number.isFinite(timeSerial) || timeSerial < 0 || timeSerial > 1.2) return { reason: "invalid_time_serial" };
 
         const payload = decodePrintableAscii(row.subarray(37));
         const match = payload.match(/^([NESW])((?:PASS)|(?:[1-7]\s*(?:NT|N|[CDHS])(?:\s*x{1,2})?))\s*(=|[+-]\d+)?/i);
-        if (!match) return null;
+        if (!match) return { reason: "contract_payload_miss" };
 
         return {
-          ID: id,
-          Section: section,
-          Table: tableNo,
-          Round: round,
-          Board: board,
-          PairNS: pairNS,
-          PairEW: pairEW,
-          Declarer: declarer,
-          "NS/EW": match[1].toUpperCase(),
-          Contract: normalizePlayedContractText(match[2]),
-          Result: match[3] || "",
-          LeadCard: "",
-          Remarks: "",
-          DateLog: formatAccessDate(dateSerial, "date"),
-          TimeLog: formatAccessDate(timeSerial, "time"),
-          Erased: 0,
-          _page: pageNo,
-          _row: rowIndex,
-          _offset: offset
+          row: {
+            ID: id,
+            Section: section,
+            Table: tableNo,
+            Round: round,
+            Board: board,
+            PairNS: pairNS,
+            PairEW: pairEW,
+            Declarer: declarer,
+            "NS/EW": match[1].toUpperCase(),
+            Contract: normalizePlayedContractText(match[2]),
+            Result: match[3] || "",
+            LeadCard: "",
+            Remarks: "",
+            DateLog: formatAccessDate(dateSerial, "date"),
+            TimeLog: formatAccessDate(timeSerial, "time"),
+            Erased: 0,
+            _page: pageNo,
+            _row: rowIndex,
+            _offset: offset
+          }
         };
       }
 
@@ -3185,6 +3337,105 @@
             <div class="result-summary-card"><strong>${escapeHtml(avgVsPar)}</strong><span>Avg Vs Par</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(avgAbsVsPar)}</strong><span>Avg Abs Par</span></div>
             <div class="result-summary-card"><strong>${escapeHtml(ddText)}</strong><span>DD Exact</span></div>
+          </div>
+          ${renderImportDiagnostics(results)}
+        `;
+      }
+
+      function formatBytes(value) {
+        const bytes = Number(value);
+        if (!Number.isFinite(bytes)) return "";
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      function renderImportDiagnostics(results) {
+        const diagnostics = results && results.metadata ? results.metadata.diagnostics : null;
+        if (!diagnostics) return "";
+        if (diagnostics.sourceType === "BWS") return renderBwsDiagnostics(diagnostics, results);
+        if (diagnostics.sourceType === "CSV") return renderCsvDiagnostics(diagnostics);
+        return "";
+      }
+
+      function renderCsvDiagnostics(diagnostics) {
+        const headerText = diagnostics.headers && diagnostics.headers.length
+          ? diagnostics.headers.slice(0, 12).join(", ")
+          : "No headers";
+        return `
+          <div class="diagnostics-panel">
+            <h3>Import Diagnostics</h3>
+            <div class="diagnostics-grid">
+              <div class="metadata-item"><div class="key">Source</div><div class="val">CSV</div></div>
+              <div class="metadata-item"><div class="key">File Size</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
+              <div class="metadata-item"><div class="key">CSV Rows</div><div class="val">${escapeHtml(diagnostics.csvRows)}</div></div>
+              <div class="metadata-item"><div class="key">Recognized Results</div><div class="val">${escapeHtml(diagnostics.recognizedRows)}</div></div>
+            </div>
+            <div class="diagnostics-note">Headers: ${escapeHtml(headerText)}</div>
+          </div>
+        `;
+      }
+
+      function rejectionSummary(rejections) {
+        const entries = Object.entries(rejections || {})
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .slice(0, 6);
+        if (!entries.length) return "none";
+        return entries.map(([key, value]) => `${key}: ${value}`).join("; ");
+      }
+
+      function renderBwsDiagnostics(diagnostics, results) {
+        const selected = diagnostics.candidates.find((candidate) => candidate.pageSize === diagnostics.selectedPageSize) || diagnostics.candidates[0];
+        const received = selected ? selected.received : {};
+        const candidateRows = diagnostics.candidates.map((candidate) => `
+          <tr>
+            <td>${escapeHtml(candidate.pageSize)}</td>
+            <td class="numeric">${escapeHtml(candidate.received.filePages)}</td>
+            <td class="numeric">${escapeHtml(formatBytes(candidate.received.trailingBytes))}</td>
+            <td class="numeric">${escapeHtml(candidate.received.dataPages)}</td>
+            <td class="numeric">${escapeHtml(candidate.received.rowSlots)}</td>
+            <td class="numeric">${escapeHtml(candidate.received.rowSlices)}</td>
+            <td class="numeric">${escapeHtml(candidate.received.acceptedRows)}</td>
+            <td class="numeric">${escapeHtml(candidate.players.acceptedRows)}</td>
+            <td>${escapeHtml(rejectionSummary(candidate.received.rejections))}</td>
+          </tr>
+        `).join("");
+        const warningText = results.warnings.length
+          ? `<ul class="rejection-list">${results.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>`
+          : `<div class="diagnostics-note">No import warnings.</div>`;
+        return `
+          <div class="diagnostics-panel">
+            <h3>BWS Import Diagnostics</h3>
+            <div class="diagnostics-grid">
+              <div class="metadata-item"><div class="key">File Size</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
+              <div class="metadata-item"><div class="key">Jet Signature</div><div class="val">${escapeHtml(diagnostics.signature || "Missing")}</div></div>
+              <div class="metadata-item"><div class="key">Recognized Jet</div><div class="val">${escapeHtml(diagnostics.recognizedJet ? "yes" : "no")}</div></div>
+              <div class="metadata-item"><div class="key">Selected Page Size</div><div class="val">${escapeHtml(diagnostics.selectedPageSize)}</div></div>
+              <div class="metadata-item"><div class="key">Accepted Results</div><div class="val">${escapeHtml(diagnostics.acceptedReceivedRows)}</div></div>
+              <div class="metadata-item"><div class="key">Player Rows</div><div class="val">${escapeHtml(diagnostics.acceptedPlayerRows)}</div></div>
+              <div class="metadata-item"><div class="key">Duplicate Results</div><div class="val">${escapeHtml(diagnostics.duplicateReceivedRows)}</div></div>
+              <div class="metadata-item"><div class="key">Rejected Row Slices</div><div class="val">${escapeHtml(received.rejectedRows || 0)}</div></div>
+            </div>
+            <div class="preview-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Page Size</th>
+                    <th class="numeric">Pages</th>
+                    <th class="numeric">Tail</th>
+                    <th class="numeric">Data Pages</th>
+                    <th class="numeric">Row Slots</th>
+                    <th class="numeric">Row Slices</th>
+                    <th class="numeric">Results</th>
+                    <th class="numeric">Players</th>
+                    <th>Top ReceivedData Rejections</th>
+                  </tr>
+                </thead>
+                <tbody>${candidateRows}</tbody>
+              </table>
+            </div>
+            <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and rows scanned under the non-selected page size, so nonzero rejection counts are expected.</div>
+            ${warningText}
           </div>
         `;
       }
@@ -4128,7 +4379,7 @@
           try {
             const raw = lowerName.endsWith(".bws")
               ? parseBwsBuffer(reader.result, file.name)
-              : parseResultsCsv(String(reader.result || ""), file.name);
+              : parseResultsCsv(String(reader.result || ""), file.name, file.size);
             setCurrentResults(raw);
           } catch (error) {
             showToast(`Could not import results: ${error.message}`, "error");
