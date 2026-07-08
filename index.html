@@ -271,6 +271,10 @@
       gap: 8px;
     }
 
+    .report-actions {
+      min-width: min(320px, 100%);
+    }
+
     .hidden {
       display: none !important;
     }
@@ -843,6 +847,105 @@
       line-height: 1.25;
     }
 
+    .report-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .review-item {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-soft);
+      padding: 12px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .review-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .review-head strong {
+      font-size: 15px;
+    }
+
+    .review-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .reason-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .reason-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .reason-chip.red {
+      border-color: rgba(187, 63, 69, 0.45);
+      color: #943238;
+      background: #fff1f2;
+    }
+
+    .reason-chip.gold {
+      border-color: rgba(183, 121, 31, 0.45);
+      color: #8a5a16;
+      background: #fff8e8;
+    }
+
+    .review-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+
+    .review-stat {
+      border-top: 1px solid var(--line);
+      padding-top: 7px;
+      min-width: 0;
+    }
+
+    .review-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .review-stat strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -1188,6 +1291,20 @@
           </div>
         </section>
 
+        <section class="panel hidden" id="pairReportPanel">
+          <div class="panel-header">
+            <div>
+              <h2>Pair Improvement Report</h2>
+              <p id="pairReportCaption"></p>
+            </div>
+            <div class="report-actions">
+              <label for="reportPairSelect">Pair</label>
+              <select id="reportPairSelect"></select>
+            </div>
+          </div>
+          <div class="panel-body" id="pairReportBody"></div>
+        </section>
+
         <section class="grid-2">
           <article class="panel">
             <div class="panel-header">
@@ -1340,6 +1457,7 @@
         parsed: null,
         analysis: null,
         results: null,
+        reportPair: "",
         rowMode: "boards",
         selectedColumns: new Set(),
         filters: {
@@ -2650,6 +2768,176 @@
         };
       }
 
+      function numericPairSort(a, b) {
+        return String(a).localeCompare(String(b), undefined, { numeric: true });
+      }
+
+      function defaultReportPair(results) {
+        if (!results || !results.pairStandings.length) return "";
+        return String([...results.pairStandings].map((standing) => standing.pairNo).sort(numericPairSort)[0]);
+      }
+
+      function contractClassRank(className) {
+        if (className === "Slam-level") return 3;
+        if (className === "Game-level") return 2;
+        if (className === "Partscore") return 1;
+        return 0;
+      }
+
+      function bestMakeableForPair(board, pair) {
+        if (!board || !board.optimumRows.length) return { className: "Unknown", rank: 0, text: "" };
+        const best = board.optimumRows
+          .filter((row) => row.pair === pair)
+          .map((row) => {
+            const className = classifyContract(row.makeableLevel, row.denomination);
+            return {
+              ...row,
+              className,
+              rank: contractClassRank(className),
+              text: `${row.declarer} ${row.makeableLevel} ${denomMeta(row.denomination).label}`
+            };
+          })
+          .sort((a, b) => b.rank - a.rank || b.makeableLevel - a.makeableLevel)[0];
+        return best || { className: "Unknown", rank: 0, text: "" };
+      }
+
+      function contractTarget(contract) {
+        return contract && contract.level ? contract.level + 6 : null;
+      }
+
+      function pairResultView(results, row, pairNo) {
+        const pairKey = String(pairNo);
+        const isNS = String(row.pairNS) === pairKey;
+        const isEW = String(row.pairEW) === pairKey;
+        if (!isNS && !isEW) return null;
+        const side = isNS ? "NS" : "EW";
+        const boardRows = results.rowsByBoard.get(String(row.boardNo)) || [];
+        const pairScore = row.scoreNS == null ? null : isNS ? row.scoreNS : -row.scoreNS;
+        const fieldScores = boardRows
+          .map((entry) => entry.scoreNS == null ? null : isNS ? entry.scoreNS : -entry.scoreNS)
+          .filter((value) => value != null);
+        const fieldAverage = fieldScores.length ? average(fieldScores) : null;
+        const parScore = row.parNS == null ? null : isNS ? row.parNS : -row.parNS;
+        const matchpoints = isNS ? row.nsMatchpoints : row.ewMatchpoints;
+        const percent = isNS ? row.nsPercent : row.ewPercent;
+        const declared = row.declarerPair === side;
+        const trickDeltaForPair = row.ddDelta == null ? null : declared ? row.ddDelta : -row.ddDelta;
+        const bestMakeable = bestMakeableForPair(row.board, side);
+        const fieldDelta = pairScore != null && fieldAverage != null ? pairScore - fieldAverage : null;
+        const vsPar = pairScore != null && parScore != null ? pairScore - parScore : null;
+
+        return {
+          row,
+          side,
+          declared,
+          pairScore,
+          matchpoints,
+          percent,
+          mpLoss: row.boardTop == null || matchpoints == null ? null : row.boardTop - matchpoints,
+          fieldAverage,
+          fieldDelta,
+          parScore,
+          vsPar,
+          trickDeltaForPair,
+          bestMakeable
+        };
+      }
+
+      function addReviewReason(reasons, label, tone, weight) {
+        reasons.push({ label, tone: tone || "", weight: weight || 0 });
+      }
+
+      function analyzeReviewItem(view) {
+        const row = view.row;
+        const reasons = [];
+        let severity = 0;
+        const pct = view.percent == null ? 100 : view.percent;
+        const mpLoss = view.mpLoss || 0;
+        const fieldLoss = view.fieldDelta == null ? 0 : Math.max(0, -view.fieldDelta);
+        const parLoss = view.vsPar == null ? 0 : Math.max(0, -view.vsPar);
+        const actualRank = view.declared ? contractClassRank(row.contractClass) : 0;
+        const target = contractTarget(row.parsedContract);
+        const failedContract = view.declared && target != null && row.tricks != null && row.tricks < target;
+
+        if (pct <= 25) addReviewReason(reasons, "low board", "red", 35);
+        else if (pct <= 40) addReviewReason(reasons, "below average board", "gold", 18);
+
+        if (row.boardTop && mpLoss >= row.boardTop * 0.5) addReviewReason(reasons, "large matchpoint loss", "red", 28);
+        if (fieldLoss >= 500) addReviewReason(reasons, "far below field", "red", 26);
+        else if (fieldLoss >= 200) addReviewReason(reasons, "below field", "gold", 14);
+
+        if (parLoss >= 500) addReviewReason(reasons, "well below par", "red", 24);
+        else if (parLoss >= 200) addReviewReason(reasons, "below par", "gold", 12);
+
+        if (view.trickDeltaForPair != null && view.trickDeltaForPair <= -2) addReviewReason(reasons, "multiple trick loss vs DD", "red", 24);
+        else if (view.trickDeltaForPair === -1) addReviewReason(reasons, view.declared ? "declarer trick loss vs DD" : "defensive trick loss vs DD", "gold", 13);
+
+        if (failedContract) {
+          addReviewReason(reasons, row.parsedContract.doubled ? "failed doubled contract" : "failed contract", "red", row.parsedContract.doubled ? 28 : 18);
+        }
+
+        if (view.bestMakeable.rank >= 3 && actualRank < 3 && pct < 60) addReviewReason(reasons, "slam potential", "gold", 20);
+        else if (view.bestMakeable.rank >= 2 && actualRank < 2 && pct < 60) addReviewReason(reasons, "game available", "gold", 16);
+
+        if (!view.declared && view.bestMakeable.rank >= 2 && pct < 45) {
+          addReviewReason(reasons, "competitive auction review", "gold", 14);
+        }
+
+        if (!reasons.length && pct < 50) addReviewReason(reasons, "small loss", "", 6);
+
+        severity += Math.max(0, 100 - pct) * 0.7;
+        severity += mpLoss * 4;
+        severity += Math.min(35, fieldLoss / 25);
+        severity += Math.min(35, parLoss / 25);
+        if (view.trickDeltaForPair != null && view.trickDeltaForPair < 0) severity += Math.abs(view.trickDeltaForPair) * 14;
+        severity += reasons.reduce((acc, reason) => acc + reason.weight, 0);
+
+        return {
+          ...view,
+          reasons,
+          severity
+        };
+      }
+
+      function buildPairImprovementReport(results, pairNo) {
+        if (!results || !pairNo) return null;
+        const standing = results.pairStandings.find((entry) => String(entry.pairNo) === String(pairNo));
+        const views = results.rows
+          .map((row) => pairResultView(results, row, pairNo))
+          .filter(Boolean);
+        if (!views.length) return null;
+
+        const analyzed = views.map(analyzeReviewItem);
+        const candidates = analyzed.filter((item) => item.reasons.length || item.severity >= 20);
+        const reviewed = (candidates.length ? candidates : analyzed)
+          .sort((a, b) => b.severity - a.severity || (a.percent || 0) - (b.percent || 0))
+          .slice(0, 10);
+        const percents = views.map((view) => view.percent).filter((value) => value != null);
+        const vsParValues = views.map((view) => view.vsPar).filter((value) => value != null);
+        const trickLosses = views.filter((view) => view.trickDeltaForPair != null && view.trickDeltaForPair < 0);
+        const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35);
+        const fieldLosses = views.filter((view) => view.fieldDelta != null && view.fieldDelta <= -200);
+
+        return {
+          pairNo,
+          standing,
+          rows: views,
+          reviewItems: reviewed,
+          summary: {
+            boards: views.length,
+            players: standing ? standing.players : pairRosterLabel(results.pairRosters, pairNo),
+            percent: standing && standing.percent != null ? standing.percent : percents.length ? average(percents) : null,
+            averageBoardPercent: percents.length ? average(percents) : null,
+            lowBoards: lowBoards.length,
+            fieldLosses: fieldLosses.length,
+            averageVsPar: vsParValues.length ? average(vsParValues) : null,
+            trickLossBoards: trickLosses.length,
+            declaredBoards: views.filter((view) => view.declared).length,
+            defendedBoards: views.filter((view) => !view.declared).length
+          }
+        };
+      }
+
       function suitMeta(key) {
         return SUITS.find((suit) => suit.key === key) || SUITS[0];
       }
@@ -2693,6 +2981,7 @@
         STATE.parsed = parsed;
         STATE.analysis = analysis;
         STATE.results = null;
+        STATE.reportPair = "";
         STATE.rowMode = "boards";
         STATE.selectedColumns = new Set(defaultColumnKeys("boards", analysis));
         STATE.filters = defaultFilters();
@@ -2705,6 +2994,7 @@
         STATE.parsed = null;
         STATE.analysis = null;
         STATE.results = null;
+        STATE.reportPair = "";
         STATE.rowMode = "boards";
         STATE.selectedColumns = new Set();
         STATE.filters = defaultFilters();
@@ -2720,6 +3010,7 @@
         }
         const results = buildResultsAnalysis(rawResults, STATE.analysis);
         STATE.results = results;
+        STATE.reportPair = defaultReportPair(results);
         STATE.rowMode = "results";
         STATE.selectedColumns = new Set(defaultColumnKeys("results", STATE.analysis));
         renderAll();
@@ -2759,6 +3050,7 @@
         renderResultsPanel(analysis, STATE.results);
         renderCharts(analysis);
         renderResultsCharts(analysis, STATE.results);
+        renderPairImprovementReport(STATE.results);
         renderNotables(analysis);
         renderBoards();
         renderCsvControls();
@@ -3014,6 +3306,92 @@
               `).join("")}
             </tbody>
           </table>
+        `;
+      }
+
+      function renderPairImprovementReport(results) {
+        const panel = document.getElementById("pairReportPanel");
+        const select = document.getElementById("reportPairSelect");
+        const caption = document.getElementById("pairReportCaption");
+        const body = document.getElementById("pairReportBody");
+        if (!results || !results.pairStandings.length) {
+          panel.classList.add("hidden");
+          return;
+        }
+
+        const pairOptions = [...results.pairStandings]
+          .sort((a, b) => numericPairSort(a.pairNo, b.pairNo));
+        if (!STATE.reportPair || !pairOptions.some((entry) => String(entry.pairNo) === String(STATE.reportPair))) {
+          STATE.reportPair = defaultReportPair(results);
+        }
+
+        select.innerHTML = pairOptions.map((standing) => {
+          const pct = standing.percent == null ? "" : ` (${standing.percent.toFixed(1)}%)`;
+          const players = standing.players ? ` - ${standing.players}` : "";
+          return `<option value="${escapeHtml(standing.pairNo)}">Pair ${escapeHtml(standing.pairNo)}${escapeHtml(players)}${escapeHtml(pct)}</option>`;
+        }).join("");
+        select.value = String(STATE.reportPair);
+
+        const report = buildPairImprovementReport(results, STATE.reportPair);
+        if (!report) {
+          caption.textContent = "No traveler rows for the selected pair.";
+          body.innerHTML = `<div class="empty-state">Choose a pair with played boards.</div>`;
+          panel.classList.remove("hidden");
+          return;
+        }
+
+        const summary = report.summary;
+        caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed.`;
+        body.innerHTML = `
+          <div class="report-summary-grid">
+            <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(summary.averageBoardPercent == null ? "n/a" : `${summary.averageBoardPercent.toFixed(1)}%`)}</strong><span>Avg Board</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(summary.fieldLosses)}</strong><span>Below Field</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
+            <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
+          </div>
+          ${renderReviewQueue(report)}
+        `;
+        panel.classList.remove("hidden");
+      }
+
+      function renderReviewQueue(report) {
+        if (!report.reviewItems.length) return `<div class="empty-state">No obvious review candidates found for this pair.</div>`;
+        return `
+          <div class="review-list">
+            ${report.reviewItems.map(renderReviewItem).join("")}
+          </div>
+        `;
+      }
+
+      function renderReviewItem(item) {
+        const row = item.row;
+        const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim();
+        const role = item.declared ? "Declaring" : "Defending";
+        const pctText = item.percent == null ? "n/a" : `${item.percent.toFixed(1)}%`;
+        const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
+        const reasons = item.reasons.length ? item.reasons : [{ label: "review candidate", tone: "", weight: 0 }];
+        const ddText = item.trickDeltaForPair == null ? "n/a" : `${formatSigned(item.trickDeltaForPair)} trick${Math.abs(item.trickDeltaForPair) === 1 ? "" : "s"}`;
+        return `
+          <article class="review-item">
+            <div class="review-head">
+              <strong>Board ${escapeHtml(row.boardNo)} - ${escapeHtml(contractText || "No contract")}</strong>
+              <span>${escapeHtml(role)} / ${escapeHtml(pctText)}</span>
+            </div>
+            <div class="reason-list">
+              ${reasons.map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
+            </div>
+            <div class="review-stats">
+              <div class="review-stat"><span>Pair Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
+              <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
+              <div class="review-stat"><span>Vs Field Avg</span><strong>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</strong></div>
+              <div class="review-stat"><span>Vs Par</span><strong>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</strong></div>
+              <div class="review-stat"><span>DD Effect</span><strong>${escapeHtml(ddText)}</strong></div>
+              <div class="review-stat"><span>Makeable</span><strong>${escapeHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
+            </div>
+            ${row.declarerName ? `<div class="cell-note">Declarer: ${escapeHtml(row.declarerName)}</div>` : ""}
+          </article>
         `;
       }
 
@@ -3829,6 +4207,10 @@
           STATE.filters.played = event.target.value;
           renderBoards();
         });
+        document.getElementById("reportPairSelect").addEventListener("change", (event) => {
+          STATE.reportPair = event.target.value;
+          renderPairImprovementReport(STATE.results);
+        });
 
         document.getElementById("rowMode").addEventListener("change", (event) => {
           STATE.rowMode = event.target.value;
@@ -3870,6 +4252,7 @@
           parseBwsBuffer,
           parseResultsCsv,
           buildResultsAnalysis,
+          buildPairImprovementReport,
           scoreDuplicateContract,
           parseDeal,
           getColumnDefs,
