@@ -155,34 +155,74 @@
     }
 
     .brand-mark {
-      width: 42px;
-      height: 42px;
+      width: 46px;
+      height: 46px;
       flex: 0 0 auto;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
       overflow: hidden;
       border-radius: 7px;
-      border: 1px solid var(--line-strong);
       background: #fff;
+      box-shadow: 0 8px 18px rgba(23, 33, 43, 0.08);
     }
 
-    .brand-mark span {
-      display: grid;
-      place-items: center;
-      font-size: 17px;
-      font-weight: 800;
+    .brand-mark svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
-    .brand-mark .spade,
-    .brand-mark .club {
-      color: var(--spade);
-      background: #eef2f5;
+    .mark-field {
+      fill: #fff;
+      stroke: var(--line-strong);
+      stroke-width: 1.1;
     }
 
-    .brand-mark .heart,
-    .brand-mark .diamond {
-      color: var(--red);
-      background: #fff2f3;
+    .mark-ring {
+      fill: #f8fafb;
+      stroke: #6f8192;
+      stroke-width: 1;
+    }
+
+    .mark-orbit {
+      fill: none;
+      stroke: rgba(15, 123, 108, 0.44);
+      stroke-width: 1;
+    }
+
+    .mark-orbit-alt {
+      transform: rotate(90deg);
+      transform-origin: 24px 24px;
+      stroke: rgba(36, 87, 166, 0.38);
+    }
+
+    .mark-ray {
+      fill: none;
+      stroke: #b9c5d0;
+      stroke-linecap: round;
+      stroke-width: 1;
+    }
+
+    .mark-center {
+      fill: #17212b;
+      stroke: #fff;
+      stroke-width: 1;
+    }
+
+    .mark-suit {
+      dominant-baseline: central;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-rendering: geometricPrecision;
+    }
+
+    .mark-spade,
+    .mark-club {
+      fill: var(--spade);
+    }
+
+    .mark-heart,
+    .mark-diamond {
+      fill: var(--red);
     }
 
     h1,
@@ -1293,10 +1333,18 @@
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
-          <span class="spade">&spades;</span>
-          <span class="heart">&hearts;</span>
-          <span class="diamond">&diams;</span>
-          <span class="club">&clubs;</span>
+          <svg viewBox="0 0 48 48" focusable="false">
+            <rect class="mark-field" x="1" y="1" width="46" height="46" rx="7"></rect>
+            <circle class="mark-ring" cx="24" cy="24" r="17.5"></circle>
+            <path class="mark-ray" d="M24 7.5v6.7M24 33.8v6.7M7.5 24h6.7M33.8 24h6.7"></path>
+            <ellipse class="mark-orbit" cx="24" cy="24" rx="7.2" ry="17.5"></ellipse>
+            <ellipse class="mark-orbit mark-orbit-alt" cx="24" cy="24" rx="7.2" ry="17.5"></ellipse>
+            <circle class="mark-center" cx="24" cy="24" r="3.2"></circle>
+            <text class="mark-suit mark-spade" x="24" y="13.2" text-anchor="middle">&spades;</text>
+            <text class="mark-suit mark-heart" x="34.6" y="25.6" text-anchor="middle">&hearts;</text>
+            <text class="mark-suit mark-diamond" x="24" y="36.2" text-anchor="middle">&diams;</text>
+            <text class="mark-suit mark-club" x="13.4" y="25.6" text-anchor="middle">&clubs;</text>
+          </svg>
         </div>
         <div>
           <div class="brand-title">
