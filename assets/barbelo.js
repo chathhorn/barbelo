@@ -1853,23 +1853,23 @@
     let explanation;
 
     if (dominant.key === "declarerTricks") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} mainly because same-direction peers took more tricks in the same contract family. Compare ${targetText} with ${peerName}'s ${peerText}.`;
+      explanation = `This pair lost ${lossText} mainly because same-direction peers took more tricks in the same contract family. Compare ${targetText} with ${peerName}'s ${peerText}.`;
     } else if (dominant.key === "defensiveTricks") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} on defense. Same-direction peers defended the same or similar contract more profitably; start with opening lead, shifts, and cash-out timing.`;
+      explanation = `This pair lost ${lossText} on defense. Same-direction peers defended the same or similar contract more profitably; start with opening lead, shifts, and cash-out timing.`;
     } else if (dominant.key === "missedGameSlam") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} because peers reached a game or slam bonus that this table did not. Compare the auction with ${peerName}'s ${peerText}.`;
+      explanation = `This pair lost ${lossText} because peers reached a game or slam bonus that this table did not. Compare the auction with ${peerName}'s ${peerText}.`;
     } else if (dominant.key === "overreach") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} after landing too high or in a costly contract. Check whether stopping lower, passing, or defending would have protected the matchpoints.`;
+      explanation = `This pair lost ${lossText} after landing too high or in a costly contract. Check whether stopping lower, passing, or defending would have protected the matchpoints.`;
     } else if (dominant.key === "wrongStrain") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} to strain choice. Compare ${targetText} with ${peerName}'s ${peerText} and look for the auction clue that found the better denomination.`;
+      explanation = `This pair lost ${lossText} to strain choice. Compare ${targetText} with ${peerName}'s ${peerText} and look for the auction clue that found the better denomination.`;
     } else if (dominant.key === "penaltyDouble") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} around a doubled, redoubled, penalty, or sacrifice decision. Review the vulnerability and whether the double or sacrifice was earning its keep.`;
+      explanation = `This pair lost ${lossText} around a doubled, redoubled, penalty, or sacrifice decision. Review the vulnerability and whether the double or sacrifice was earning its keep.`;
     } else if (dominant.key === "competitiveAuction" || dominant.key === "partscoreBattle") {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} in a competitive or partscore position. Compare who bought the contract, at what level, and whether an extra trick changed the board.`;
+      explanation = `This pair lost ${lossText} in a competitive or partscore position. Compare who bought the contract, at what level, and whether an extra trick changed the board.`;
     } else if (dominant.key === "tieSplit") {
-      explanation = `Board ${boardItem.boardNo}: ${lossText} came from tied same-direction comparisons. Look for small overtrick, undertrick, or partscore details that could turn ties into wins.`;
+      explanation = `${lossText} came from tied same-direction comparisons. Look for small overtrick, undertrick, or partscore details that could turn ties into wins.`;
     } else {
-      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} against same-direction peers, but the traveler does not isolate one clear cause. Use the peer table to compare contracts and scores.`;
+      explanation = `This pair lost ${lossText} against same-direction peers, but the traveler does not isolate one clear cause. Use the peer table to compare contracts and scores.`;
     }
 
     return {
