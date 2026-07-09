@@ -168,6 +168,7 @@
     "below average board": "A board below average for the selected pair, but not severe enough to be tagged as a low board.",
     "below par": "The pair's score was worse than the theoretical par score by a meaningful amount.",
     "best fit": "The longest combined partnership suit length.",
+    "bidding judgment": "Auction decisions about level, strain, invites, signoffs, game tries, slam tries, and whether to stop or continue.",
     "board": "A deal number in the session. Each board has a dealer, vulnerability, four hands, and optional result data.",
     "board explorer": "The per-board browser for deals, par, double-dummy data, and traveler rows.",
     "board result summary": "One aggregate row per board, summarizing all uploaded traveler scores for that board.",
@@ -182,6 +183,7 @@
     "contract summary": "Most common contracts found in the traveler rows for a board.",
     "controls": "Quick honor-control count: aces count 2 and kings count 1.",
     "competitive auction": "Matchpoint losses where deciding whether to compete, defend, double, or sell out appears central to the score difference.",
+    "competitive auctions": "Competitive bidding decisions such as balancing, competing, defending, doubling, or selling out.",
     "confidence": "How strongly the traveler evidence supports the app's diagnosis. High confidence usually means same-direction peers offer a close comparison.",
     "data pages": "Jet database pages that look like table data pages during the BWS scan.",
     "data quality": "Checks for missing tags, invalid deals, result mismatches, and import warnings.",
@@ -192,6 +194,7 @@
     "dealer": "The seat that opens the auction on the board.",
     "decl": "Declarer, abbreviated. This is the seat that played the contract.",
     "declarer": "The player or seat that plays the contract after winning the auction.",
+    "declarer play": "Boards where the likely review focus is card play by declarer: timing, entries, safety plays, and overtricks.",
     "declarer tricks": "Matchpoint losses where same-direction peers in comparable declaring spots took more tricks.",
     "declarer trick loss vs dd": "The declaring side took one fewer trick than double-dummy analysis suggests was available.",
     "declarer pair": "The partnership, NS or EW, that declared the contract.",
@@ -199,9 +202,11 @@
     "defensive trick loss vs dd": "The defending side allowed one more trick than double-dummy analysis suggests was necessary.",
     "declarer score": "The contract score from declarer's perspective before converting to NS perspective.",
     "decision type summary": "Lost matchpoints grouped into broader bridge decision areas such as bidding judgment, declarer play, defense, and competitive auctions.",
+    "defense": "Boards where the likely review focus is opening lead, signaling, shifts, cash-out timing, and defensive communication.",
     "denomination": "The contract strain: notrump, spades, hearts, diamonds, or clubs.",
     "distribution points": "Extra hand-value estimate from short suits, used as a rough distribution measure.",
     "double dummy": "Theoretical best-play analysis assuming all four hands are visible.",
+    "double dummy trick checks": "Boards where actual tricks were below double-dummy expectation and should be replayed before checking best-play lines.",
     "duplicate results": "Repeated BWS rows for the same board/table/round result that were ignored.",
     "ew": "East-West partnership.",
     "ew boards": "Boards where the pair or partnership sat East-West in the uploaded results.",
@@ -231,6 +236,7 @@
     "lead card": "Opening lead card recorded in the result file, when available.",
     "long suits": "Suits with seven or more cards in one hand.",
     "low board": "A board where the selected pair scored 35 percent or worse.",
+    "low board triage": "A first-pass review of the selected pair's lowest-scoring boards to identify the initial auction, play, or defense swing.",
     "low boards": "Boards where the selected pair scored 35 percent or worse.",
     "loss themes": "Number of matchpoint-loss categories found in the selected pair's same-direction comparison ledger.",
     "lost mp": "Matchpoints not won against same-direction peers on boards the selected pair played.",
@@ -238,6 +244,7 @@
     "makeable": "A contract or trick count that can be achieved with best play.",
     "makeable level": "Contract level implied by double-dummy tricks, such as 4 when ten tricks are available.",
     "manual review": "A comparison with a real matchpoint loss where the app could not confidently assign a narrower cause.",
+    "maintain the baseline": "No dominant loss pattern was found; use the report to preserve strengths and identify smaller recurring edges.",
     "matchpoints": "Duplicate scoring points earned by comparing a result against other results on the same board.",
     "loss bar": "In the matchpoint loss ledger, each bar shows that category's share of the selected pair's total lost MP. It is a percentage of lost matchpoints, not a board or session percentage.",
     "matchpoint loss ledger": "A breakdown of the selected pair's lost matchpoints by comparing each board with same-direction peer results.",
@@ -258,6 +265,7 @@
     "optimum": "Best theoretical score for the deal, usually derived from PBN par or double-dummy data.",
     "optimum score": "The PBN score for best theoretical play and bidding on the board.",
     "optimum side": "The side, NS or EW, favored by the optimum score.",
+    "other notable boards": "Additional boards worth reviewing after the highest-priority boards have been separated out.",
     "overreach": "Matchpoint losses where the selected pair appears to have bid too high, sacrificed too expensively, or declared a contract that same-direction peers avoided.",
     "page size": "Jet database page size tested during the BWS scan.",
     "pages": "Candidate Jet database pages scanned inside the BWS file.",
@@ -314,12 +322,14 @@
     "slam-level": "A contract at level 6 or 7.",
     "slam potential": "Double-dummy analysis suggests a slam may have been available, but the table result did not reach it.",
     "small loss": "A modest below-average board with no single stronger diagnostic reason.",
+    "small edges": "Thin matchpoint gains from overtricks, extra undertricks, partscore judgment, and avoiding tied comparisons.",
     "swing explanation": "A short explanation of why one board produced a meaningful matchpoint difference against same-direction peers.",
     "tail": "Trailing bytes at the end of the file after dividing it into candidate Jet pages.",
     "table": "Physical table number for a result row.",
     "tag": "A bracketed PBN field such as Event, Dealer, Deal, or Vulnerable.",
     "tag types": "Distinct PBN tag names found across the loaded records.",
     "top": "Board top: the maximum matchpoints available to one side on that board.",
+    "top boards to review": "The highest-priority boards for the selected pair based on severity, matchpoint loss, and diagnostic clues.",
     "top ew pairs": "East-West pairs with the best score on a board.",
     "top ns pairs": "North-South pairs with the best score on a board.",
     "traveler": "The set of table results for a board.",
@@ -2397,7 +2407,6 @@
     STATE.filters = defaultFilters();
     if (STATE.results) STATE.filters.played = "played";
     renderAll();
-    collapseSummaryPanels();
     showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}${STATE.results ? ` and joined ${plural(STATE.results.summary.resultCount, "result")}` : ""}.`);
   }
 
@@ -2417,13 +2426,6 @@
     document.getElementById("fileSubtitle").textContent = "Open a Portable Bridge Notation hand record.";
     renderAll();
     showToast(hadData ? "Cleared loaded files." : "No loaded files to clear.");
-  }
-
-  function collapseSummaryPanels() {
-    ["headerInfoDisclosure", "dataQualityDisclosure"].forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) element.open = false;
-    });
   }
 
   function pbnHeaderDetails(analysis) {
@@ -3173,12 +3175,12 @@
         <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
       </div>
-      ${renderPracticePriorities(report)}
       ${renderPairProfile(report)}
-      ${renderTopReviewPriorities(report)}
+      ${renderPracticePriorities(report)}
       ${renderDecisionTypeSummary(report)}
       ${renderSwingReview(report)}
       ${renderLossLedger(report)}
+      ${renderTopReviewPriorities(report)}
       ${renderReviewQueue(report)}
     `;
     panel.classList.remove("hidden");
@@ -3198,7 +3200,7 @@
               <div class="priority-rank">${escapeHtml(index + 1)}</div>
               <div class="practice-card-body">
                 <div class="practice-card-head">
-                  <strong>${escapeHtml(priority.title)}</strong>
+                  <strong>${term(priority.title)}</strong>
                   <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
                 </div>
                 ${priority.boards && priority.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 6)}</div>` : ""}
@@ -3273,8 +3275,7 @@
     return `
       <section class="review-priority-strip">
         <div class="section-kicker">
-          <h3>Top Review Priorities</h3>
-          <p>Start here before reading the full ledger.</p>
+          <h3>${term("Top Boards To Review")}</h3>
         </div>
         <div class="priority-card-grid">
           ${items.map((item, index) => {
@@ -3326,7 +3327,7 @@
               <article class="decision-type-card ${escapeHtml(type.tone || "")}">
                 <div class="decision-type-head">
                   <div>
-                    <strong>${escapeHtml(type.label)}</strong>
+                    <strong>${term(type.label)}</strong>
                     <span>${escapeHtml(type.categoryLabels.join(", "))}</span>
                   </div>
                   <b>${escapeHtml(formatMp(type.totalLoss))} MP</b>
@@ -3521,12 +3522,13 @@
   }
 
   function renderReviewQueue(report) {
-    if (!report.reviewItems.length) return `<div class="empty-state">No obvious review candidates found for this pair.</div>`;
+    const items = report.reviewItems.slice(3);
+    if (!items.length) return `<div class="empty-state">No additional notable boards found for this pair.</div>`;
     return `
       <section class="priority-review">
-        <h3>Full Review Queue</h3>
+        <h3>${term("Other Notable Boards")}</h3>
         <div class="review-list">
-          ${report.reviewItems.map(renderReviewItem).join("")}
+          ${items.map(renderReviewItem).join("")}
         </div>
       </section>
     `;
