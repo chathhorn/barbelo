@@ -2443,7 +2443,7 @@
     return `
       <div class="loss-advice">
         <span class="collie-head" aria-hidden="true">
-          <img src="assets/bc-avatar.jpg" alt="" loading="lazy" decoding="async">
+          <img src="assets/bc-avatar.png" alt="" loading="lazy" decoding="async">
         </span>
         <p>${escapeHtml(advice)}</p>
       </div>
