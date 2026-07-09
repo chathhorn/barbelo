@@ -1553,7 +1553,7 @@
         "actual contract": "The contract actually played at the table, when the PBN or uploaded result file supplies it.",
         "actual declarer": "The player or seat that declared the actual contract in the PBN tags.",
         "actual result": "The number of tricks made or defeated for the actual contract.",
-        "actual scores vs par": "Compares uploaded table scores with the par score stored in the PBN hand record.",
+        "actual scores vs par": "Compares uploaded table scores with the PBN par score. Actual averages can be above or below par because par assumes optimal bidding and play.",
         "all ff pages": "Jet database pages filled with 0xFF bytes. Large runs can indicate erased, unused, or unreadable areas.",
         "avg abs par": "Average absolute distance from par, ignoring whether the result was above or below par.",
         "avg board": "The selected pair's average board percentage across its played boards.",
@@ -4223,7 +4223,7 @@
         const scoreCaption = document.getElementById("scoreChartCaption");
         if (results) {
           setTermElementText(scoreTitle, "Actual Scores Vs Par");
-          scoreCaption.textContent = "Average table result by played board, scored from the NS perspective.";
+          scoreCaption.textContent = "Average table result by played board, scored from the NS perspective. The black tick is theoretical PBN par, not a cap on actual results.";
           document.getElementById("scoreChart").innerHTML = renderResultScoreChart(results);
         } else {
           setTermElementText(scoreTitle, "Par Score By Board");
