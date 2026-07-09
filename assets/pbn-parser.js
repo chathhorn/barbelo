@@ -99,7 +99,7 @@
         const startsNextRecord =
           current &&
           Object.keys(current.tags).length > 0 &&
-          (tag.key === "Event" || (tag.key === "Board" && current.tags.Board));
+          Object.prototype.hasOwnProperty.call(current.tags, tag.key);
         if (startsNextRecord) {
           records.push(current);
           current = makeRecord(lineNo);

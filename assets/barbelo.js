@@ -577,6 +577,8 @@
   }
 
   function safeNumber(value) {
+    if (value == null) return null;
+    if (typeof value === "string" && !value.trim()) return null;
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }
@@ -696,11 +698,11 @@
 
   function normalizeVulnerability(value) {
     const text = String(value || "").trim();
-    if (/^none$/i.test(text) || text === "-") return "None";
-    if (/^all$/i.test(text) || /^both$/i.test(text)) return "All";
+    if (/^(none|love)$/i.test(text) || text === "-") return "None";
+    if (/^(all|both)$/i.test(text)) return "All";
     if (/^n-?s$/i.test(text)) return "NS";
     if (/^e-?w$/i.test(text)) return "EW";
-    return text || "";
+    return "";
   }
 
   function standardDealer(boardNo) {
@@ -737,8 +739,9 @@
   function normalizeBoard(record, index) {
     const tags = record.tags;
     const boardNo = safeNumber(tags.Board) || index + 1;
-    const dealer = String(tags.Dealer || "").toUpperCase();
-    const vulnerable = normalizeVulnerability(tags.Vulnerable);
+    const dealerTag = String(tags.Dealer || "").toUpperCase();
+    const dealer = SEATS.includes(dealerTag) ? dealerTag : standardDealer(boardNo);
+    const vulnerable = normalizeVulnerability(tags.Vulnerable) || standardVulnerability(boardNo);
     const deal = parseDeal(tags.Deal);
     const hands = {};
     SEATS.forEach((seat) => {
@@ -756,10 +759,12 @@
     const voids = [];
     const longSuits = [];
 
-    SEATS.forEach((seat) => {
-      hands[seat].voids.forEach((suit) => voids.push(`${seat} ${suit}`));
-      if (hands[seat].longestLength >= 7) longSuits.push(`${seat} ${hands[seat].longestLength}${hands[seat].longestSuit}`);
-    });
+    if (deal.valid) {
+      SEATS.forEach((seat) => {
+        hands[seat].voids.forEach((suit) => voids.push(`${seat} ${suit}`));
+        if (hands[seat].longestLength >= 7) longSuits.push(`${seat} ${hands[seat].longestLength}${hands[seat].longestSuit}`);
+      });
+    }
 
     const issues = [...deal.issues];
     if (!tags.Deal) issues.push("No deal to analyze");
@@ -919,11 +924,16 @@
     if (!contract.level) return null;
     const target = contract.level + 6;
     const result = normalizeResultValue(resultText);
-    if (!result || result === "=") return target;
-    const offset = result.match(/^([+-])\s*(\d+)$/);
-    if (offset) return target + (offset[1] === "+" ? 1 : -1) * Number(offset[2]);
-    if (/^\d+$/.test(result)) return Number(result);
-    return null;
+    if (!result) return null;
+    let tricks = null;
+    if (result === "=") tricks = target;
+    else {
+      const offset = result.match(/^([+-])\s*(\d+)$/);
+      if (offset) tricks = target + (offset[1] === "+" ? 1 : -1) * Number(offset[2]);
+      else if (/^\d+$/.test(result)) tricks = Number(result);
+    }
+    if (tricks == null || tricks < 0 || tricks > 13) return null;
+    return tricks;
   }
 
   function undertrickPenalty(undertricks, vulnerable, doubled) {
@@ -996,7 +1006,11 @@
     const result = normalizeResultValue(pickField(row, ["Result", "result", "Tricks Result"]));
     const board = boardMap.get(String(boardNo));
     const resultBoard = board || fallbackResultBoard(boardNo);
-    const declarerPairOverride = declarerNumber === pairNS ? "NS" : declarerNumber === pairEW ? "EW" : "";
+    const declarerPairOverride = declarerNumber != null && declarerNumber === pairNS
+      ? "NS"
+      : declarerNumber != null && declarerNumber === pairEW
+        ? "EW"
+        : "";
     const scored = scoreDuplicateContract(contract, result, declarerSide, resultBoard.vulnerable, declarerPairOverride);
     const parNS = board && board.optimum.nsPerspective != null ? board.optimum.nsPerspective : null;
     const ddTricksRaw = board && scored.contract.strain && declarerSide ? getDoubleDummyTricks(board, declarerSide, scored.contract.strain) : "";
@@ -1431,9 +1445,18 @@
       warnings.push("No PBN hand record is loaded; par, double-dummy, deal, and HCP analysis will be added after a PBN is opened. Dealer and vulnerability are inferred from standard board numbering for scoring.");
     }
     const playerNumbers = normalizePlayerNumbers(rawResults.playerNumbers || []);
-    const rows = (rawResults.receivedData || [])
+    const normalizedRows = (rawResults.receivedData || [])
       .map((row, index) => normalizeResultRow(row, index, analysis, boardMap))
-      .filter((row) => row && !row.erased);
+      .filter(Boolean);
+    const skippedNoBoard = (rawResults.receivedData || []).length - normalizedRows.length;
+    if (skippedNoBoard) {
+      warnings.push(`${plural(skippedNoBoard, "result row had", "result rows had")} no recognizable board number and ${skippedNoBoard === 1 ? "was" : "were"} skipped.`);
+    }
+    const erasedRowCount = normalizedRows.filter((row) => row.erased).length;
+    if (erasedRowCount) {
+      warnings.push(`${plural(erasedRowCount, "erased (corrected) result row was", "erased (corrected) result rows were")} excluded from scoring.`);
+    }
+    const rows = normalizedRows.filter((row) => !row.erased);
     const pairRosters = buildPairRosters(playerNumbers, rows);
     const rosterProfile = pairRosters.profile || {};
     const useSidePartnerships = !!rosterProfile.teamLikeGroups;
