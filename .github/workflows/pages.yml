@@ -28,6 +28,7 @@ jobs:
           set -euo pipefail
           mkdir -p _site
           cp index.html _site/index.html
+          cp -R assets _site/assets
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
           grep -q "data-version=\"${short_sha}\"" _site/index.html
