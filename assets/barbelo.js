@@ -192,7 +192,7 @@
     "makeable level": "Contract level implied by double-dummy tricks, such as 4 when ten tricks are available.",
     "manual review": "A comparison with a real matchpoint loss where the app could not confidently assign a narrower cause.",
     "matchpoints": "Duplicate scoring points earned by comparing a result against other results on the same board.",
-    "loss bar": "In the matchpoint loss ledger, each bar is scaled to the largest loss category for the selected pair. A full bar marks the category with the most lost MP; shorter bars show relative lost MP, not a board percentage.",
+    "loss bar": "In the matchpoint loss ledger, each bar shows that category's share of the selected pair's total lost MP. It is a percentage of lost matchpoints, not a board or session percentage.",
     "matchpoint loss ledger": "A breakdown of the selected pair's lost matchpoints by comparing each board with same-direction peer results.",
     "missed game/slam": "Matchpoint losses where same-direction peers reached a game or slam bonus that the selected pair did not.",
     "minor fit": "Best combined partnership length in diamonds or clubs.",
@@ -2388,7 +2388,7 @@
 
   function renderLossLedger(report) {
     const ledger = report.lossLedger;
-    const barExplanation = "Bars compare categories within this report: the fullest bar is the largest loss theme, and shorter bars show lost MP relative to that theme.";
+    const barExplanation = "Bars show each category's share of total lost MP in this report.";
     if (!ledger || !ledger.categories.length) {
       return `
         <section class="loss-ledger">
@@ -2400,27 +2400,26 @@
       `;
     }
 
-    const maxLoss = Math.max(...ledger.categories.map((category) => category.totalLoss));
+    const totalLoss = ledger.totalLoss || sum(ledger.categories.map((category) => category.totalLoss));
     return `
       <section class="loss-ledger">
         <div class="loss-ledger-head">
           <h3>${term("Matchpoint Loss Ledger")}</h3>
           <p>
             <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
-            <span class="ledger-bar-note term-tip"${tooltipAttrs(barExplanation)}>Bars are relative to the largest loss theme.</span>
+            <span class="ledger-bar-note term-tip"${tooltipAttrs(barExplanation)}>Bars show each theme's share of total lost MP.</span>
           </p>
         </div>
         <div class="loss-category-list">
-          ${ledger.categories.map((category) => renderLossCategory(category, maxLoss)).join("")}
+          ${ledger.categories.map((category) => renderLossCategory(category, totalLoss)).join("")}
         </div>
       </section>
     `;
   }
 
-  function renderLossCategory(category, maxLoss) {
-    const width = maxLoss ? Math.max(4, (category.totalLoss / maxLoss) * 100) : 0;
-    const relativeWidth = maxLoss ? (category.totalLoss / maxLoss) * 100 : 0;
-    const barExplanation = `${category.label}: ${formatMp(category.totalLoss)} lost MP. The bar is ${relativeWidth.toFixed(1)}% of the largest loss category in this report (${formatMp(maxLoss)} MP), not a board percentage.`;
+  function renderLossCategory(category, totalLoss) {
+    const width = totalLoss ? (category.totalLoss / totalLoss) * 100 : 0;
+    const barExplanation = `${category.label}: ${formatMp(category.totalLoss)} lost MP, ${width.toFixed(1)}% of total lost MP in this report (${formatMp(totalLoss)} MP). This is not a board or session percentage.`;
     const tone = category.tone ? ` ${category.tone}` : "";
     return `
       <article class="loss-category-card${escapeHtml(tone)}">
