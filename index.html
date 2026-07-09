@@ -113,50 +113,49 @@
           <div class="panel-body" id="resultsSummary"></div>
         </section>
 
-        <section class="chart-grid" id="pbnCharts">
-          <article class="panel">
-            <div class="panel-header">
+        <section class="panel" id="pbnCharts">
+          <div class="panel-header">
+            <div>
+              <h2>Visualizations</h2>
+              <p>Par, result, HCP, and strain summaries for the current board set.</p>
+            </div>
+          </div>
+          <div class="panel-body visualization-grid">
+            <section class="visualization-section visualization-main">
               <div>
-                <h2 id="scoreChartTitle">Par Score By Board</h2>
+                <h3 id="scoreChartTitle">Par Score By Board</h3>
                 <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
               </div>
-            </div>
-            <div class="panel-body">
               <div class="chart-wrap" id="scoreChart"></div>
+            </section>
+
+            <div class="visualization-stack">
+              <section class="visualization-section">
+                <h3>Par Strains</h3>
+                <div id="strainChart"></div>
+              </section>
+
+              <section class="visualization-section">
+                <h3>Average HCP</h3>
+                <div id="hcpChart"></div>
+              </section>
             </div>
-          </article>
 
-          <div class="chart-stack">
-            <article class="panel">
-              <div class="panel-header">
-                <h2>Par Strains</h2>
+            <section class="visualization-section visualization-full">
+              <div>
+                <h3>HCP Heat Map</h3>
+                <p>Each row is a seat, each column is a board.</p>
               </div>
-              <div class="panel-body" id="strainChart"></div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-header">
-                <h2>Average HCP</h2>
-              </div>
-              <div class="panel-body" id="hcpChart"></div>
-            </article>
+              <div class="chart-wrap" id="heatMap"></div>
+            </section>
           </div>
         </section>
 
-        <section class="grid-2 hidden" id="resultsCharts">
-          <article class="panel">
-            <div class="panel-header">
-              <h2>Result Contracts</h2>
-            </div>
-            <div class="panel-body" id="resultContractChart"></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <h2>Pair Standings</h2>
-            </div>
-            <div class="panel-body" id="pairStandings"></div>
-          </article>
+        <section class="panel hidden" id="resultsCharts">
+          <div class="panel-header">
+            <h2>Pair Standings</h2>
+          </div>
+          <div class="panel-body" id="pairStandings"></div>
         </section>
 
         <section class="panel hidden" id="pairReportPanel">
@@ -173,27 +172,13 @@
           <div class="panel-body" id="pairReportBody"></div>
         </section>
 
-        <section class="grid-2" id="pbnSupplementGrid">
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <h2>HCP Heat Map</h2>
-                <p>Each row is a seat, each column is a board.</p>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="chart-wrap" id="heatMap"></div>
-            </div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <h2>Notable Boards</h2>
-            </div>
-            <div class="panel-body">
-              <ul class="notable-list" id="notableList"></ul>
-            </div>
-          </article>
+        <section class="panel" id="pbnSupplementGrid">
+          <div class="panel-header">
+            <h2>Notable Boards</h2>
+          </div>
+          <div class="panel-body">
+            <ul class="notable-list" id="notableList"></ul>
+          </div>
         </section>
 
         <section class="panel" id="boardExplorerPanel">

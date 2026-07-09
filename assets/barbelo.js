@@ -2872,6 +2872,13 @@
         <div class="result-summary-card"><strong>${escapeHtml(avgAbsVsPar)}</strong><span>Avg Abs Par</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(ddText)}</strong><span>DD Exact</span></div>
       </div>
+      <section class="results-subsection">
+        <div>
+          <h3>Result Contracts</h3>
+          <p>Traveler contracts grouped by contract class.</p>
+        </div>
+        <div id="resultContractChart">${renderResultContractChart(results)}</div>
+      </section>
       ${renderImportDiagnostics(results)}
     `;
   }
@@ -3001,7 +3008,6 @@
       return;
     }
     section.classList.remove("hidden");
-    document.getElementById("resultContractChart").innerHTML = renderResultContractChart(results);
     document.getElementById("pairStandings").innerHTML = renderPairStandings(results);
     annotateTermTooltips(section);
   }

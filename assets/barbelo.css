@@ -474,15 +474,50 @@ main {
   gap: 18px;
 }
 
-.chart-grid {
+.visualization-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 16px;
 }
 
-.chart-stack {
+.visualization-stack {
   display: grid;
-  gap: 18px;
+  gap: 16px;
+}
+
+.visualization-section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.visualization-section h3,
+.results-subsection h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.visualization-section p,
+.results-subsection p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.visualization-full {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.results-subsection {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
 }
 
 .metadata-grid {
@@ -1427,8 +1462,8 @@ th {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .chart-grid,
   .grid-2,
+  .visualization-grid,
   .csv-grid,
   .file-status-strip,
   .drop-zone {
