@@ -193,17 +193,24 @@
       stroke-width: 1;
     }
 
-    .mark-center {
-      fill: #17212b;
-      stroke: #fff;
-      stroke-width: 1;
-    }
-
     .mark-suit {
       dominant-baseline: central;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
+      text-rendering: geometricPrecision;
+    }
+
+    .mark-name-letter {
+      dominant-baseline: central;
+      fill: #17212b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 3.8px;
+      font-weight: 700;
+      paint-order: stroke;
+      stroke: #fff;
+      stroke-linejoin: round;
+      stroke-width: 0.35px;
       text-rendering: geometricPrecision;
     }
 
@@ -1330,11 +1337,19 @@
             <path class="mark-ray" d="M24 3.6v8.3M24 36.1v8.3M3.6 24h8.3M36.1 24h8.3"></path>
             <ellipse class="mark-orbit" cx="24" cy="24" rx="9" ry="22.1"></ellipse>
             <ellipse class="mark-orbit mark-orbit-alt" cx="24" cy="24" rx="9" ry="22.1"></ellipse>
-            <circle class="mark-center" cx="24" cy="24" r="2.5"></circle>
-            <text class="mark-suit mark-spade" x="24" y="9.8" text-anchor="middle">&spades;</text>
-            <text class="mark-suit mark-heart" x="37.4" y="24.8" text-anchor="middle">&hearts;</text>
+            <g class="mark-name-ring">
+              <text class="mark-name-letter" x="24" y="19.2" text-anchor="middle">&Beta;</text>
+              <text class="mark-name-letter" x="27.8" y="21" text-anchor="middle">&Alpha;</text>
+              <text class="mark-name-letter" x="28.7" y="25.1" text-anchor="middle">&Rho;</text>
+              <text class="mark-name-letter" x="26.1" y="28.3" text-anchor="middle">&Beta;</text>
+              <text class="mark-name-letter" x="21.9" y="28.3" text-anchor="middle">&Eta;</text>
+              <text class="mark-name-letter" x="19.3" y="25.1" text-anchor="middle">&Lambda;</text>
+              <text class="mark-name-letter" x="20.2" y="21" text-anchor="middle">&Omega;</text>
+            </g>
+            <text class="mark-suit mark-spade" x="24" y="9" text-anchor="middle">&spades;</text>
+            <text class="mark-suit mark-heart" x="37.4" y="23.9" text-anchor="middle">&hearts;</text>
             <text class="mark-suit mark-diamond" x="24" y="38.9" text-anchor="middle">&diams;</text>
-            <text class="mark-suit mark-club" x="10.6" y="24.8" text-anchor="middle">&clubs;</text>
+            <text class="mark-suit mark-club" x="10.6" y="23.9" text-anchor="middle">&clubs;</text>
           </svg>
         </div>
         <div>
