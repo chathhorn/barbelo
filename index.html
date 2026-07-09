@@ -328,6 +328,32 @@
       padding: 16px;
     }
 
+    .panel-disclosure > summary.panel-header {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .panel-disclosure > summary.panel-header::-webkit-details-marker {
+      display: none;
+    }
+
+    .panel-disclosure > summary.panel-header::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .panel-disclosure[open] > summary.panel-header::after {
+      content: "-";
+    }
+
+    .panel-disclosure:not([open]) > summary.panel-header {
+      border-bottom: 0;
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1302,27 +1328,31 @@
 
         <section class="grid-2">
           <article class="panel">
-            <div class="panel-header">
-              <div>
-                <h2>Header Info</h2>
-                <p id="headerCaption"></p>
+            <details class="panel-disclosure" id="headerInfoDisclosure">
+              <summary class="panel-header">
+                <div>
+                  <h2>Header Info</h2>
+                  <p id="headerCaption"></p>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="metadata-grid" id="metadataGrid"></div>
               </div>
-            </div>
-            <div class="panel-body">
-              <div class="metadata-grid" id="metadataGrid"></div>
-            </div>
+            </details>
           </article>
 
           <article class="panel">
-            <div class="panel-header">
-              <div>
-                <h2>Data Quality</h2>
-                <p id="qualityCaption"></p>
+            <details class="panel-disclosure" id="dataQualityDisclosure">
+              <summary class="panel-header">
+                <div>
+                  <h2>Data Quality</h2>
+                  <p id="qualityCaption"></p>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <ul class="quality-list" id="qualityList"></ul>
               </div>
-            </div>
-            <div class="panel-body">
-              <ul class="quality-list" id="qualityList"></ul>
-            </div>
+            </details>
           </article>
         </section>
 
@@ -1641,6 +1671,7 @@
         "ns matchpoints": "Matchpoints awarded to North-South for the traveler row.",
         "ns percent": "North-South matchpoint score as a percentage of the board top.",
         "ns score": "Score from North-South's perspective. Positive favors NS; negative favors EW.",
+        "nt": "No-trump: a contract strain with no trump suit.",
         "optimum": "Best theoretical score for the deal, usually derived from PBN par or double-dummy data.",
         "optimum score": "The PBN score for best theoretical play and bidding on the board.",
         "optimum side": "The side, NS or EW, favored by the optimum score.",
@@ -1663,6 +1694,7 @@
         "par strain": "The denomination of the par contract: NT, spades, hearts, diamonds, or clubs.",
         "par strains": "Distribution of par-contract denominations across the file.",
         "partscore": "A contract below game level.",
+        "passout": "A board where all players pass and no contract is played.",
         "pbn": "Portable Bridge Notation, a text format for bridge deals and related tags.",
         "pct": "Percentage of available matchpoints earned.",
         "percent": "Percentage of available matchpoints earned.",
@@ -1691,10 +1723,6 @@
         "slam-level": "A contract at level 6 or 7.",
         "slam potential": "Double-dummy analysis suggests a slam may have been available, but the table result did not reach it.",
         "small loss": "A modest below-average board with no single stronger diagnostic reason.",
-        "spades": "The spade suit.",
-        "hearts": "The heart suit.",
-        "diamonds": "The diamond suit.",
-        "clubs": "The club suit.",
         "tail": "Trailing bytes at the end of the file after dividing it into candidate Jet pages.",
         "table": "Physical table number for a result row.",
         "tag": "A bracketed PBN field such as Event, Dealer, Deal, or Vulnerable.",
@@ -1732,12 +1760,17 @@
         "ew players": "players",
         "ew score": "ns score",
         "ew score perspective": "ew score",
+        "game level": "game-level",
         "hcp delta": "hcp delta ns",
+        "no trump": "nt",
+        "notrump": "nt",
         "ns ew": "declarer",
         "ns mp": "ns matchpoints",
         "ns partnership": "pair ns",
         "ns players": "players",
         "pair results": "pair standings",
+        "pass out": "passout",
+        "passed out": "passout",
         "pbn par contract": "par contract",
         "pbn par ns score": "par",
         "player": "players",
@@ -1746,6 +1779,7 @@
         "scored count": "result count",
         "scored rows": "result rows",
         "selected page profile": "selected page size",
+        "slam level": "slam-level",
         "source": "result file",
         "top received data rejections": "rejected row slices",
         "tricks taken": "tricks"
@@ -1841,6 +1875,7 @@
           "th",
           ".metric .label",
           ".metadata-item .key",
+          ".count-tile span",
           ".result-summary-card span",
           ".board-stat span",
           ".review-stat span",
@@ -3682,6 +3717,7 @@
         STATE.selectedColumns = new Set(defaultColumnKeys("boards", analysis));
         STATE.filters = defaultFilters();
         renderAll();
+        collapseSummaryPanels();
         showToast(`Loaded ${plural(analysis.summary.boardCount, "board")}.`);
       }
 
@@ -3697,6 +3733,34 @@
         document.getElementById("fileSubtitle").textContent = "Open a Portable Bridge Notation hand record.";
         renderAll();
         showToast(hadData ? "Cleared loaded files." : "No loaded files to clear.");
+      }
+
+      function collapseSummaryPanels() {
+        ["headerInfoDisclosure", "dataQualityDisclosure"].forEach((id) => {
+          const element = document.getElementById(id);
+          if (element) element.open = false;
+        });
+      }
+
+      function pbnHeaderDetails(analysis) {
+        if (!analysis) return { event: "", date: "" };
+        const firstBoard = analysis && analysis.boards ? analysis.boards[0] || { tags: {} } : { tags: {} };
+        return {
+          event: firstDirective(analysis, ["HRTitleEvent"]) || firstBoard.tags.Event || "",
+          date: firstDirective(analysis, ["HRTitleDate"]) || firstBoard.tags.Date || ""
+        };
+      }
+
+      function appSubtitle(analysis, results) {
+        if (!analysis) return "Open a Portable Bridge Notation hand record.";
+        const details = pbnHeaderDetails(analysis);
+        const pieces = [];
+        const event = String(details.event || "").replace(/\s+/g, " ").trim();
+        const date = String(details.date || "").replace(/\s+/g, " ").trim();
+        if (event) pieces.push(event);
+        if (date) pieces.push(date);
+        pieces.push(`${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}${results ? `, ${plural(results.summary.resultCount, "result")}` : ""}`);
+        return pieces.join(" | ");
       }
 
       function setCurrentResults(rawResults) {
@@ -3733,7 +3797,7 @@
         }
 
         dashboard.classList.remove("hidden");
-        document.getElementById("fileSubtitle").textContent = `${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}${STATE.results ? `, ${plural(STATE.results.summary.resultCount, "result")}` : ""}`;
+        document.getElementById("fileSubtitle").textContent = appSubtitle(analysis, STATE.results);
         document.getElementById("boardSearch").value = STATE.filters.search;
         document.getElementById("sideFilter").value = STATE.filters.side;
         document.getElementById("classFilter").value = STATE.filters.className;
@@ -4320,7 +4384,7 @@
 
         const legend = counts.map((entry) => `
           <span class="legend-item">
-            <span class="swatch" style="background:${entry.color}"></span>${escapeHtml(entry.label)} ${entry.count}
+            <span class="swatch" style="background:${entry.color}"></span>${term(entry.label)} ${escapeHtml(entry.count)}
           </span>
         `).join("");
 
