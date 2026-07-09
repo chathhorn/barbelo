@@ -857,6 +857,55 @@ svg {
   white-space: nowrap;
 }
 
+.result-summary-card.compatibility.warning,
+.result-summary-card.compatibility.partial,
+.result-summary-card.compatibility.unknown {
+  border-color: rgba(183, 121, 31, 0.36);
+  background: #fffaf0;
+}
+
+.result-summary-card.compatibility.mismatch {
+  border-color: rgba(187, 63, 69, 0.40);
+  background: #fff3f4;
+}
+
+.compatibility-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.compatibility-panel.gold {
+  border-color: rgba(183, 121, 31, 0.36);
+  background: #fffaf0;
+}
+
+.compatibility-panel.red {
+  border-color: rgba(187, 63, 69, 0.40);
+  background: #fff3f4;
+}
+
+.compatibility-panel h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.compatibility-panel p,
+.compatibility-panel li {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.compatibility-panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .standings-table td:last-child {
   min-width: 110px;
 }
