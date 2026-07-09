@@ -1672,8 +1672,10 @@
 
   function bestMakeableForPair(board, pair) {
     if (!board || !board.optimumRows.length) return { className: "Unknown", rank: 0, text: "" };
-    const best = board.optimumRows
-      .filter((row) => row.pair === pair)
+    const pairRows = board.optimumRows.filter((row) => row.pair === pair);
+    if (!pairRows.length) return { className: "Unknown", rank: 0, text: "" };
+    const best = pairRows
+      .filter((row) => row.makeableLevel >= 1)
       .map((row) => {
         const className = classifyContract(row.makeableLevel, row.denomination);
         return {
@@ -1684,7 +1686,7 @@
         };
       })
       .sort((a, b) => b.rank - a.rank || b.makeableLevel - a.makeableLevel)[0];
-    return best || { className: "Unknown", rank: 0, text: "" };
+    return best || { className: "None", rank: 0, text: "Nothing makes" };
   }
 
   function contractTarget(contract) {
@@ -2073,14 +2075,13 @@
     const partscoreContext = targetContractRank <= 1 && peerContractRank <= 1;
 
     if (loss === 0.5 && scoreDelta === 0) return { key: "tieSplit" };
+    if (sameContract && targetDeclared && peerDeclared && row.tricks != null && peerRow.tricks != null && peerRow.tricks > row.tricks) {
+      return { key: "declarerTricks" };
+    }
+    if (sameContract && !targetDeclared && !peerDeclared) return { key: "defensiveTricks" };
     if (targetContract.doubled || peerContract.doubled) return { key: "penaltyDouble" };
     if (targetFailed && (scoreDelta >= 200 || peerMade || !peerDeclared)) return { key: "overreach" };
     if (peerDeclared && peerRank >= 2 && peerRank > targetRank && peerMade !== false) return { key: "missedGameSlam" };
-
-    if (targetDeclared && peerDeclared && sameContract && row.tricks != null && peerRow.tricks != null && peerRow.tricks > row.tricks) {
-      return { key: "declarerTricks" };
-    }
-    if (!targetDeclared && !peerDeclared && sameContract) return { key: "defensiveTricks" };
 
     if (targetDeclared && peerDeclared && targetContract.strain && peerContract.strain && targetContract.strain !== peerContract.strain) {
       const levelGap = Math.abs((targetContract.level || 0) - (peerContract.level || 0));
@@ -2092,7 +2093,7 @@
     }
     if (targetDeclared && peerDeclared && !sameContract) return { key: "contractSelection" };
     if (targetDeclared !== peerDeclared) return { key: "competitiveAuction" };
-    if (!targetDeclared) return { key: "defensiveTricks" };
+    if (!targetDeclared) return { key: "competitiveAuction" };
     return { key: "outlier" };
   }
 
@@ -2286,14 +2287,14 @@
     const strengths = [];
     const weaknesses = [];
 
-    if (strongestRole) {
+    if (strongestRole && strongestRole.percent >= 50) {
       strengths.push({
         label: "Best Role",
         value: `${strongestRole.label} ${strongestRole.percent.toFixed(1)}%`,
         detail: `${plural(strongestRole.count, "board")} in this role.`
       });
     }
-    if (strongestContract && (!strongestRole || strongestContract.label !== strongestRole.label)) {
+    if (strongestContract && strongestContract.percent >= 50 && (!strongestRole || strongestContract.label !== strongestRole.label)) {
       strengths.push({
         label: "Best Contract Class",
         value: `${strongestContract.label} ${strongestContract.percent.toFixed(1)}%`,
@@ -2315,14 +2316,14 @@
         detail: `${formatMp(topCategory.totalLoss)} lost MP on ${plural(topCategory.boardCount, "board")}.`
       });
     }
-    if (weakestRole) {
+    if (weakestRole && weakestRole.percent < 50) {
       weaknesses.push({
         label: "Weakest Role",
         value: `${weakestRole.label} ${weakestRole.percent.toFixed(1)}%`,
         detail: `${plural(weakestRole.count, "board")} in this role.`
       });
     }
-    if (weakestContract) {
+    if (weakestContract && weakestContract.percent < 50) {
       weaknesses.push({
         label: "Weakest Contract Class",
         value: `${weakestContract.label} ${weakestContract.percent.toFixed(1)}%`,
@@ -2422,7 +2423,7 @@
       };
     });
     const candidates = analyzed.filter((item) => item.reasons.length || item.severity >= 20);
-    const reviewed = (candidates.length ? candidates : analyzed)
+    const reviewed = candidates
       .sort((a, b) => b.severity - a.severity || (a.percent || 0) - (b.percent || 0))
       .slice(0, 10);
     const percents = views.map((view) => view.percent).filter((value) => value != null);
@@ -3232,7 +3233,7 @@
   }
 
   function renderPairStandings(results) {
-    const standings = results.pairStandings.slice(0, 10);
+    const standings = results.pairStandings;
     if (!standings.length) return `<div class="empty-state">No pair standings could be calculated.</div>`;
     return `
       <table class="standings-table">
@@ -3399,7 +3400,11 @@
 
   function renderTopReviewPriorities(report) {
     const items = report.reviewItems.slice(0, 3);
-    if (!items.length) return "";
+    if (!items.length) {
+      return renderReportSubsection("review-priority-strip", "Top Boards To Review", `
+        <div class="empty-state">No boards were flagged for review; no significant matchpoint losses stood out for this pair.</div>
+      `);
+    }
     return renderReportSubsection("review-priority-strip", "Top Boards To Review", `
         <div class="priority-card-grid">
           ${items.map((item, index) => {
@@ -3504,7 +3509,7 @@
           <div class="review-stat"><span>Selected Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
           <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
           <div class="review-stat"><span>Diagnosis</span><strong>${escapeHtml(item.diagnosis.categoryLabel)}</strong></div>
-          <div class="review-stat"><span>Lost MP</span><strong>${escapeHtml(formatMp(item.diagnosis.lostMp))}</strong></div>
+          <div class="review-stat"><span>Lost MP</span><strong>${escapeHtml(formatMp(item.mpLoss))}</strong></div>
         </div>
         ${renderLossAdvice(item.diagnosis.explanation)}
         ${renderPeerComparisonTable(item.peerComparison)}
@@ -3525,7 +3530,7 @@
             <tr>
               ${th("Pair")}
               ${th("Contract")}
-              ${th("Score", "numeric")}
+              ${th("Score", "numeric", "Score from the selected pair's direction on this board; positive means points won by that direction.")}
               ${th("MP", "numeric")}
               ${th("Pct", "numeric")}
               ${th("Score Delta", "numeric", "Score difference from the selected pair's result, from the selected pair's direction.")}
