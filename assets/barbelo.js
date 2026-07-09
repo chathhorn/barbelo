@@ -2965,7 +2965,7 @@
     return `
       <div class="diagnostics-panel">
         <div class="diagnostics-summary">${escapeHtml(summaryText)}</div>
-        <div class="diagnostics-grid">
+        <div class="diagnostics-grid bws-diagnostics-grid">
           <div class="metadata-item"><div class="key">${term("File Size")}</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
           <div class="metadata-item"><div class="key">${term("Jet Signature")}</div><div class="val">${escapeHtml(diagnostics.signature || "Missing")}</div></div>
           <div class="metadata-item"><div class="key">${term("Recognized Jet")}</div><div class="val">${escapeHtml(diagnostics.recognizedJet ? "yes" : "no")}</div></div>

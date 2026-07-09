@@ -1331,6 +1331,25 @@ details.board-details summary {
   gap: 10px;
 }
 
+.bws-diagnostics-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.bws-diagnostics-grid .metadata-item {
+  flex: 1 0 max-content;
+}
+
+.bws-diagnostics-grid .metadata-item .key,
+.bws-diagnostics-grid .metadata-item .val {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .diagnostics-note {
   color: var(--muted);
   font-size: 13px;
