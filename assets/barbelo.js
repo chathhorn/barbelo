@@ -2443,25 +2443,7 @@
     return `
       <div class="loss-advice">
         <span class="collie-head" aria-hidden="true">
-          <svg viewBox="0 0 64 64" focusable="false">
-            <path class="collie-coat" d="M14 63c2.2-9.2 8.8-15 18-15s15.8 5.8 18 15Z"></path>
-            <path class="collie-lapel" d="M20 62 29 49l3 9-5 5Z"></path>
-            <path class="collie-lapel right" d="M44 62 35 49l-3 9 5 5Z"></path>
-            <path class="collie-collar" d="M25 48c1.5 2.2 3.8 3.4 7 3.4s5.5-1.2 7-3.4"></path>
-            <path class="collie-ear" d="M21 23 9 7c-.6-.8.2-2 1.2-1.6L28 13Z"></path>
-            <path class="collie-ear right" d="M43 23 55 7c.6-.8-.2-2-1.2-1.6L36 13Z"></path>
-            <ellipse class="collie-face" cx="32" cy="30" rx="20" ry="19"></ellipse>
-            <path class="collie-cheek" d="M12.5 30.5c0-7.7 4.3-14.3 11.1-17.6 2.8 6.4 2.7 13-.2 19.7-2 4.5-1.5 8.2 1.5 11.3-7.2-2.4-12.4-7.4-12.4-13.4Z"></path>
-            <path class="collie-cheek right" d="M51.5 30.5c0-7.7-4.3-14.3-11.1-17.6-2.8 6.4-2.7 13 .2 19.7 2 4.5 1.5 8.2-1.5 11.3 7.2-2.4 12.4-7.4 12.4-13.4Z"></path>
-            <path class="collie-stripe" d="M28.8 10.8c2.6-1.3 4.3-1.3 6.9 0 .4 6.8-.1 12.4-1.5 16.8-.8 2.7-.5 5.1 1 7.2 1.4 2 .9 4.8-1 6.1l-2.3 1.6-2.3-1.6c-1.9-1.3-2.4-4.1-1-6.1 1.5-2.1 1.8-4.5 1-7.2-1.3-4.4-1.8-10-1.4-16.8Z"></path>
-            <circle class="collie-eye" cx="24.1" cy="29" r="2.4"></circle>
-            <circle class="collie-eye right" cx="39.9" cy="29" r="2.4"></circle>
-            <path class="collie-brow" d="M20.6 25.3c2.1-1.2 4.1-1.3 6-.2m10.8 0c2-1.1 4-.9 6 .2"></path>
-            <ellipse class="collie-muzzle" cx="32" cy="39" rx="8.6" ry="6.6"></ellipse>
-            <path class="collie-nose" d="M28.5 36.4c2-1.1 5-1.1 7 0 .7.4.7 1.3.1 1.8l-2.4 1.7c-.7.5-1.6.5-2.3 0l-2.4-1.7c-.7-.5-.7-1.4 0-1.8Z"></path>
-            <path class="collie-mouth" d="M32 39.6v3.1m0 0c-1.6 1.3-3.2 1.4-4.9.3m4.9-.3c1.6 1.3 3.2 1.4 4.9.3"></path>
-            <path class="collie-whisker" d="M22.4 37.8h4.1m-4.5 3.4 4.4-1.1m15.2-2.3h-4.1m4.5 3.4-4.4-1.1"></path>
-          </svg>
+          <img src="assets/bc-avatar.jpg" alt="" loading="lazy" decoding="async">
         </span>
         <p>${escapeHtml(advice)}</p>
       </div>

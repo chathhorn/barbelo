@@ -1180,76 +1180,28 @@ details.board-details summary {
 
 .loss-advice {
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr);
+  grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
 
 .collie-head {
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   border: 1px solid rgba(23, 33, 43, 0.12);
-  border-radius: 50%;
+  border-radius: 10px;
   background: #edf4f1;
   box-shadow: 0 4px 12px rgba(23, 33, 43, 0.08);
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
-.collie-head svg {
-  width: 48px;
-  height: 48px;
-}
-
-.collie-ear,
-.collie-face {
-  fill: #17212b;
-}
-
-.collie-cheek,
-.collie-muzzle,
-.collie-stripe {
-  fill: #fff;
-}
-
-.collie-stripe {
-  stroke: rgba(23, 33, 43, 0.12);
-  stroke-width: 0.7;
-}
-
-.collie-eye,
-.collie-nose {
-  fill: #101820;
-}
-
-.collie-coat {
-  fill: #b98b55;
-}
-
-.collie-lapel {
-  fill: #e1c395;
-  stroke: rgba(73, 53, 34, 0.45);
-  stroke-width: 0.9;
-}
-
-.collie-collar,
-.collie-brow,
-.collie-mouth,
-.collie-whisker {
-  fill: none;
-  stroke: #101820;
-  stroke-width: 1.4;
-  stroke-linecap: round;
-}
-
-.collie-collar {
-  stroke: rgba(73, 53, 34, 0.8);
-  stroke-width: 1.3;
-}
-
-.collie-brow,
-.collie-whisker {
-  stroke-width: 1.1;
+.collie-head img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .loss-advice p {
