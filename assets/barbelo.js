@@ -3340,7 +3340,27 @@
     showToast("Drop a PBN hand record or a BWS/CSV results file.", "error");
   }
 
+  function setupSummaryControls() {
+    const selector = [
+      "summary.panel-header .summary-control",
+      "summary.panel-header button",
+      "summary.panel-header select",
+      "summary.panel-header input",
+      "summary.panel-header label"
+    ].join(",");
+    const controls = document.querySelectorAll(selector);
+    controls.forEach((control) => {
+      ["click", "mousedown", "pointerdown", "keydown"].forEach((eventName) => {
+        control.addEventListener(eventName, (event) => {
+          event.stopPropagation();
+        });
+      });
+    });
+  }
+
   function setupEvents() {
+    setupSummaryControls();
+
     const fileInputs = [document.getElementById("pbnFile")];
     fileInputs.forEach((input) => {
       input.addEventListener("change", (event) => {

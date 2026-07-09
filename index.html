@@ -104,13 +104,15 @@
         </section>
 
         <section class="panel" id="resultsPanel">
-          <div class="panel-header">
-            <div>
-              <h2>Results File</h2>
-              <p id="resultsCaption"></p>
-            </div>
-          </div>
-          <div class="panel-body" id="resultsSummary"></div>
+          <details class="panel-disclosure" id="resultsDisclosure" open>
+            <summary class="panel-header">
+              <div>
+                <h2>Results File</h2>
+                <p id="resultsCaption"></p>
+              </div>
+            </summary>
+            <div class="panel-body" id="resultsSummary"></div>
+          </details>
         </section>
 
         <section class="panel" id="pbnCharts">
@@ -154,129 +156,139 @@
         </section>
 
         <section class="panel hidden" id="resultsCharts">
-          <div class="panel-header">
-            <h2>Pair Standings</h2>
-          </div>
-          <div class="panel-body" id="pairStandings"></div>
+          <details class="panel-disclosure" id="pairStandingsDisclosure" open>
+            <summary class="panel-header">
+              <h2>Pair Standings</h2>
+            </summary>
+            <div class="panel-body" id="pairStandings"></div>
+          </details>
         </section>
 
         <section class="panel hidden" id="pairReportPanel">
-          <div class="panel-header">
-            <div>
-              <h2>Pair Improvement Report</h2>
-              <p id="pairReportCaption"></p>
-            </div>
-            <div class="report-actions">
-              <label for="reportPairSelect">Pair</label>
-              <select id="reportPairSelect"></select>
-            </div>
-          </div>
-          <div class="panel-body" id="pairReportBody"></div>
+          <details class="panel-disclosure" id="pairReportDisclosure" open>
+            <summary class="panel-header">
+              <div>
+                <h2>Pair Improvement Report</h2>
+                <p id="pairReportCaption"></p>
+              </div>
+              <div class="report-actions summary-control">
+                <label for="reportPairSelect">Pair</label>
+                <select id="reportPairSelect"></select>
+              </div>
+            </summary>
+            <div class="panel-body" id="pairReportBody"></div>
+          </details>
         </section>
 
         <section class="panel" id="pbnSupplementGrid">
-          <div class="panel-header">
-            <h2>Notable Boards</h2>
-          </div>
-          <div class="panel-body">
-            <ul class="notable-list" id="notableList"></ul>
-          </div>
+          <details class="panel-disclosure" id="notableBoardsDisclosure" open>
+            <summary class="panel-header">
+              <h2>Notable Boards</h2>
+            </summary>
+            <div class="panel-body">
+              <ul class="notable-list" id="notableList"></ul>
+            </div>
+          </details>
         </section>
 
         <section class="panel" id="boardExplorerPanel">
-          <div class="panel-header">
-            <div>
-              <h2>Board Explorer</h2>
-              <p id="boardCountCaption"></p>
+          <details class="panel-disclosure" id="boardExplorerDisclosure" open>
+            <summary class="panel-header">
+              <div>
+                <h2>Board Explorer</h2>
+                <p id="boardCountCaption"></p>
+              </div>
+            </summary>
+            <div class="panel-body">
+              <div class="board-toolbar">
+                <div>
+                  <label for="boardSearch">Search</label>
+                  <input type="search" id="boardSearch" placeholder="Board, contract, vulnerability, hand">
+                </div>
+                <div>
+                  <label for="sideFilter">Par Edge</label>
+                  <select id="sideFilter">
+                    <option value="all">All</option>
+                    <option value="NS">NS edge</option>
+                    <option value="EW">EW edge</option>
+                    <option value="Flat">Flat or unknown</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="classFilter">Contract Class</label>
+                  <select id="classFilter">
+                    <option value="all">All</option>
+                    <option value="Slam-level">Slam-level</option>
+                    <option value="Game-level">Game-level</option>
+                    <option value="Partscore">Partscore</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="vulFilter">Vulnerability</label>
+                  <select id="vulFilter">
+                    <option value="all">All</option>
+                    <option value="None">None</option>
+                    <option value="NS">NS</option>
+                    <option value="EW">EW</option>
+                    <option value="All">All vul</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="playedFilter">Boards</label>
+                  <select id="playedFilter">
+                    <option value="all">All PBN boards</option>
+                    <option value="played">Played in results</option>
+                    <option value="unplayed">Not in results</option>
+                  </select>
+                </div>
+              </div>
+              <div class="board-grid" id="boardGrid"></div>
             </div>
-          </div>
-          <div class="panel-body">
-            <div class="board-toolbar">
-              <div>
-                <label for="boardSearch">Search</label>
-                <input type="search" id="boardSearch" placeholder="Board, contract, vulnerability, hand">
-              </div>
-              <div>
-                <label for="sideFilter">Par Edge</label>
-                <select id="sideFilter">
-                  <option value="all">All</option>
-                  <option value="NS">NS edge</option>
-                  <option value="EW">EW edge</option>
-                  <option value="Flat">Flat or unknown</option>
-                </select>
-              </div>
-              <div>
-                <label for="classFilter">Contract Class</label>
-                <select id="classFilter">
-                  <option value="all">All</option>
-                  <option value="Slam-level">Slam-level</option>
-                  <option value="Game-level">Game-level</option>
-                  <option value="Partscore">Partscore</option>
-                  <option value="Unknown">Unknown</option>
-                </select>
-              </div>
-              <div>
-                <label for="vulFilter">Vulnerability</label>
-                <select id="vulFilter">
-                  <option value="all">All</option>
-                  <option value="None">None</option>
-                  <option value="NS">NS</option>
-                  <option value="EW">EW</option>
-                  <option value="All">All vul</option>
-                </select>
-              </div>
-              <div>
-                <label for="playedFilter">Boards</label>
-                <select id="playedFilter">
-                  <option value="all">All PBN boards</option>
-                  <option value="played">Played in results</option>
-                  <option value="unplayed">Not in results</option>
-                </select>
-              </div>
-            </div>
-            <div class="board-grid" id="boardGrid"></div>
-          </div>
+          </details>
         </section>
 
         <section class="panel" id="csvPanel">
-          <div class="panel-header">
-            <div>
-              <h2>CSV Builder</h2>
-              <p id="csvCaption"></p>
-            </div>
-            <button type="button" id="downloadCsvButton" class="primary">Download CSV</button>
-          </div>
-          <div class="panel-body">
-            <div class="csv-grid">
+          <details class="panel-disclosure" id="csvDisclosure">
+            <summary class="panel-header">
               <div>
-                <div class="csv-toolbar">
-                  <div>
-                    <label for="rowMode">Rows</label>
-                    <select id="rowMode">
-                      <option value="boards">One row per board</option>
-                      <option value="hands">One row per hand</option>
-                      <option value="pairs">One row per pair</option>
-                      <option value="doubleDummy">One row per double-dummy cell</option>
-                      <option value="tags">One row per board with raw tags</option>
-                      <option value="results">One row per result</option>
-                      <option value="boardResults">One row per board result summary</option>
-                      <option value="pairResults">One row per pair result summary</option>
-                    </select>
+                <h2>CSV Builder</h2>
+                <p id="csvCaption"></p>
+              </div>
+              <button type="button" id="downloadCsvButton" class="primary summary-control">Download CSV</button>
+            </summary>
+            <div class="panel-body">
+              <div class="csv-grid">
+                <div>
+                  <div class="csv-toolbar">
+                    <div>
+                      <label for="rowMode">Rows</label>
+                      <select id="rowMode">
+                        <option value="boards">One row per board</option>
+                        <option value="hands">One row per hand</option>
+                        <option value="pairs">One row per pair</option>
+                        <option value="doubleDummy">One row per double-dummy cell</option>
+                        <option value="tags">One row per board with raw tags</option>
+                        <option value="results">One row per result</option>
+                        <option value="boardResults">One row per board result summary</option>
+                        <option value="pairResults">One row per pair result summary</option>
+                      </select>
+                    </div>
                   </div>
+                  <div class="csv-buttons">
+                    <button type="button" id="selectDefaultColumns">Defaults</button>
+                    <button type="button" id="selectAllColumns">All Columns</button>
+                    <button type="button" id="clearColumns">Clear</button>
+                  </div>
+                  <div class="column-list" id="columnList"></div>
                 </div>
-                <div class="csv-buttons">
-                  <button type="button" id="selectDefaultColumns">Defaults</button>
-                  <button type="button" id="selectAllColumns">All Columns</button>
-                  <button type="button" id="clearColumns">Clear</button>
+                <div>
+                  <label>Preview</label>
+                  <div class="preview-wrap" id="csvPreview"></div>
                 </div>
-                <div class="column-list" id="columnList"></div>
-              </div>
-              <div>
-                <label>Preview</label>
-                <div class="preview-wrap" id="csvPreview"></div>
               </div>
             </div>
-          </div>
+          </details>
         </section>
       </section>
     </main>
