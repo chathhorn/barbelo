@@ -880,6 +880,40 @@
       letter-spacing: 0;
     }
 
+    .diagnostics-panel summary {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink);
+      list-style: none;
+    }
+
+    .diagnostics-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .diagnostics-panel summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .diagnostics-panel[open] summary::after {
+      content: "-";
+    }
+
+    .diagnostics-summary {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: right;
+    }
+
     .diagnostics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1118,6 +1152,38 @@
       border-color: rgba(187, 63, 69, 0.40);
       background: #fff3f4;
       color: #7a252a;
+    }
+
+    .term-tip {
+      cursor: help;
+      text-decoration: underline dotted rgba(36, 87, 166, 0.55);
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1px;
+    }
+
+    .term-tip:focus-visible {
+      outline: 2px solid rgba(36, 87, 166, 0.45);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .tooltip-popup {
+      position: fixed;
+      z-index: 80;
+      max-width: min(340px, calc(100vw - 28px));
+      border: 1px solid rgba(23, 33, 43, 0.18);
+      border-radius: 7px;
+      background: #17212b;
+      color: #fff;
+      box-shadow: 0 16px 34px rgba(23, 33, 43, 0.28);
+      padding: 9px 11px;
+      font-size: 12px;
+      line-height: 1.35;
+      pointer-events: none;
+    }
+
+    .tooltip-popup.hidden {
+      display: none;
     }
 
     @media (max-width: 1120px) {
@@ -1471,6 +1537,7 @@
   </div>
 
   <div class="toast hidden" id="toast"></div>
+  <div class="tooltip-popup hidden" id="termTooltip" role="tooltip"></div>
 
   <script>
     (function () {
@@ -1495,6 +1562,208 @@
       ];
       const RANK_ORDER = "AKQJT98765432";
       const HCP_VALUE = { A: 4, K: 3, Q: 2, J: 1 };
+      const TERM_DEFINITIONS = {
+        "accepted results": "Traveler result rows that the BWS scanner recognized as usable played-board records.",
+        "actual contract": "The contract actually played at the table, when the PBN or uploaded result file supplies it.",
+        "actual declarer": "The player or seat that declared the actual contract in the PBN tags.",
+        "actual result": "The number of tricks made or defeated for the actual contract.",
+        "actual scores vs par": "Compares uploaded table scores with the par score stored in the PBN hand record.",
+        "all ff pages": "Jet database pages filled with 0xFF bytes. Large runs can indicate erased, unused, or unreadable areas.",
+        "avg abs par": "Average absolute distance from par, ignoring whether the result was above or below par.",
+        "avg board": "The selected pair's average board percentage across its played boards.",
+        "avg pair hcp": "Average high-card points for the North-South and East-West partnerships.",
+        "avg result": "Average score from the uploaded traveler rows for that board.",
+        "avg vs par": "Average difference between actual result scores and the PBN par score.",
+        "average dd delta": "Average trick difference between actual play and double-dummy expectation.",
+        "average hcp": "Average high-card points across the loaded boards.",
+        "average ns score": "Average score from North-South's perspective across all results for the board.",
+        "below field": "Boards where the selected pair scored materially below the field average.",
+        "below average board": "A board below average for the selected pair, but not severe enough to be tagged as a low board.",
+        "below par": "The pair's score was worse than the theoretical par score by a meaningful amount.",
+        "best fit": "The longest combined partnership suit length.",
+        "board": "A deal number in the session. Each board has a dealer, vulnerability, four hands, and optional result data.",
+        "board explorer": "The per-board browser for deals, par, double-dummy data, and traveler rows.",
+        "board result summary": "One aggregate row per board, summarizing all uploaded traveler scores for that board.",
+        "boards": "Loaded PBN boards, optionally filtered to boards that do or do not appear in uploaded results.",
+        "bws": "Bridgemate result database file. The app scans it in-browser for traveler rows and player rows.",
+        "bws import diagnostics": "Troubleshooting details from the in-browser Bridgemate BWS database scan.",
+        "csv builder": "Configurable export tool for converting PBN and result analysis into CSV rows and columns.",
+        "csv rows": "Rows read from a CSV result import.",
+        "contract": "The final bridge contract: level, strain, and any doubled/redoubled state.",
+        "contract class": "Broad contract category such as partscore, game-level, slam-level, passout, or unknown.",
+        "contract summary": "Most common contracts found in the traveler rows for a board.",
+        "controls": "Quick honor-control count: aces count 2 and kings count 1.",
+        "data pages": "Jet database pages that look like table data pages during the BWS scan.",
+        "data quality": "Checks for missing tags, invalid deals, result mismatches, and import warnings.",
+        "dd": "Double dummy: the theoretical result with all four hands visible and best play by both sides.",
+        "dd effect": "For the selected pair, how many tricks were gained or lost relative to double-dummy expectation.",
+        "dd exact": "Number of result rows where actual tricks matched the double-dummy trick estimate.",
+        "dd trick losses": "Boards where the selected pair appears to have lost at least one trick versus double-dummy expectation.",
+        "dealer": "The seat that opens the auction on the board.",
+        "decl": "Declarer, abbreviated. This is the seat that played the contract.",
+        "declarer": "The player or seat that plays the contract after winning the auction.",
+        "declarer trick loss vs dd": "The declaring side took one fewer trick than double-dummy analysis suggests was available.",
+        "declarer pair": "The partnership, NS or EW, that declared the contract.",
+        "defensive trick loss vs dd": "The defending side allowed one more trick than double-dummy analysis suggests was necessary.",
+        "declarer score": "The contract score from declarer's perspective before converting to NS perspective.",
+        "denomination": "The contract strain: notrump, spades, hearts, diamonds, or clubs.",
+        "distribution points": "Extra hand-value estimate from short suits, used as a rough distribution measure.",
+        "double dummy": "Theoretical best-play analysis assuming all four hands are visible.",
+        "duplicate results": "Repeated BWS rows for the same board/table/round result that were ignored.",
+        "ew": "East-West partnership.",
+        "ew boards": "Boards where the pair or partnership sat East-West in the uploaded results.",
+        "ew known players": "Number of East-West player identities recovered from BWS PlayerNumbers rows.",
+        "ew matchpoints": "Matchpoints awarded to East-West for the traveler row.",
+        "ew percent": "East-West matchpoint score as a percentage of the board top.",
+        "ew score": "Score from East-West's perspective. In NS-perspective fields this is the negative of the NS score.",
+        "field avg": "Average score achieved by the field on the same board, from the selected pair's perspective.",
+        "file size": "Size of the uploaded result file.",
+        "form": "Small visual meter showing the pair's session percentage.",
+        "competitive auction review": "The auction may be worth reviewing because the opponents reached or bought a strong contract.",
+        "failed contract": "The declaring side did not take enough tricks to make its contract.",
+        "failed doubled contract": "A doubled contract failed; these often create large score swings.",
+        "far below field": "The pair scored much worse than the field average on that board.",
+        "game available": "Whether double-dummy analysis says a game contract can be made.",
+        "game-level": "A contract that reaches game bonus level: 3NT, 4H/4S, or 5C/5D.",
+        "games": "Boards where the PBN par contract is classified as game-level.",
+        "hand": "The cards held by one seat on a board.",
+        "hcp": "High-card points: ace 4, king 3, queen 2, jack 1.",
+        "hcp delta ns": "North-South HCP minus East-West HCP.",
+        "hcp heat map": "Per-board high-card point intensity for each seat.",
+        "header info": "PBN preamble directives and common tags found in the hand record.",
+        "invalid row bounds": "A scanned Jet row pointer referred outside the usable page bounds, so the row slice was rejected.",
+        "jet signature": "Header bytes that identify the file as a Microsoft Jet database, the format used by BWS files.",
+        "known players": "Player identities recovered as names or member numbers, not generated placeholders.",
+        "large matchpoint loss": "The pair lost at least half of the available matchpoints on that board.",
+        "lead card": "Opening lead card recorded in the result file, when available.",
+        "long suits": "Suits with seven or more cards in one hand.",
+        "low board": "A board where the selected pair scored 35 percent or worse.",
+        "low boards": "Boards where the selected pair scored 35 percent or worse.",
+        "major fit": "Best combined partnership length in spades or hearts.",
+        "makeable": "A contract or trick count that can be achieved with best play.",
+        "makeable level": "Contract level implied by double-dummy tricks, such as 4 when ten tricks are available.",
+        "matchpoints": "Duplicate scoring points earned by comparing a result against other results on the same board.",
+        "minor fit": "Best combined partnership length in diamonds or clubs.",
+        "mp": "Matchpoints. Higher is better; a board top is the maximum available on that board.",
+        "multiple trick loss vs dd": "The selected pair appears to have lost two or more tricks relative to double-dummy expectation.",
+        "named players": "Player rows where the BWS file supplied an actual name.",
+        "no edge": "No clear par-score advantage, or the advantage could not be determined.",
+        "notable boards": "Outlier deals worth a quick look, such as large par swings, slams, voids, or unusual HCP imbalance.",
+        "ns": "North-South partnership.",
+        "ns boards": "Boards where the pair or partnership sat North-South in the uploaded results.",
+        "ns known players": "Number of North-South player identities recovered from BWS PlayerNumbers rows.",
+        "ns matchpoints": "Matchpoints awarded to North-South for the traveler row.",
+        "ns percent": "North-South matchpoint score as a percentage of the board top.",
+        "ns score": "Score from North-South's perspective. Positive favors NS; negative favors EW.",
+        "optimum": "Best theoretical score for the deal, usually derived from PBN par or double-dummy data.",
+        "optimum score": "The PBN score for best theoretical play and bidding on the board.",
+        "optimum side": "The side, NS or EW, favored by the optimum score.",
+        "page size": "Jet database page size tested during the BWS scan.",
+        "pages": "Candidate Jet database pages scanned inside the BWS file.",
+        "pair": "A bridge partnership, usually the two players sitting NS or EW for a board.",
+        "pair ew": "The East-West pair number in the result row.",
+        "pair hcp": "Combined high-card points for a partnership.",
+        "pair improvement report": "A prioritized review list for one pair, based on matchpoint losses, field results, par, and double-dummy comparison.",
+        "pair ns": "The North-South pair number in the result row.",
+        "pair score": "The selected pair's score on that board, shown from that pair's perspective.",
+        "pair standings": "Session ranking by total matchpoints and percentage.",
+        "par": "The theoretical best contract and score if both sides bid and play optimally.",
+        "par class": "Par contract category: partscore, game-level, slam-level, or unknown.",
+        "par contract": "The contract or contracts that produce the theoretical par result.",
+        "par edge": "Which side is favored by the par score.",
+        "par level": "The level of the par contract, such as 3, 4, or 6.",
+        "par score by board": "The PBN par score for each board from North-South's perspective.",
+        "par side": "The side, NS or EW, that can achieve the par contract.",
+        "par strain": "The denomination of the par contract: NT, spades, hearts, diamonds, or clubs.",
+        "par strains": "Distribution of par-contract denominations across the file.",
+        "partscore": "A contract below game level.",
+        "pbn": "Portable Bridge Notation, a text format for bridge deals and related tags.",
+        "pct": "Percentage of available matchpoints earned.",
+        "percent": "Percentage of available matchpoints earned.",
+        "played in results": "Only boards that appear in the uploaded result file.",
+        "player rows": "BWS PlayerNumbers rows used to recover player names, member numbers, seats, and tables.",
+        "players": "Recovered names, member numbers, or generated placeholders for a partnership.",
+        "rank": "Position in the pair standings after sorting by percentage.",
+        "recognized jet": "Whether the file header looks like a Microsoft Jet database.",
+        "recognized results": "CSV rows that contained enough result fields to import.",
+        "record index": "The board record's position in the PBN file.",
+        "rejected row slices": "Scanned byte ranges that did not match the expected BWS result-row layout.",
+        "review candidate": "A board worth reviewing because one or more indicators suggest avoidable matchpoint loss.",
+        "result": "Trick outcome for the contract, such as making exactly, plus overtricks, or down tricks.",
+        "result file": "Uploaded BWS or CSV traveler data that can be joined to the PBN hands.",
+        "result contracts": "Count of uploaded traveler contracts grouped by contract class.",
+        "result count": "Number of uploaded result rows for a board.",
+        "result rows": "Traveler rows imported from BWS or CSV, usually one table result per board.",
+        "results": "Uploaded traveler results or played-result tags found in the PBN.",
+        "row slices": "Candidate row-sized byte ranges scanned inside Jet database pages.",
+        "row slots": "Potential row locations identified inside scanned Jet data pages.",
+        "rows": "The CSV export grain: whether each row represents a board, hand, pair, traveler result, or summary.",
+        "section": "Result-file section number, when supplied by the scoring system.",
+        "selected page size": "Jet page size chosen by the BWS scanner because it produced the best-looking rows.",
+        "session": "The selected pair's overall matchpoint percentage in the uploaded results.",
+        "shape": "Suit lengths in spades-hearts-diamonds-clubs order, such as 4-4-3-2.",
+        "slam-level": "A contract at level 6 or 7.",
+        "slam potential": "Double-dummy analysis suggests a slam may have been available, but the table result did not reach it.",
+        "small loss": "A modest below-average board with no single stronger diagnostic reason.",
+        "spades": "The spade suit.",
+        "hearts": "The heart suit.",
+        "diamonds": "The diamond suit.",
+        "clubs": "The club suit.",
+        "tail": "Trailing bytes at the end of the file after dividing it into candidate Jet pages.",
+        "table": "Physical table number for a result row.",
+        "tag": "A bracketed PBN field such as Event, Dealer, Deal, or Vulnerable.",
+        "tag types": "Distinct PBN tag names found across the loaded records.",
+        "top": "Board top: the maximum matchpoints available to one side on that board.",
+        "top ew pairs": "East-West pairs with the best score on a board.",
+        "top ns pairs": "North-South pairs with the best score on a board.",
+        "traveler": "The set of table results for a board.",
+        "travelers": "Uploaded result rows for a board.",
+        "tricks": "Number of tricks taken or available.",
+        "valid deal": "Whether the deal contains exactly 52 unique cards.",
+        "voids": "Suits where a hand has zero cards.",
+        "vulnerability": "The scoring condition that increases game/slam bonuses and undertrick penalties.",
+        "vulnerable": "Which side, if any, is vulnerable on the board.",
+        "vs field avg": "Difference between the selected pair's score and the board's field average.",
+        "vs par": "Difference between an actual result and the theoretical par score.",
+        "well below par": "The pair's score was far worse than the theoretical par score.",
+        "wrong row type or short": "A rejected BWS row slice that was not the expected table row type or was too short to parse."
+      };
+      const TERM_ALIASES = {
+        "accepted rows": "accepted results",
+        "average board percent": "avg board",
+        "average score": "avg result",
+        "average vs par": "avg vs par",
+        "avg abs vs par": "avg abs par",
+        "avg field": "field avg",
+        "avg ns plus": "average ns score",
+        "avg ns minus": "average ns score",
+        "board top": "top",
+        "dd delta": "dd effect",
+        "dd tricks": "double dummy",
+        "double dummy tricks": "double dummy",
+        "ew mp": "ew matchpoints",
+        "ew partnership": "pair ew",
+        "ew players": "players",
+        "ew score": "ns score",
+        "ew score perspective": "ew score",
+        "hcp delta": "hcp delta ns",
+        "ns ew": "declarer",
+        "ns mp": "ns matchpoints",
+        "ns partnership": "pair ns",
+        "ns players": "players",
+        "pair results": "pair standings",
+        "pbn par contract": "par contract",
+        "pbn par ns score": "par",
+        "player": "players",
+        "results file": "result file",
+        "row id": "result rows",
+        "scored count": "result count",
+        "scored rows": "result rows",
+        "selected page profile": "selected page size",
+        "source": "result file",
+        "top received data rejections": "rejected row slices",
+        "tricks taken": "tricks"
+      };
 
       const STATE = {
         parsed: null,
@@ -1519,6 +1788,92 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      function normalizeTerm(value) {
+        return String(value || "")
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/[_/-]+/g, " ")
+          .replace(/[()]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      }
+
+      function termKey(value) {
+        const normalized = normalizeTerm(value);
+        if (!normalized) return "";
+        if (TERM_DEFINITIONS[normalized]) return normalized;
+        if (TERM_ALIASES[normalized]) return TERM_ALIASES[normalized];
+        const withoutPbn = normalized.replace(/^pbn\s+/, "");
+        if (TERM_DEFINITIONS[withoutPbn]) return withoutPbn;
+        if (normalized.startsWith("tag ")) return "tag";
+        if (normalized.startsWith("dd ")) return "double dummy";
+        if (normalized.includes("matchpoint") || normalized.endsWith(" mp")) return "matchpoints";
+        if (normalized.includes("percent") || normalized === "pct") return "percent";
+        if (normalized.includes("vs par")) return "vs par";
+        if (normalized.includes("hcp")) return "hcp";
+        if (normalized.includes("vulnerab")) return "vulnerability";
+        if (normalized.includes("declarer")) return "declarer";
+        if (normalized.includes("contract")) return normalized.includes("par") ? "par contract" : "contract";
+        if (normalized.includes("player")) return "players";
+        if (normalized.includes("pair")) return "pair";
+        if (normalized.includes("score")) return "ns score";
+        if (normalized.includes("trick")) return "tricks";
+        if (normalized.includes("board")) return "board";
+        return "";
+      }
+
+      function termDefinition(value) {
+        const key = termKey(value);
+        return key ? TERM_DEFINITIONS[key] || "" : "";
+      }
+
+      function tooltipAttrs(definition) {
+        if (!definition) return "";
+        return ` data-tooltip="${escapeHtml(definition)}" aria-describedby="termTooltip" tabindex="0"`;
+      }
+
+      function term(value, definition) {
+        const text = String(value == null ? "" : value);
+        const help = definition || termDefinition(text);
+        return help ? `<span class="term-tip"${tooltipAttrs(help)}>${escapeHtml(text)}</span>` : escapeHtml(text);
+      }
+
+      function th(label, className, definition) {
+        const help = definition || termDefinition(label);
+        const classes = [className || "", help ? "term-tip" : ""].filter(Boolean).join(" ");
+        return `<th${classes ? ` class="${escapeHtml(classes)}"` : ""}${tooltipAttrs(help)}>${escapeHtml(label)}</th>`;
+      }
+
+      function annotateTermTooltips(root) {
+        if (!root) return;
+        const selector = [
+          "h2",
+          "h3",
+          "label",
+          "th",
+          ".metric .label",
+          ".metadata-item .key",
+          ".result-summary-card span",
+          ".board-stat span",
+          ".review-stat span",
+          ".side-chip",
+          ".contract-chip",
+          ".reason-chip",
+          ".legend-item"
+        ].join(",");
+        root.querySelectorAll(selector).forEach((element) => {
+          if (element.hasAttribute("data-tooltip") || element.querySelector("[data-tooltip]")) return;
+          const text = element.textContent.trim();
+          if (!text || text.length > 80) return;
+          const help = termDefinition(text);
+          if (!help) return;
+          element.classList.add("term-tip");
+          element.setAttribute("data-tooltip", help);
+          element.setAttribute("aria-describedby", "termTooltip");
+          if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "0");
+        });
       }
 
       function formatSigned(value) {
@@ -3393,6 +3748,7 @@
         renderNotables(analysis);
         renderBoards();
         renderCsvControls();
+        annotateTermTooltips(dashboard);
       }
 
       function renderMetrics(analysis) {
@@ -3578,7 +3934,7 @@
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
           .slice(0, 6);
         if (!entries.length) return "none";
-        return entries.map(([key, value]) => `${key}: ${value}`).join("; ");
+        return entries.map(([key, value]) => `${term(key)}: ${escapeHtml(value)}`).join("; ");
       }
 
       function formatPageTypes(pageTypes) {
@@ -3603,39 +3959,43 @@
             <td class="numeric">${escapeHtml(candidate.received.rowSlices)}</td>
             <td class="numeric">${escapeHtml(candidate.received.acceptedRows)}</td>
             <td class="numeric">${escapeHtml(candidate.players.acceptedRows)}</td>
-            <td>${escapeHtml(rejectionSummary(candidate.received.rejections))}</td>
+            <td>${rejectionSummary(candidate.received.rejections)}</td>
           </tr>
         `).join("");
         const warningText = results.warnings.length
           ? `<ul class="rejection-list">${results.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>`
           : `<div class="diagnostics-note">No import warnings.</div>`;
+        const summaryText = `${diagnostics.acceptedReceivedRows} results, ${diagnostics.acceptedPlayerRows} player rows, ${diagnostics.selectedPageSize} byte pages`;
         return `
-          <div class="diagnostics-panel">
-            <h3>BWS Import Diagnostics</h3>
+          <details class="diagnostics-panel">
+            <summary>
+              <h3>${term("BWS Import Diagnostics")}</h3>
+              <span class="diagnostics-summary">${escapeHtml(summaryText)}</span>
+            </summary>
             <div class="diagnostics-grid">
-              <div class="metadata-item"><div class="key">File Size</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
-              <div class="metadata-item"><div class="key">Jet Signature</div><div class="val">${escapeHtml(diagnostics.signature || "Missing")}</div></div>
-              <div class="metadata-item"><div class="key">Recognized Jet</div><div class="val">${escapeHtml(diagnostics.recognizedJet ? "yes" : "no")}</div></div>
-              <div class="metadata-item"><div class="key">Selected Page Size</div><div class="val">${escapeHtml(diagnostics.selectedPageSize)}</div></div>
-              <div class="metadata-item"><div class="key">Accepted Results</div><div class="val">${escapeHtml(diagnostics.acceptedReceivedRows)}</div></div>
-              <div class="metadata-item"><div class="key">Player Rows</div><div class="val">${escapeHtml(diagnostics.acceptedPlayerRows)}</div></div>
-              <div class="metadata-item"><div class="key">Duplicate Results</div><div class="val">${escapeHtml(diagnostics.duplicateReceivedRows)}</div></div>
-              <div class="metadata-item"><div class="key">Rejected Row Slices</div><div class="val">${escapeHtml(received.rejectedRows || 0)}</div></div>
-              <div class="metadata-item"><div class="key">All-FF Pages</div><div class="val">${escapeHtml(pageProfile.allFfPageCount || 0)}</div></div>
+              <div class="metadata-item"><div class="key">${term("File Size")}</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
+              <div class="metadata-item"><div class="key">${term("Jet Signature")}</div><div class="val">${escapeHtml(diagnostics.signature || "Missing")}</div></div>
+              <div class="metadata-item"><div class="key">${term("Recognized Jet")}</div><div class="val">${escapeHtml(diagnostics.recognizedJet ? "yes" : "no")}</div></div>
+              <div class="metadata-item"><div class="key">${term("Selected Page Size")}</div><div class="val">${escapeHtml(diagnostics.selectedPageSize)}</div></div>
+              <div class="metadata-item"><div class="key">${term("Accepted Results")}</div><div class="val">${escapeHtml(diagnostics.acceptedReceivedRows)}</div></div>
+              <div class="metadata-item"><div class="key">${term("Player Rows")}</div><div class="val">${escapeHtml(diagnostics.acceptedPlayerRows)}</div></div>
+              <div class="metadata-item"><div class="key">${term("Duplicate Results")}</div><div class="val">${escapeHtml(diagnostics.duplicateReceivedRows)}</div></div>
+              <div class="metadata-item"><div class="key">${term("Rejected Row Slices")}</div><div class="val">${escapeHtml(received.rejectedRows || 0)}</div></div>
+              <div class="metadata-item"><div class="key">${term("All-FF Pages")}</div><div class="val">${escapeHtml(pageProfile.allFfPageCount || 0)}</div></div>
             </div>
             <div class="preview-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Page Size</th>
-                    <th class="numeric">Pages</th>
-                    <th class="numeric">Tail</th>
-                    <th class="numeric">Data Pages</th>
-                    <th class="numeric">Row Slots</th>
-                    <th class="numeric">Row Slices</th>
-                    <th class="numeric">Results</th>
-                    <th class="numeric">Players</th>
-                    <th>Top ReceivedData Rejections</th>
+                    ${th("Page Size")}
+                    ${th("Pages", "numeric")}
+                    ${th("Tail", "numeric")}
+                    ${th("Data Pages", "numeric")}
+                    ${th("Row Slots", "numeric")}
+                    ${th("Row Slices", "numeric")}
+                    ${th("Results", "numeric")}
+                    ${th("Players", "numeric")}
+                    ${th("Top ReceivedData Rejections")}
                   </tr>
                 </thead>
                 <tbody>${candidateRows}</tbody>
@@ -3645,7 +4005,7 @@
             <div class="diagnostics-note">All-FF page runs: ${escapeHtml(erasedRuns)}.</div>
             <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and rows scanned under the non-selected page size, so nonzero rejection counts are expected.</div>
             ${warningText}
-          </div>
+          </details>
         `;
       }
 
@@ -3659,6 +4019,7 @@
         document.getElementById("resultScoreChart").innerHTML = renderResultScoreChart(results);
         document.getElementById("resultContractChart").innerHTML = renderResultContractChart(results);
         document.getElementById("pairStandings").innerHTML = renderPairStandings(results);
+        annotateTermTooltips(section);
       }
 
       function renderResultScoreChart(results) {
@@ -3807,6 +4168,7 @@
           ${renderReviewQueue(report)}
         `;
         panel.classList.remove("hidden");
+        annotateTermTooltips(panel);
       }
 
       function renderReviewQueue(report) {
@@ -4070,6 +4432,7 @@
         document.getElementById("boardGrid").innerHTML = filtered.length
           ? filtered.map(renderBoardCard).join("")
           : `<div class="empty-state">No boards match the current filters.</div>`;
+        annotateTermTooltips(document.getElementById("boardGrid"));
       }
 
       function renderBoardCard(board) {
@@ -4452,7 +4815,7 @@
       }
 
       function col(key, label, value) {
-        return { key, label, value };
+        return { key, label, value, description: termDefinition(label) };
       }
 
       function isGameAvailable(dd) {
@@ -4492,12 +4855,13 @@
 
         document.getElementById("csvCaption").textContent = `${plural(getCsvContexts(STATE.rowMode, analysis, STATE.results).length, "row")} available.`;
         document.getElementById("columnList").innerHTML = defs.map((entry) => `
-          <label class="column-check" title="${escapeHtml(entry.label)}">
+          <label class="column-check${entry.description ? " term-tip" : ""}"${entry.description ? ` data-tooltip="${escapeHtml(entry.description)}" aria-describedby="termTooltip" tabindex="0"` : ""}>
             <input type="checkbox" data-column-key="${escapeHtml(entry.key)}" ${selected.has(entry.key) ? "checked" : ""}>
             <span>${escapeHtml(entry.label)}</span>
           </label>
         `).join("");
         renderCsvPreview();
+        annotateTermTooltips(document.getElementById("columnList"));
       }
 
       function selectedColumnDefs() {
@@ -4522,7 +4886,7 @@
 
         document.getElementById("csvPreview").innerHTML = `
           <table>
-            <thead><tr>${columns.map((colDef) => `<th>${escapeHtml(colDef.label)}</th>`).join("")}</tr></thead>
+            <thead><tr>${columns.map((colDef) => th(colDef.label, "", colDef.description)).join("")}</tr></thead>
             <tbody>
               ${contexts.map((ctx) => `
                 <tr>${columns.map((colDef) => `<td>${escapeHtml(colDef.value(ctx))}</td>`).join("")}</tr>
@@ -4530,6 +4894,7 @@
             </tbody>
           </table>
         `;
+        annotateTermTooltips(document.getElementById("csvPreview"));
       }
 
       function makeCsv() {
@@ -4722,9 +5087,74 @@
         document.getElementById("downloadCsvButton").addEventListener("click", downloadCsv);
       }
 
+      function positionTooltip(tooltip, target) {
+        const rect = target.getBoundingClientRect();
+        tooltip.classList.remove("hidden");
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const margin = 12;
+        let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+        left = Math.max(margin, Math.min(left, window.innerWidth - tooltipRect.width - margin));
+        let top = rect.bottom + 8;
+        if (top + tooltipRect.height > window.innerHeight - margin) {
+          top = Math.max(margin, rect.top - tooltipRect.height - 8);
+        }
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+      }
+
+      function setupTooltips() {
+        const tooltip = document.getElementById("termTooltip");
+        if (!tooltip) return;
+        let activeTarget = null;
+
+        const show = (target) => {
+          const text = target && target.getAttribute("data-tooltip");
+          if (!text) return;
+          activeTarget = target;
+          tooltip.textContent = text;
+          positionTooltip(tooltip, target);
+        };
+
+        const hide = (target) => {
+          if (target && activeTarget && target !== activeTarget) return;
+          activeTarget = null;
+          tooltip.classList.add("hidden");
+        };
+
+        document.addEventListener("mouseover", (event) => {
+          const target = event.target.closest("[data-tooltip]");
+          if (target) show(target);
+        });
+
+        document.addEventListener("mouseout", (event) => {
+          const target = event.target.closest("[data-tooltip]");
+          if (!target || target.contains(event.relatedTarget)) return;
+          hide(target);
+        });
+
+        document.addEventListener("focusin", (event) => {
+          const target = event.target.closest("[data-tooltip]");
+          if (target) show(target);
+        });
+
+        document.addEventListener("focusout", (event) => {
+          const target = event.target.closest("[data-tooltip]");
+          if (target) hide(target);
+        });
+
+        window.addEventListener("scroll", () => {
+          if (activeTarget) positionTooltip(tooltip, activeTarget);
+        }, true);
+        window.addEventListener("resize", () => {
+          if (activeTarget) positionTooltip(tooltip, activeTarget);
+        });
+      }
+
       function init() {
         initAppVersion();
+        setupTooltips();
         setupEvents();
+        annotateTermTooltips(document.body);
       }
 
       function initAppVersion() {
