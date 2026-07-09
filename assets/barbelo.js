@@ -881,6 +881,26 @@
     return String(value == null ? "" : value).trim().toUpperCase();
   }
 
+  function parseScoreAdjustment(remarks) {
+    const text = String(remarks || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (!text) return null;
+    const tokenPercent = (token) => {
+      if (/^\d{1,3}%$/.test(token)) return Number(token.slice(0, -1));
+      if (/^(AVE|AVG|A)$/.test(token)) return 50;
+      if (/^(AVE|AVG|A)\+$/.test(token)) return 60;
+      if (/^(AVE|AVG|A)-$/.test(token)) return 40;
+      return null;
+    };
+    const tokenPattern = "\\d{1,3}%|AVE[+-]?|AVG[+-]?|A[+-]?";
+    const pairMatch = text.match(new RegExp(`^(${tokenPattern})[-/](${tokenPattern})$`));
+    const nsToken = pairMatch ? pairMatch[1] : text;
+    const ewToken = pairMatch ? pairMatch[2] : text;
+    const nsPercent = tokenPercent(nsToken);
+    const ewPercent = tokenPercent(ewToken);
+    if (nsPercent == null || ewPercent == null) return null;
+    return { nsPercent, ewPercent };
+  }
+
   function parsePlayedContract(value) {
     const text = normalizePlayedContractText(value);
     if (!text) return { raw: "", passout: false, level: null, strain: "", doubled: "", className: "Unknown" };
@@ -1011,6 +1031,8 @@
       : declarerNumber != null && declarerNumber === pairEW
         ? "EW"
         : "";
+    const remarks = pickField(row, ["Remarks", "remarks"]);
+    const adjustment = parseScoreAdjustment(remarks);
     const scored = scoreDuplicateContract(contract, result, declarerSide, resultBoard.vulnerable, declarerPairOverride);
     const parNS = board && board.optimum.nsPerspective != null ? board.optimum.nsPerspective : null;
     const ddTricksRaw = board && scored.contract.strain && declarerSide ? getDoubleDummyTricks(board, declarerSide, scored.contract.strain) : "";
@@ -1041,11 +1063,12 @@
       ddTricks,
       ddDelta: scored.tricks != null && ddTricks != null ? scored.tricks - ddTricks : null,
       leadCard: pickField(row, ["LeadCard", "Lead Card", "lead_card"]),
-      remarks: pickField(row, ["Remarks", "remarks"]),
+      remarks,
+      adjustment,
       dateLog: pickField(row, ["DateLog", "Date Log", "date_log"]),
       timeLog: pickField(row, ["TimeLog", "Time Log", "time_log"]),
       erased,
-      scoringError: scored.error,
+      scoringError: adjustment ? "" : scored.error,
       board: resultBoard,
       hasPbnBoard: !!board
     };
@@ -1094,24 +1117,52 @@
     return pairRosters.get(key);
   }
 
-  function buildPairRosters(playerNumbers, rows) {
-    const earliestByTable = new Map();
+  function rosterTableKey(section, tableNo, multiSection) {
+    return `${multiSection && section != null ? section : ""}|${tableNo}`;
+  }
+
+  function rosterPairId(section, pairNo, multiSection) {
+    if (pairNo == null) return null;
+    return multiSection && section != null ? `S${section}:${pairNo}` : String(pairNo);
+  }
+
+  function buildPairRosters(playerNumbers, rows, multiSection) {
+    const roundsByTable = new Map();
     rows.forEach((row) => {
-      if (row.tableNo == null || row.round == null) return;
-      const key = String(row.tableNo);
-      const existing = earliestByTable.get(key);
-      if (!existing || row.round < existing.round) earliestByTable.set(key, row);
+      if (row.tableNo == null) return;
+      const key = rosterTableKey(row.section, row.tableNo, multiSection);
+      if (!roundsByTable.has(key)) roundsByTable.set(key, new Map());
+      const byRound = roundsByTable.get(key);
+      const round = row.round == null ? 0 : row.round;
+      if (!byRound.has(round)) byRound.set(round, row);
     });
+
+    const assignmentFor = (player) => {
+      const byRound = roundsByTable.get(rosterTableKey(player.section, player.tableNo, multiSection));
+      if (!byRound) return null;
+      const rounds = Array.from(byRound.keys()).sort((a, b) => a - b);
+      const target = player.round || 0;
+      const chosen = rounds.find((round) => round >= target);
+      return byRound.get(chosen != null ? chosen : rounds[rounds.length - 1]);
+    };
+
+    const assignSeat = (roster, player) => {
+      const existing = roster.playersBySeat[player.direction];
+      if (!existing || (playerHasIdentity(player) && !playerHasIdentity(existing))) {
+        roster.playersBySeat[player.direction] = player;
+      }
+    };
 
     const pairRosters = new Map();
     playerNumbers.forEach((player) => {
-      const tableRow = earliestByTable.get(String(player.tableNo));
+      const tableRow = assignmentFor(player);
       if (!tableRow) return;
       const side = player.direction === "N" || player.direction === "S" ? "NS" : "EW";
       const pairNo = side === "NS" ? tableRow.pairNS : tableRow.pairEW;
-      if (pairNo == null) return;
-      ensurePairRoster(pairRosters, pairNo, side).playersBySeat[player.direction] = player;
-      ensurePairRoster(pairRosters, pairNo).playersBySeat[player.direction] = player;
+      const pairId = rosterPairId(tableRow.section, pairNo, multiSection);
+      if (pairId == null) return;
+      assignSeat(ensurePairRoster(pairRosters, pairId, side), player);
+      assignSeat(ensurePairRoster(pairRosters, pairId), player);
     });
 
     pairRosters.forEach((roster) => {
@@ -1154,23 +1205,27 @@
     return `Pair ${pairNo} Player 1 / Pair ${pairNo} Player 2`;
   }
 
-  function pairRosterLabel(pairRosters, pairNo, side) {
+  function pairRosterLabel(pairRosters, pairNo, side, sideOnly) {
     const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
     if (sideRoster && sideRoster.label) return sideRoster.label;
-    const roster = pairRosters.get(pairRosterKey(pairNo));
-    return roster && roster.label ? roster.label : fallbackPairLabel(pairNo, side);
+    if (!sideOnly) {
+      const roster = pairRosters.get(pairRosterKey(pairNo));
+      if (roster && roster.label) return roster.label;
+    }
+    return fallbackPairLabel(pairNo, side);
   }
 
-  function pairSeatPlayer(pairRosters, pairNo, seat, side) {
+  function pairSeatPlayer(pairRosters, pairNo, seat, side, sideOnly) {
     const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
-    const roster = sideRoster || pairRosters.get(pairRosterKey(pairNo));
+    const roster = sideRoster || (sideOnly ? null : pairRosters.get(pairRosterKey(pairNo)));
     const player = roster ? playerDisplay(roster.playersBySeat[seat]) : "";
     return player || fallbackPairSeatLabel(pairNo, seat);
   }
 
-  function pairRosterKnownCount(pairRosters, pairNo, side) {
+  function pairRosterKnownCount(pairRosters, pairNo, side, sideOnly) {
     const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
     if (sideRoster) return sideRoster.knownPlayers ? sideRoster.knownPlayers.length : 0;
+    if (sideOnly) return 0;
     const roster = pairRosters.get(pairRosterKey(pairNo));
     return roster && roster.knownPlayers ? roster.knownPlayers.length : 0;
   }
@@ -1185,23 +1240,25 @@
     return useSidePartnerships ? `${pairNo} ${side}` : String(pairNo);
   }
 
-  function attachPlayerNames(rows, pairRosters, useSidePartnerships) {
+  function attachPlayerNames(rows, pairRosters, useSidePartnerships, multiSection) {
     rows.forEach((row) => {
-      row.nsPlayers = pairRosterLabel(pairRosters, row.pairNS, "NS");
-      row.ewPlayers = pairRosterLabel(pairRosters, row.pairEW, "EW");
-      row.nsParticipantKey = participantKeyFor(row.pairNS, "NS", useSidePartnerships);
-      row.ewParticipantKey = participantKeyFor(row.pairEW, "EW", useSidePartnerships);
-      row.nsParticipantNo = participantLabelFor(row.pairNS, "NS", useSidePartnerships);
-      row.ewParticipantNo = participantLabelFor(row.pairEW, "EW", useSidePartnerships);
-      row.nsParticipantPlayers = useSidePartnerships ? row.nsPlayers : pairRosterLabel(pairRosters, row.pairNS);
-      row.ewParticipantPlayers = useSidePartnerships ? row.ewPlayers : pairRosterLabel(pairRosters, row.pairEW);
-      row.nsKnownPlayers = pairRosterKnownCount(pairRosters, row.pairNS, "NS");
-      row.ewKnownPlayers = pairRosterKnownCount(pairRosters, row.pairEW, "EW");
-      row.nsParticipantKnownPlayers = useSidePartnerships ? row.nsKnownPlayers : pairRosterKnownCount(pairRosters, row.pairNS);
-      row.ewParticipantKnownPlayers = useSidePartnerships ? row.ewKnownPlayers : pairRosterKnownCount(pairRosters, row.pairEW);
+      const nsPairId = rosterPairId(row.section, row.pairNS, multiSection);
+      const ewPairId = rosterPairId(row.section, row.pairEW, multiSection);
+      row.nsPlayers = pairRosterLabel(pairRosters, nsPairId, "NS", useSidePartnerships);
+      row.ewPlayers = pairRosterLabel(pairRosters, ewPairId, "EW", useSidePartnerships);
+      row.nsParticipantKey = participantKeyFor(nsPairId, "NS", useSidePartnerships);
+      row.ewParticipantKey = participantKeyFor(ewPairId, "EW", useSidePartnerships);
+      row.nsParticipantNo = participantLabelFor(nsPairId, "NS", useSidePartnerships);
+      row.ewParticipantNo = participantLabelFor(ewPairId, "EW", useSidePartnerships);
+      row.nsParticipantPlayers = useSidePartnerships ? row.nsPlayers : pairRosterLabel(pairRosters, nsPairId);
+      row.ewParticipantPlayers = useSidePartnerships ? row.ewPlayers : pairRosterLabel(pairRosters, ewPairId);
+      row.nsKnownPlayers = pairRosterKnownCount(pairRosters, nsPairId, "NS", useSidePartnerships);
+      row.ewKnownPlayers = pairRosterKnownCount(pairRosters, ewPairId, "EW", useSidePartnerships);
+      row.nsParticipantKnownPlayers = useSidePartnerships ? row.nsKnownPlayers : pairRosterKnownCount(pairRosters, nsPairId);
+      row.ewParticipantKnownPlayers = useSidePartnerships ? row.ewKnownPlayers : pairRosterKnownCount(pairRosters, ewPairId);
       row.declarerName = row.declarerSide === "N" || row.declarerSide === "S"
-        ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide, "NS")
-        : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide, "EW");
+        ? pairSeatPlayer(pairRosters, nsPairId, row.declarerSide, "NS", useSidePartnerships)
+        : pairSeatPlayer(pairRosters, ewPairId, row.declarerSide, "EW", useSidePartnerships);
     });
   }
 
@@ -1232,13 +1289,13 @@
     standing.matchpoints += mp;
     standing.top += row.boardTop;
     standing.boards += 1;
-    standing.scores.push(side === "NS" ? row.scoreNS : -row.scoreNS);
+    if (row.scoreNS != null) standing.scores.push(side === "NS" ? row.scoreNS : -row.scoreNS);
     if (side === "NS") standing.nsBoards += 1;
     else standing.ewBoards += 1;
   }
 
-  function applyMatchpoints(rowsByBoard) {
-    rowsByBoard.forEach((rows) => {
+  function applyMatchpoints(rowsByField) {
+    rowsByField.forEach((rows) => {
       const scoredRows = rows.filter((row) => row.scoreNS != null);
       const top = Math.max(0, scoredRows.length - 1);
       scoredRows.forEach((row) => {
@@ -1251,8 +1308,16 @@
         row.boardTop = top;
         row.nsMatchpoints = mp;
         row.ewMatchpoints = top - mp;
-        row.nsPercent = top ? (mp / top) * 100 : 100;
-        row.ewPercent = top ? ((top - mp) / top) * 100 : 100;
+        row.nsPercent = top ? (mp / top) * 100 : null;
+        row.ewPercent = top ? ((top - mp) / top) * 100 : null;
+      });
+      rows.forEach((row) => {
+        if (!row.adjustment || row.scoreNS != null) return;
+        row.boardTop = top;
+        row.nsMatchpoints = (row.adjustment.nsPercent / 100) * top;
+        row.ewMatchpoints = (row.adjustment.ewPercent / 100) * top;
+        row.nsPercent = row.adjustment.nsPercent;
+        row.ewPercent = row.adjustment.ewPercent;
       });
     });
   }
@@ -1457,25 +1522,43 @@
       warnings.push(`${plural(erasedRowCount, "erased (corrected) result row was", "erased (corrected) result rows were")} excluded from scoring.`);
     }
     const rows = normalizedRows.filter((row) => !row.erased);
-    const pairRosters = buildPairRosters(playerNumbers, rows);
+    const sectionNumbers = uniqueSorted(rows.map((row) => row.section).filter((value) => value != null));
+    const multiSection = sectionNumbers.length > 1;
+    if (multiSection) {
+      warnings.push(`${sectionNumbers.length} sections detected; boards are matchpointed within each section and pair numbers are section-scoped.`);
+    }
+    rows.forEach((row) => {
+      row.fieldKey = multiSection ? `${row.section == null ? "?" : row.section}|${row.boardNo}` : String(row.boardNo);
+    });
+    const adjustedCount = rows.filter((row) => row.adjustment && row.scoreNS == null).length;
+    if (adjustedCount) {
+      warnings.push(`${plural(adjustedCount, "director-adjusted row was", "director-adjusted rows were")} applied as percentage awards instead of scored contracts.`);
+    }
+    const pairRosters = buildPairRosters(playerNumbers, rows, multiSection);
     const rosterProfile = pairRosters.profile || {};
-    const useSidePartnerships = !!rosterProfile.teamLikeGroups;
+    const sidePairCollision = detectSidePairCollision(rows);
+    const useSidePartnerships = !!rosterProfile.teamLikeGroups || sidePairCollision;
     if (rosterProfile.teamLikeGroups) {
       warnings.push(`${rosterProfile.teamLikeGroups} result numbers have both NS-side and EW-side player rosters; pair standings and reports are split into side-specific partnerships.`);
+    } else if (sidePairCollision) {
+      warnings.push("Pair numbers repeat across the NS and EW directions (Mitchell-style movement); each direction is treated as a separate partnership in standings and reports.");
     }
     const numberOnlyPlayers = playerNumbers.filter((player) => player.number && !player.name).length;
     if (numberOnlyPlayers) {
       warnings.push(`${plural(numberOnlyPlayers, "PlayerNumbers record has", "PlayerNumbers records have")} a member number but no player name; the member number is shown where no name was available.`);
     }
-    attachPlayerNames(rows, pairRosters, useSidePartnerships);
+    attachPlayerNames(rows, pairRosters, useSidePartnerships, multiSection);
     const rowsByBoard = new Map();
+    const rowsByField = new Map();
     rows.forEach((row) => {
       const key = String(row.boardNo);
       if (!rowsByBoard.has(key)) rowsByBoard.set(key, []);
       rowsByBoard.get(key).push(row);
+      if (!rowsByField.has(row.fieldKey)) rowsByField.set(row.fieldKey, []);
+      rowsByField.get(row.fieldKey).push(row);
     });
 
-    applyMatchpoints(rowsByBoard);
+    applyMatchpoints(rowsByField);
 
     const pairMap = new Map();
     rows.forEach((row) => {
@@ -1528,6 +1611,7 @@
       participantMode: useSidePartnerships ? "side" : "pair",
       hasPbn,
       rowsByBoard,
+      rowsByField,
       boardSummaries,
       boardsByNumber,
       pairStandings,
@@ -1556,6 +1640,21 @@
 
   function numericPairSort(a, b) {
     return String(a).localeCompare(String(b), undefined, { numeric: true });
+  }
+
+  function detectSidePairCollision(rows) {
+    const nsKeys = new Set();
+    const ewKeys = new Set();
+    for (const row of rows) {
+      if (row.pairNS != null && row.pairNS === row.pairEW) return true;
+      const sectionKey = row.section == null ? "" : row.section;
+      if (row.pairNS != null) nsKeys.add(`${sectionKey}|${row.boardNo}|${row.pairNS}`);
+      if (row.pairEW != null) ewKeys.add(`${sectionKey}|${row.boardNo}|${row.pairEW}`);
+    }
+    for (const key of nsKeys) {
+      if (ewKeys.has(key)) return true;
+    }
+    return false;
   }
 
   function defaultReportPair(results) {
@@ -1598,7 +1697,7 @@
     const isEW = String(row.ewParticipantKey) === pairKey;
     if (!isNS && !isEW) return null;
     const side = isNS ? "NS" : "EW";
-    const boardRows = results.rowsByBoard.get(String(row.boardNo)) || [];
+    const boardRows = results.rowsByField.get(row.fieldKey) || [];
     const pairScore = row.scoreNS == null ? null : isNS ? row.scoreNS : -row.scoreNS;
     const fieldScores = boardRows
       .map((entry) => entry.scoreNS == null ? null : isNS ? entry.scoreNS : -entry.scoreNS)
@@ -1765,6 +1864,7 @@
 
   function rowContractText(row) {
     if (!row) return "No contract";
+    if (row.adjustment && row.scoreNS == null) return `Adjusted ${row.adjustment.nsPercent}%/${row.adjustment.ewPercent}%`;
     return `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
   }
 
@@ -1905,7 +2005,7 @@
   }
 
   function buildSameDirectionPeerComparison(results, view) {
-    const boardRows = results.rowsByBoard.get(String(view.row.boardNo)) || [];
+    const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
     const rows = boardRows
       .map((row) => {
         const score = sideScore(row, view.side);
@@ -1997,7 +2097,7 @@
   }
 
   function buildBoardLossItem(results, view) {
-    const boardRows = results.rowsByBoard.get(String(view.row.boardNo)) || [];
+    const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
     if (view.pairScore == null) return null;
     const comparisons = [];
 
