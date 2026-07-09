@@ -2763,20 +2763,33 @@
 
       function normalizePlayerNumbers(rows) {
         return (rows || [])
-          .map((row) => ({
-            section: safeNumber(pickField(row, ["Section", "section"])),
-            tableNo: safeNumber(pickField(row, ["Table", "table"])),
-            direction: normalizeResultSide(pickField(row, ["Direction", "direction", "Seat", "seat"])),
-            number: String(pickField(row, ["Number", "number", "PlayerNumber", "player_number"]) || "").trim(),
-            name: String(pickField(row, ["Name", "name", "Player", "player"]) || "").trim(),
-            round: safeNumber(pickField(row, ["Round", "round"])) || 0
-          }))
+          .map((row) => {
+            const player = {
+              section: safeNumber(pickField(row, ["Section", "section"])),
+              tableNo: safeNumber(pickField(row, ["Table", "table"])),
+              direction: normalizeResultSide(pickField(row, ["Direction", "direction", "Seat", "seat"])),
+              number: String(pickField(row, ["Number", "number", "PlayerNumber", "player_number"]) || "").trim(),
+              name: String(pickField(row, ["Name", "name", "Player", "player"]) || "").trim(),
+              round: safeNumber(pickField(row, ["Round", "round"])) || 0
+            };
+            player.placeholder = playerHasIdentity(player) ? "" : playerPlaceholder(player);
+            return player;
+          })
           .filter((row) => row.section != null && row.tableNo != null && row.direction);
+      }
+
+      function playerHasIdentity(player) {
+        return !!(player && (player.name || player.number));
+      }
+
+      function playerPlaceholder(player) {
+        if (!player || player.tableNo == null || !player.direction) return "";
+        return `Table ${player.tableNo} ${seatName(player.direction)}`;
       }
 
       function playerDisplay(player) {
         if (!player) return "";
-        return player.name || player.number || "";
+        return player.name || player.number || player.placeholder || "";
       }
 
       function pairRosterKey(pairNo, side) {
@@ -2813,6 +2826,8 @@
 
         pairRosters.forEach((roster) => {
           roster.players = SEATS.map((seat) => roster.playersBySeat[seat]).filter((player) => player && playerDisplay(player));
+          roster.knownPlayers = roster.players.filter(playerHasIdentity);
+          roster.placeholderPlayers = roster.players.filter((player) => player && !playerHasIdentity(player));
           roster.label = roster.players.map(playerDisplay).join(" / ");
         });
         pairRosters.profile = summarizePairRosters(pairRosters);
@@ -2827,7 +2842,7 @@
           const ew = pairRosters.get(pairRosterKey(roster.pairNo, "EW"));
           return ns && ns.players.length && ew && ew.players.length;
         });
-        const incompleteSideRosters = sideRosters.filter((roster) => roster.players.length > 0 && roster.players.length < 2);
+        const incompleteSideRosters = sideRosters.filter((roster) => roster.players.length > 0 && roster.knownPlayers.length < 2);
         return {
           groupCount: groups.length,
           teamLikeGroups: teamLikeGroups.length,
@@ -2837,17 +2852,37 @@
         };
       }
 
+      function fallbackPairSeatLabel(pairNo, seat) {
+        if (pairNo == null || pairNo === "" || !seat) return "";
+        return `Pair ${pairNo} ${seatName(seat)}`;
+      }
+
+      function fallbackPairLabel(pairNo, side) {
+        if (pairNo == null || pairNo === "") return "";
+        if (side === "NS") return ["N", "S"].map((seat) => fallbackPairSeatLabel(pairNo, seat)).join(" / ");
+        if (side === "EW") return ["E", "W"].map((seat) => fallbackPairSeatLabel(pairNo, seat)).join(" / ");
+        return `Pair ${pairNo} Player 1 / Pair ${pairNo} Player 2`;
+      }
+
       function pairRosterLabel(pairRosters, pairNo, side) {
         const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
         if (sideRoster && sideRoster.label) return sideRoster.label;
         const roster = pairRosters.get(pairRosterKey(pairNo));
-        return roster ? roster.label : "";
+        return roster && roster.label ? roster.label : fallbackPairLabel(pairNo, side);
       }
 
       function pairSeatPlayer(pairRosters, pairNo, seat, side) {
         const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
         const roster = sideRoster || pairRosters.get(pairRosterKey(pairNo));
-        return roster ? playerDisplay(roster.playersBySeat[seat]) : "";
+        const player = roster ? playerDisplay(roster.playersBySeat[seat]) : "";
+        return player || fallbackPairSeatLabel(pairNo, seat);
+      }
+
+      function pairRosterKnownCount(pairRosters, pairNo, side) {
+        const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
+        if (sideRoster) return sideRoster.knownPlayers ? sideRoster.knownPlayers.length : 0;
+        const roster = pairRosters.get(pairRosterKey(pairNo));
+        return roster && roster.knownPlayers ? roster.knownPlayers.length : 0;
       }
 
       function participantKeyFor(pairNo, side, useSidePartnerships) {
@@ -2870,6 +2905,10 @@
           row.ewParticipantNo = participantLabelFor(row.pairEW, "EW", useSidePartnerships);
           row.nsParticipantPlayers = useSidePartnerships ? row.nsPlayers : pairRosterLabel(pairRosters, row.pairNS);
           row.ewParticipantPlayers = useSidePartnerships ? row.ewPlayers : pairRosterLabel(pairRosters, row.pairEW);
+          row.nsKnownPlayers = pairRosterKnownCount(pairRosters, row.pairNS, "NS");
+          row.ewKnownPlayers = pairRosterKnownCount(pairRosters, row.pairEW, "EW");
+          row.nsParticipantKnownPlayers = useSidePartnerships ? row.nsKnownPlayers : pairRosterKnownCount(pairRosters, row.pairNS);
+          row.ewParticipantKnownPlayers = useSidePartnerships ? row.ewKnownPlayers : pairRosterKnownCount(pairRosters, row.pairEW);
           row.declarerName = row.declarerSide === "N" || row.declarerSide === "S"
             ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide, "NS")
             : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide, "EW");
@@ -2887,6 +2926,7 @@
             sourcePairNo: side === "NS" ? row.pairNS : row.pairEW,
             rosterSide: side,
             players: side === "NS" ? row.nsParticipantPlayers : row.ewParticipantPlayers,
+            knownPlayers: side === "NS" ? row.nsParticipantKnownPlayers : row.ewParticipantKnownPlayers,
             matchpoints: 0,
             top: 0,
             boards: 0,
@@ -2897,6 +2937,7 @@
         }
         const standing = map.get(key);
         if (!standing.players) standing.players = side === "NS" ? row.nsParticipantPlayers : row.ewParticipantPlayers;
+        standing.knownPlayers = Math.max(standing.knownPlayers || 0, side === "NS" ? row.nsParticipantKnownPlayers : row.ewParticipantKnownPlayers);
         const mp = side === "NS" ? row.nsMatchpoints : row.ewMatchpoints;
         standing.matchpoints += mp;
         standing.top += row.boardTop;
@@ -2975,10 +3016,6 @@
         if (rosterProfile.teamLikeGroups) {
           warnings.push(`${rosterProfile.teamLikeGroups} result numbers have both NS-side and EW-side player rosters; pair standings and reports are split into side-specific partnerships.`);
         }
-        if (rosterProfile.incompleteSideRosters) {
-          const examples = rosterProfile.incompleteSideRosterLabels && rosterProfile.incompleteSideRosterLabels.length ? ` (${rosterProfile.incompleteSideRosterLabels.join(", ")})` : "";
-          warnings.push(`${plural(rosterProfile.incompleteSideRosters, "partnership roster has", "partnership rosters have")} fewer than two player names or member numbers in PlayerNumbers${examples}; missing seats cannot be recovered from result rows alone.`);
-        }
         const numberOnlyPlayers = playerNumbers.filter((player) => player.number && !player.name).length;
         if (numberOnlyPlayers) {
           warnings.push(`${plural(numberOnlyPlayers, "PlayerNumbers record has", "PlayerNumbers records have")} a member number but no player name; the member number is shown where no name was available.`);
@@ -3008,10 +3045,15 @@
           }))
           .sort((a, b) => (b.percent || 0) - (a.percent || 0) || String(a.pairNo).localeCompare(String(b.pairNo), undefined, { numeric: true }))
           .map((standing, index) => ({ ...standing, rank: index + 1 }));
-        const missingRosterStandings = pairStandings.filter((standing) => standing.boards && !standing.players);
+        const partialRosterStandings = pairStandings.filter((standing) => standing.boards && standing.knownPlayers > 0 && standing.knownPlayers < 2);
+        if (partialRosterStandings.length) {
+          const examples = partialRosterStandings.map((standing) => standing.pairNo).sort(numericPairSort).slice(0, 8).join(", ");
+          warnings.push(`${plural(partialRosterStandings.length, "active partnership has", "active partnerships have")} only one recovered player name or member number${examples ? ` (${examples})` : ""}; placeholder labels are used for missing members.`);
+        }
+        const missingRosterStandings = pairStandings.filter((standing) => standing.boards && !standing.knownPlayers);
         if (missingRosterStandings.length) {
           const examples = missingRosterStandings.map((standing) => standing.pairNo).sort(numericPairSort).slice(0, 8).join(", ");
-          warnings.push(`${plural(missingRosterStandings.length, "active partnership has", "active partnerships have")} no player names or member numbers in PlayerNumbers${examples ? ` (${examples})` : ""}; names cannot be recovered from the BWS without a supplemental roster.`);
+          warnings.push(`${plural(missingRosterStandings.length, "active partnership has", "active partnerships have")} no recovered player names or member numbers${examples ? ` (${examples})` : ""}; placeholder labels are used where table, seat, or pair context is available.`);
         }
 
         const boardSummaries = Array.from(rowsByBoard.entries())
@@ -4334,9 +4376,11 @@
             col("pair_ns", "Pair NS", (ctx) => ctx.result.pairNS),
             col("ns_partnership", "NS Partnership", (ctx) => ctx.result.nsParticipantNo),
             col("ns_players", "NS Players", (ctx) => ctx.result.nsPlayers),
+            col("ns_known_players", "NS Known Players", (ctx) => ctx.result.nsKnownPlayers),
             col("pair_ew", "Pair EW", (ctx) => ctx.result.pairEW),
             col("ew_partnership", "EW Partnership", (ctx) => ctx.result.ewParticipantNo),
             col("ew_players", "EW Players", (ctx) => ctx.result.ewPlayers),
+            col("ew_known_players", "EW Known Players", (ctx) => ctx.result.ewKnownPlayers),
             col("declarer_number", "Declarer Number", (ctx) => ctx.result.declarerNumber),
             col("declarer_side", "Declarer Side", (ctx) => ctx.result.declarerSide),
             col("declarer_name", "Declarer Name", (ctx) => ctx.result.declarerName),
@@ -4393,6 +4437,7 @@
             col("rank", "Rank", (ctx) => ctx.pairStanding.rank),
             col("pair", "Pair", (ctx) => ctx.pairStanding.pairNo),
             col("players", "Players", (ctx) => ctx.pairStanding.players || ""),
+            col("known_players", "Known Players", (ctx) => ctx.pairStanding.knownPlayers),
             col("matchpoints", "Matchpoints", (ctx) => ctx.pairStanding.matchpoints.toFixed(1)),
             col("top", "Top", (ctx) => ctx.pairStanding.top.toFixed(1)),
             col("percent", "Percent", (ctx) => ctx.pairStanding.percent == null ? "" : ctx.pairStanding.percent.toFixed(2)),
