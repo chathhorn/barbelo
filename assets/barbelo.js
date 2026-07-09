@@ -2431,11 +2431,33 @@
           <strong class="loss-mp">${escapeHtml(formatMp(category.totalLoss))} MP</strong>
         </div>
         <div class="loss-bar term-tip"${tooltipAttrs(barExplanation)} role="img" aria-label="${escapeHtml(barExplanation)}"><span style="width:${width.toFixed(1)}%"></span></div>
-        <p>${escapeHtml(category.advice)}</p>
+        ${renderLossAdvice(category.advice)}
         <ul class="loss-example-list">
           ${category.examples.slice(0, 3).map(renderLossExample).join("")}
         </ul>
       </article>
+    `;
+  }
+
+  function renderLossAdvice(advice) {
+    return `
+      <div class="loss-advice">
+        <span class="collie-head" aria-hidden="true">
+          <svg viewBox="0 0 48 48" focusable="false">
+            <path class="collie-ear" d="M15 18 7 6c-.5-.8.3-1.8 1.2-1.4L21 10Z"></path>
+            <path class="collie-ear right" d="M33 18 41 6c.5-.8-.3-1.8-1.2-1.4L27 10Z"></path>
+            <ellipse class="collie-face" cx="24" cy="25" rx="16.5" ry="15.5"></ellipse>
+            <path class="collie-mask" d="M9.5 24.5c0-8.8 5.6-15.5 14.5-15.5v31c-8.4-.5-14.5-7.1-14.5-15.5Z"></path>
+            <path class="collie-blaze" d="M21.8 9.2c3.9 3.9 5.1 8.2 3.3 13.1-1 2.7-1 4.8.2 6.9.8 1.4.7 3.1-.4 4.3L22 37l-3.7-4.3c-1-1.2-.8-3 .4-4 2.3-1.9 3.2-4.5 2.7-7.6-.5-3.3-.3-7.3.4-11.9Z"></path>
+            <circle class="collie-eye" cx="18.3" cy="23.4" r="2.1"></circle>
+            <circle class="collie-eye right" cx="30.5" cy="23.4" r="2.1"></circle>
+            <ellipse class="collie-muzzle" cx="24.2" cy="30.5" rx="7" ry="5.4"></ellipse>
+            <path class="collie-nose" d="M21.3 28.4c1.6-.9 4.1-.9 5.7 0 .5.3.5 1 0 1.4l-2 1.5c-.5.4-1.2.4-1.7 0l-2-1.5c-.5-.4-.5-1.1 0-1.4Z"></path>
+            <path class="collie-mouth" d="M24.2 31.2v2.4m0 0c-1.2 1-2.5 1.1-3.8.2m3.8-.2c1.2 1 2.5 1.1 3.8.2"></path>
+          </svg>
+        </span>
+        <p>${escapeHtml(advice)}</p>
+      </div>
     `;
   }
 
