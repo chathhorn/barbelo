@@ -1107,6 +1107,11 @@ details.board-details summary {
   text-align: right;
 }
 
+.ledger-bar-note {
+  display: block;
+  margin-top: 3px;
+}
+
 .loss-category-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
