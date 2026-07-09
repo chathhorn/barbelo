@@ -552,6 +552,36 @@ main {
   letter-spacing: 0;
 }
 
+.chart-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 4px 10px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.inline-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
 .visualization-section p,
 .results-subsection p {
   margin: 3px 0 0;
@@ -1762,14 +1792,14 @@ th {
   right: 18px;
   bottom: 18px;
   z-index: 40;
-  max-width: min(460px, calc(100vw - 36px));
+  max-width: min(360px, calc(100vw - 36px));
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: #fff;
-  box-shadow: var(--shadow);
-  padding: 12px 14px;
+  box-shadow: 0 12px 28px rgba(23, 33, 43, 0.12);
+  padding: 10px 12px;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .toast.error {

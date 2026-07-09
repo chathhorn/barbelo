@@ -153,9 +153,15 @@
             </summary>
             <div class="panel-body visualization-grid">
               <section class="visualization-section visualization-main">
-                <div>
-                  <h3 id="scoreChartTitle">Par Score By Board</h3>
-                  <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
+                <div class="chart-heading">
+                  <div>
+                    <h3 id="scoreChartTitle">Par Score By Board</h3>
+                    <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
+                  </div>
+                  <label class="inline-toggle" for="scoreOutlierToggle">
+                    <input type="checkbox" id="scoreOutlierToggle">
+                    <span>Outliers</span>
+                  </label>
                 </div>
                 <div class="chart-wrap" id="scoreChart"></div>
               </section>

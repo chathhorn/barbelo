@@ -337,6 +337,7 @@
     reportPair: "",
     activeView: "overview",
     selectedBoardNo: "",
+    scoreOutliersOnly: false,
     rowMode: "boards",
     selectedColumns: new Set(),
     filters: {
@@ -428,21 +429,29 @@
 
   function annotateTermTooltips(root) {
     if (!root) return;
+    const noisySelector = [
+      "h2.term-tip",
+      "h3.term-tip",
+      "label.term-tip",
+      ".metric .label.term-tip",
+      ".count-tile span.term-tip",
+      ".side-chip.term-tip",
+      ".legend-item.term-tip"
+    ].join(",");
+    root.querySelectorAll(noisySelector).forEach((element) => {
+      element.classList.remove("term-tip");
+      element.removeAttribute("data-tooltip");
+      element.removeAttribute("aria-describedby");
+      if (element.getAttribute("tabindex") === "0") element.removeAttribute("tabindex");
+    });
     const selector = [
-      "h2",
-      "h3",
-      "label",
       "th",
-      ".metric .label",
       ".metadata-item .key",
-      ".count-tile span",
       ".result-summary-card span",
       ".board-stat span",
       ".review-stat span",
-      ".side-chip",
       ".contract-chip",
-      ".reason-chip",
-      ".legend-item"
+      ".reason-chip"
     ].join(",");
     root.querySelectorAll(selector).forEach((element) => {
       if (element.hasAttribute("data-tooltip") || element.querySelector("[data-tooltip]")) return;
@@ -461,6 +470,14 @@
     if (!element) return;
     element.textContent = text;
     const help = termDefinition(text);
+    const heading = ["H1", "H2", "H3", "LABEL"].includes(element.tagName);
+    if (heading) {
+      element.classList.remove("term-tip");
+      element.removeAttribute("data-tooltip");
+      element.removeAttribute("aria-describedby");
+      element.removeAttribute("tabindex");
+      return;
+    }
     element.classList.toggle("term-tip", !!help);
     if (help) {
       element.setAttribute("data-tooltip", help);
@@ -1789,6 +1806,7 @@
     STATE.reportPair = "";
     STATE.activeView = "overview";
     STATE.selectedBoardNo = "";
+    STATE.scoreOutliersOnly = false;
     STATE.rowMode = "boards";
     STATE.selectedColumns = new Set();
     STATE.filters = defaultFilters();
@@ -1849,7 +1867,7 @@
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => {
       toast.classList.add("hidden");
-    }, 3600);
+    }, type === "error" ? 5200 : 1800);
   }
 
   function setElementHidden(id, hidden) {
@@ -2025,6 +2043,7 @@
     document.getElementById("vulFilter").value = STATE.filters.vulnerability;
     document.getElementById("playedFilter").value = STATE.filters.played;
     document.getElementById("rowMode").value = STATE.rowMode;
+    document.getElementById("scoreOutlierToggle").checked = STATE.scoreOutliersOnly;
 
     renderMetrics(analysis);
     renderMetadata(analysis);
@@ -2339,8 +2358,19 @@
     annotateTermTooltips(section);
   }
 
-  function renderResultScoreChart(results) {
-    const summaries = results.boardSummaries.filter((summary) => summary.averageNsScore != null);
+  function resultScoreOutlierSummaries(summaries) {
+    const flagged = summaries.filter((summary) => Math.abs(summary.averageVsPar || 0) >= 200 || (summary.scoreSpread || 0) >= 800);
+    const chosen = flagged.length
+      ? flagged
+      : [...summaries]
+        .sort((a, b) => Math.max(Math.abs(b.averageVsPar || 0), (b.scoreSpread || 0) / 4) - Math.max(Math.abs(a.averageVsPar || 0), (a.scoreSpread || 0) / 4))
+        .slice(0, Math.min(8, summaries.length));
+    return [...chosen].sort((a, b) => a.boardNo - b.boardNo);
+  }
+
+  function renderResultScoreChart(results, outliersOnly = false) {
+    let summaries = results.boardSummaries.filter((summary) => summary.averageNsScore != null);
+    if (outliersOnly) summaries = resultScoreOutlierSummaries(summaries);
     if (!summaries.length) return `<div class="empty-state">No scored results to chart.</div>`;
     const width = Math.max(860, summaries.length * 28 + 92);
     const height = 310;
@@ -2687,19 +2717,35 @@
     const scoreCaption = document.getElementById("scoreChartCaption");
     if (results) {
       setTermElementText(scoreTitle, "Actual Scores Vs Par");
-      scoreCaption.textContent = "Average table result by played board, scored from the NS perspective. The black tick is theoretical PBN par, not a cap on actual results.";
-      document.getElementById("scoreChart").innerHTML = renderResultScoreChart(results);
+      scoreCaption.textContent = STATE.scoreOutliersOnly
+        ? "Outlier played boards where field average or score spread most diverged from PBN par."
+        : "Average table result by played board, scored from the NS perspective. The black tick is theoretical PBN par, not a cap on actual results.";
+      document.getElementById("scoreChart").innerHTML = renderResultScoreChart(results, STATE.scoreOutliersOnly);
     } else {
       setTermElementText(scoreTitle, "Par Score By Board");
-      scoreCaption.textContent = "Positive bars favor NS, negative bars favor EW.";
-      document.getElementById("scoreChart").innerHTML = renderScoreChart(boards);
+      scoreCaption.textContent = STATE.scoreOutliersOnly
+        ? "Largest theoretical par swings and slam-level boards."
+        : "Positive bars favor NS, negative bars favor EW.";
+      document.getElementById("scoreChart").innerHTML = renderScoreChart(boards, STATE.scoreOutliersOnly);
     }
     document.getElementById("strainChart").innerHTML = renderStrainChart(boards);
     document.getElementById("hcpChart").innerHTML = renderHcpChart(boards);
     document.getElementById("heatMap").innerHTML = renderHeatMap(boards);
   }
 
-  function renderScoreChart(boards) {
+  function scoreOutlierBoards(boards) {
+    const flagged = boards
+      .filter((board) => Math.abs(board.optimum.nsPerspective || 0) >= 500 || board.parContracts.some((contract) => contract.level >= 6));
+    const chosen = flagged.length
+      ? flagged
+      : [...boards]
+        .sort((a, b) => Math.abs(b.optimum.nsPerspective || 0) - Math.abs(a.optimum.nsPerspective || 0))
+        .slice(0, Math.min(8, boards.length));
+    return [...chosen].sort((a, b) => a.boardNo - b.boardNo);
+  }
+
+  function renderScoreChart(boards, outliersOnly = false) {
+    if (outliersOnly) boards = scoreOutlierBoards(boards);
     if (!boards.length) return `<div class="empty-state">No boards to chart.</div>`;
     const width = Math.max(860, boards.length * 23 + 90);
     const height = 300;
@@ -3774,6 +3820,10 @@
     document.getElementById("playedFilter").addEventListener("change", (event) => {
       STATE.filters.played = event.target.value;
       renderBoards();
+    });
+    document.getElementById("scoreOutlierToggle").addEventListener("change", (event) => {
+      STATE.scoreOutliersOnly = event.target.checked;
+      if (STATE.analysis) renderCharts(STATE.analysis, STATE.results);
     });
     document.getElementById("boardGrid").addEventListener("click", (event) => {
       const trigger = event.target.closest("[data-board-select]");
