@@ -707,6 +707,11 @@ svg {
   height: auto;
 }
 
+.chart-board-mark,
+.chart-board-label {
+  cursor: pointer;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -859,10 +864,65 @@ svg {
 }
 
 .board-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 14px;
+  display: block;
   margin-top: 16px;
+}
+
+.board-workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(460px, 1.35fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.board-list-panel,
+.board-detail-panel {
+  min-width: 0;
+}
+
+.board-list-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: auto;
+  max-height: calc(100vh - 230px);
+}
+
+.board-list-table {
+  min-width: 640px;
+  font-size: 12px;
+}
+
+.board-list-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.board-list-table tr.selected td {
+  background: #eef6ff;
+}
+
+.board-list-table td {
+  white-space: nowrap;
+}
+
+.board-row-button {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline dotted rgba(36, 87, 166, 0.55);
+  text-underline-offset: 3px;
+}
+
+.board-row-button:hover,
+.board-row-button:focus-visible {
+  color: var(--green-dark);
+  background: transparent;
 }
 
 .board-card {
@@ -1765,6 +1825,15 @@ th {
 
   .board-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board-workspace,
+  .priority-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .board-list-wrap {
+    max-height: 360px;
   }
 }
 

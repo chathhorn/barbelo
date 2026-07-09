@@ -336,6 +336,7 @@
     results: null,
     reportPair: "",
     activeView: "overview",
+    selectedBoardNo: "",
     rowMode: "boards",
     selectedColumns: new Set(),
     filters: {
@@ -1769,6 +1770,7 @@
     STATE.results = STATE.rawResults ? buildResultsAnalysis(STATE.rawResults, analysis) : null;
     STATE.reportPair = STATE.results ? defaultReportPair(STATE.results) : "";
     STATE.activeView = STATE.results ? "improve" : "overview";
+    STATE.selectedBoardNo = analysis.boards[0] ? String(analysis.boards[0].boardNo) : "";
     STATE.rowMode = STATE.results ? "results" : "boards";
     STATE.selectedColumns = new Set(defaultColumnKeys(STATE.rowMode, analysis));
     STATE.filters = defaultFilters();
@@ -1786,6 +1788,7 @@
     STATE.results = null;
     STATE.reportPair = "";
     STATE.activeView = "overview";
+    STATE.selectedBoardNo = "";
     STATE.rowMode = "boards";
     STATE.selectedColumns = new Set();
     STATE.filters = defaultFilters();
@@ -2368,16 +2371,18 @@
       const parY = summary.parNS == null ? null : yFor(summary.parNS);
       const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
       return `
-        <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
-          <title>Board ${escapeHtml(summary.boardNo)}: average NS ${escapeHtml(Math.round(value))}${summary.parNS == null ? "" : `, par ${escapeHtml(summary.parNS)}`}</title>
-        </rect>
-        ${parY == null ? "" : `<line x1="${(x - 2).toFixed(2)}" x2="${(x + barWidth + 2).toFixed(2)}" y1="${parY.toFixed(2)}" y2="${parY.toFixed(2)}" stroke="#17212b" stroke-width="2"><title>Par ${escapeHtml(summary.parNS)}</title></line>`}
+        <g class="chart-board-mark" data-board-jump="${escapeHtml(summary.boardNo)}">
+          <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
+            <title>Board ${escapeHtml(summary.boardNo)}: average NS ${escapeHtml(Math.round(value))}${summary.parNS == null ? "" : `, par ${escapeHtml(summary.parNS)}`}</title>
+          </rect>
+          ${parY == null ? "" : `<line x1="${(x - 2).toFixed(2)}" x2="${(x + barWidth + 2).toFixed(2)}" y1="${parY.toFixed(2)}" y2="${parY.toFixed(2)}" stroke="#17212b" stroke-width="2"><title>Par ${escapeHtml(summary.parNS)}</title></line>`}
+        </g>
       `;
     }).join("");
     const labels = summaries.map((summary, index) => {
       if (index % Math.ceil(summaries.length / 12) !== 0 && index !== summaries.length - 1) return "";
       const x = left + index * step + step / 2;
-      return `<text x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
+      return `<text class="chart-board-label" data-board-jump="${escapeHtml(summary.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
     }).join("");
 
     return `
@@ -2727,16 +2732,18 @@
       const h = Math.abs(yFor(value) - zeroY);
       const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
       return `
-        <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
-          <title>Board ${escapeHtml(board.boardNo)}: NS ${escapeHtml(formatSigned(value))}; ${escapeHtml(board.tags.ParContract || "No par contract")}</title>
-        </rect>
+        <g class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}">
+          <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
+            <title>Board ${escapeHtml(board.boardNo)}: NS ${escapeHtml(formatSigned(value))}; ${escapeHtml(board.tags.ParContract || "No par contract")}</title>
+          </rect>
+        </g>
       `;
     }).join("");
 
     const labels = boards.map((board, index) => {
       if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return "";
       const x = left + index * step + barWidth / 2;
-      return `<text x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
+      return `<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
     }).join("");
 
     return `
@@ -2839,7 +2846,7 @@
         const x = left + col * cellW;
         const y = top + row * cellH;
         cells.push(`
-          <rect x="${x}" y="${y}" width="18" height="18" rx="3" fill="${hcpColor(hcp)}" stroke="#ffffff">
+          <rect class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}" x="${x}" y="${y}" width="18" height="18" rx="3" fill="${hcpColor(hcp)}" stroke="#ffffff">
             <title>Board ${escapeHtml(board.boardNo)} ${seat}: ${hcp} HCP</title>
           </rect>
         `);
@@ -2849,7 +2856,7 @@
     boards.forEach((board, index) => {
       if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return;
       const x = left + index * cellW + 9;
-      cells.push(`<text x="${x}" y="${height - 8}" fill="#607083" font-size="10" text-anchor="middle">${escapeHtml(board.boardNo)}</text>`);
+      cells.push(`<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" x="${x}" y="${height - 8}" fill="#607083" font-size="10" text-anchor="middle">${escapeHtml(board.boardNo)}</text>`);
     });
 
     return `
@@ -2980,10 +2987,59 @@
     });
 
     document.getElementById("boardCountCaption").textContent = `${plural(filtered.length, "board")} shown from ${analysis.summary.boardCount}.`;
+    const selected = filtered.find((board) => String(board.boardNo) === String(STATE.selectedBoardNo)) || filtered[0] || null;
+    STATE.selectedBoardNo = selected ? String(selected.boardNo) : "";
     document.getElementById("boardGrid").innerHTML = filtered.length
-      ? filtered.map(renderBoardCard).join("")
+      ? `
+        <div class="board-workspace">
+          <div class="board-list-panel">
+            ${renderBoardList(filtered, selected)}
+          </div>
+          <div class="board-detail-panel">
+            ${selected ? renderBoardCard(selected) : `<div class="empty-state">Select a board to inspect.</div>`}
+          </div>
+        </div>
+      `
       : `<div class="empty-state">No boards match the current filters.</div>`;
     annotateTermTooltips(document.getElementById("boardGrid"));
+  }
+
+  function renderBoardList(boards, selected) {
+    return `
+      <div class="board-list-wrap">
+        <table class="board-list-table">
+          <thead>
+            <tr>
+              <th>Board</th>
+              <th>Deal</th>
+              <th>Par</th>
+              <th class="numeric">NS</th>
+              <th>Results</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${boards.map((board) => renderBoardListRow(board, selected)).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderBoardListRow(board, selected) {
+    const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
+    const selectedClass = selected && String(selected.boardNo) === String(board.boardNo) ? " selected" : "";
+    const resultText = resultSummary
+      ? `${resultSummary.resultCount} scores${resultSummary.averageNsScore == null ? "" : `, avg ${formatSigned(Math.round(resultSummary.averageNsScore))}`}`
+      : "No results";
+    return `
+      <tr class="${selectedClass}">
+        <td><button type="button" class="board-row-button" data-board-select="${escapeHtml(board.boardNo)}">Board ${escapeHtml(board.boardNo)}</button></td>
+        <td>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</td>
+        <td>${escapeHtml(board.tags.ParContract || "No par")}</td>
+        <td class="numeric">${escapeHtml(board.optimum.nsPerspective == null ? "" : formatSigned(board.optimum.nsPerspective))}</td>
+        <td>${escapeHtml(resultText)}</td>
+      </tr>
+    `;
   }
 
   function boardElementId(boardNo) {
@@ -3048,6 +3104,23 @@
     });
   }
 
+  function selectBoardInExplorer(boardNo, options = {}) {
+    STATE.selectedBoardNo = String(boardNo);
+    renderBoards();
+    const target = document.getElementById(boardElementId(boardNo));
+    if (!target) {
+      if (options.showError) showToast(`Board ${boardNo} could not be shown in the explorer.`, "error");
+      return null;
+    }
+    document.querySelectorAll(".board-card.board-card-target").forEach((card) => {
+      card.classList.remove("board-card-target");
+    });
+    target.classList.add("board-card-target");
+    if (options.scroll !== false) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.focus({ preventScroll: true });
+    return target;
+  }
+
   function revealBoardInExplorer(boardNo) {
     if (!STATE.analysis) {
       showToast("Open a PBN to jump to a board in the explorer.", "error");
@@ -3064,6 +3137,9 @@
     setElementHidden("boardExplorerPanel", false);
     const disclosure = document.getElementById("boardExplorerDisclosure");
     if (disclosure) disclosure.open = true;
+    STATE.activeView = "boards";
+    renderTaskNav(STATE.analysis, STATE.results);
+    applyActiveView();
 
     STATE.filters.search = "";
     STATE.filters.side = "all";
@@ -3071,20 +3147,7 @@
     STATE.filters.vulnerability = "all";
     STATE.filters.played = "all";
     syncBoardFilterControls();
-    renderBoards();
-
-    const target = document.getElementById(boardElementId(boardNo));
-    if (!target) {
-      showToast(`Board ${boardKey} could not be shown in the explorer.`, "error");
-      return;
-    }
-
-    document.querySelectorAll(".board-card.board-card-target").forEach((card) => {
-      card.classList.remove("board-card-target");
-    });
-    target.classList.add("board-card-target");
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-    target.focus({ preventScroll: true });
+    selectBoardInExplorer(boardNo, { showError: true });
   }
 
   function renderBoardTraveler(board) {
@@ -3711,6 +3774,12 @@
     document.getElementById("playedFilter").addEventListener("change", (event) => {
       STATE.filters.played = event.target.value;
       renderBoards();
+    });
+    document.getElementById("boardGrid").addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-board-select]");
+      if (!trigger) return;
+      event.preventDefault();
+      selectBoardInExplorer(trigger.getAttribute("data-board-select"));
     });
     document.getElementById("reportPairSelect").addEventListener("change", (event) => {
       STATE.reportPair = event.target.value;
