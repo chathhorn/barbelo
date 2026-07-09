@@ -2462,7 +2462,7 @@
     const percent = example.targetPercent == null ? "" : `, ${example.targetPercent.toFixed(1)}%`;
     return `
       <li>
-        <strong>Board ${escapeHtml(example.boardNo)}</strong>
+        <strong><button type="button" class="board-jump" data-board-jump="${escapeHtml(example.boardNo)}">Board ${escapeHtml(example.boardNo)}</button></strong>
         <span>Selected ${escapeHtml(example.targetContract)} (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: ${escapeHtml(peerSummaries.join("; "))}${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
       </li>
     `;
@@ -2766,6 +2766,11 @@
     annotateTermTooltips(document.getElementById("boardGrid"));
   }
 
+  function boardElementId(boardNo) {
+    const safe = String(boardNo == null ? "" : boardNo).replace(/[^A-Za-z0-9_-]+/g, "-");
+    return `board-explorer-${safe || "unknown"}`;
+  }
+
   function renderBoardCard(board) {
     const opt = board.optimum;
     const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
@@ -2779,7 +2784,7 @@
          <div class="board-stat"><span>Avg Result</span><strong>${escapeHtml(resultSummary.averageNsScore == null ? "Unknown" : `NS ${formatSigned(Math.round(resultSummary.averageNsScore))}`)}</strong></div>`
       : "";
     return `
-      <article class="board-card">
+      <article class="board-card" id="${escapeHtml(boardElementId(board.boardNo))}" data-board-no="${escapeHtml(board.boardNo)}" tabindex="-1">
         <div class="board-card-header">
           <div class="board-title">
             <strong>Board ${escapeHtml(board.boardNo)}</strong>
@@ -2807,6 +2812,59 @@
         </div>
       </article>
     `;
+  }
+
+  function syncBoardFilterControls() {
+    const controls = [
+      ["boardSearch", "search"],
+      ["sideFilter", "side"],
+      ["classFilter", "className"],
+      ["vulFilter", "vulnerability"],
+      ["playedFilter", "played"]
+    ];
+    controls.forEach(([id, key]) => {
+      const element = document.getElementById(id);
+      if (element) element.value = STATE.filters[key];
+    });
+  }
+
+  function revealBoardInExplorer(boardNo) {
+    if (!STATE.analysis) {
+      showToast("Open a PBN to jump to a board in the explorer.", "error");
+      return;
+    }
+
+    const boardKey = String(boardNo);
+    const boardExists = STATE.analysis.boards.some((board) => String(board.boardNo) === boardKey);
+    if (!boardExists) {
+      showToast(`Board ${boardKey} is not in the loaded PBN.`, "error");
+      return;
+    }
+
+    setElementHidden("boardExplorerPanel", false);
+    const disclosure = document.getElementById("boardExplorerDisclosure");
+    if (disclosure) disclosure.open = true;
+
+    STATE.filters.search = "";
+    STATE.filters.side = "all";
+    STATE.filters.className = "all";
+    STATE.filters.vulnerability = "all";
+    STATE.filters.played = "all";
+    syncBoardFilterControls();
+    renderBoards();
+
+    const target = document.getElementById(boardElementId(boardNo));
+    if (!target) {
+      showToast(`Board ${boardKey} could not be shown in the explorer.`, "error");
+      return;
+    }
+
+    document.querySelectorAll(".board-card.board-card-target").forEach((card) => {
+      card.classList.remove("board-card-target");
+    });
+    target.classList.add("board-card-target");
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.focus({ preventScroll: true });
   }
 
   function renderBoardTraveler(board) {
@@ -3430,6 +3488,11 @@
     document.getElementById("reportPairSelect").addEventListener("change", (event) => {
       STATE.reportPair = event.target.value;
       renderPairImprovementReport(STATE.results);
+    });
+    document.getElementById("pairReportBody").addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-board-jump]");
+      if (!trigger) return;
+      revealBoardInExplorer(trigger.getAttribute("data-board-jump"));
     });
 
     document.getElementById("rowMode").addEventListener("change", (event) => {

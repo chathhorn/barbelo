@@ -753,6 +753,16 @@ svg {
   border-radius: var(--radius);
   background: var(--panel);
   overflow: hidden;
+  scroll-margin-top: 92px;
+}
+
+.board-card:focus {
+  outline: none;
+}
+
+.board-card-target {
+  border-color: rgba(36, 87, 166, 0.62);
+  box-shadow: 0 0 0 3px rgba(36, 87, 166, 0.14), 0 10px 24px rgba(23, 33, 43, 0.10);
 }
 
 .board-card-header {
@@ -1247,6 +1257,31 @@ details.board-details summary {
 
 .loss-example-list strong {
   font-size: 12px;
+}
+
+.board-jump {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(36, 87, 166, 0.55);
+  text-underline-offset: 3px;
+}
+
+.board-jump:hover,
+.board-jump:focus-visible {
+  color: var(--green-dark);
+}
+
+.board-jump:focus-visible {
+  outline: 2px solid rgba(36, 87, 166, 0.45);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .loss-example-list span {
