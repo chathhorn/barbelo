@@ -1836,6 +1836,81 @@ th {
   font-size: 14px;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
+.board-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+
+.board-overlay.hidden {
+  display: none;
+}
+
+.board-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(23, 33, 43, 0.42);
+}
+
+.board-overlay-panel {
+  position: relative;
+  z-index: 1;
+  width: min(980px, calc(100vw - 40px));
+  max-height: min(900px, calc(100vh - 40px));
+  border: 1px solid rgba(23, 33, 43, 0.16);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 22px 60px rgba(23, 33, 43, 0.32);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.board-overlay-header {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.board-overlay-header h2 {
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.board-overlay-header p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.board-overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.board-overlay-body {
+  padding: 14px;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.overlay-board-card {
+  box-shadow: none;
+}
+
 .toast {
   position: fixed;
   right: 18px;

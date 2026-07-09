@@ -3266,9 +3266,11 @@
     return `board-explorer-${safe || "unknown"}`;
   }
 
-  function renderBoardCard(board) {
+  function renderBoardCard(board, options = {}) {
     const opt = board.optimum;
     const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
+    const cardId = options.id || boardElementId(board.boardNo);
+    const className = options.className ? ` ${options.className}` : "";
     const scoreText = opt.nsPerspective == null ? "" : `NS ${formatSigned(opt.nsPerspective)}`;
     const edgeChip = opt.edge && opt.edge !== "Flat"
       ? `<span class="side-chip ${sideClass(opt.edge)}">${escapeHtml(opt.edge)} edge</span>`
@@ -3279,7 +3281,7 @@
          <div class="board-stat"><span>Avg Result</span><strong>${escapeHtml(resultSummary.averageNsScore == null ? "Unknown" : `NS ${formatSigned(Math.round(resultSummary.averageNsScore))}`)}</strong></div>`
       : "";
     return `
-      <article class="board-card" id="${escapeHtml(boardElementId(board.boardNo))}" data-board-no="${escapeHtml(board.boardNo)}" tabindex="-1">
+      <article class="board-card${escapeHtml(className)}" id="${escapeHtml(cardId)}" data-board-no="${escapeHtml(board.boardNo)}" tabindex="-1">
         <div class="board-card-header">
           <div class="board-title">
             <strong>Board ${escapeHtml(board.boardNo)}</strong>
@@ -3338,6 +3340,53 @@
     if (options.scroll !== false) target.scrollIntoView({ behavior: "smooth", block: "start" });
     target.focus({ preventScroll: true });
     return target;
+  }
+
+  function boardByNumber(boardNo) {
+    if (!STATE.analysis) return null;
+    const key = String(boardNo);
+    return STATE.analysis.boards.find((board) => String(board.boardNo) === key) || null;
+  }
+
+  function showBoardOverlay(boardNo) {
+    const board = boardByNumber(boardNo);
+    if (!board) {
+      showToast(STATE.analysis ? `Board ${boardNo} is not in the loaded PBN.` : "Open a PBN to preview a board.", "error");
+      return;
+    }
+    const overlay = document.getElementById("boardOverlay");
+    const body = document.getElementById("boardOverlayBody");
+    const title = document.getElementById("boardOverlayTitle");
+    const caption = document.getElementById("boardOverlayCaption");
+    const closeButton = document.getElementById("boardOverlayClose");
+    if (!overlay || !body || !title || !caption || !closeButton) return;
+
+    showBoardOverlay.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    overlay.setAttribute("data-board-no", String(board.boardNo));
+    title.textContent = `Board ${board.boardNo}`;
+    caption.textContent = `Dealer ${board.dealer || "-"} / ${board.vulnerable || "-"} / ${board.tags.ParContract || "No par"}`;
+    body.innerHTML = renderBoardCard(board, {
+      id: `board-overlay-${String(board.boardNo).replace(/[^A-Za-z0-9_-]+/g, "-") || "unknown"}`,
+      className: "overlay-board-card"
+    });
+    overlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    annotateTermTooltips(body);
+    closeButton.focus();
+  }
+
+  function closeBoardOverlay({ restoreFocus = true } = {}) {
+    const overlay = document.getElementById("boardOverlay");
+    const body = document.getElementById("boardOverlayBody");
+    if (!overlay || overlay.classList.contains("hidden")) return;
+    overlay.classList.add("hidden");
+    overlay.removeAttribute("data-board-no");
+    if (body) body.innerHTML = "";
+    document.body.classList.remove("modal-open");
+    if (restoreFocus && showBoardOverlay.returnFocus && document.contains(showBoardOverlay.returnFocus)) {
+      showBoardOverlay.returnFocus.focus();
+    }
+    showBoardOverlay.returnFocus = null;
   }
 
   function revealBoardInExplorer(boardNo) {
@@ -3966,6 +4015,18 @@
     });
 
     document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
+    document.getElementById("boardOverlayClose").addEventListener("click", () => closeBoardOverlay());
+    document.getElementById("boardOverlay").addEventListener("click", (event) => {
+      if (event.target.closest("[data-board-overlay-close]")) closeBoardOverlay();
+    });
+    document.getElementById("boardOverlayOpenExplorer").addEventListener("click", () => {
+      const boardNo = document.getElementById("boardOverlay").getAttribute("data-board-no");
+      closeBoardOverlay({ restoreFocus: false });
+      if (boardNo) revealBoardInExplorer(boardNo);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeBoardOverlay();
+    });
     document.getElementById("taskNav").addEventListener("click", (event) => {
       const button = event.target.closest("[data-task-view]");
       if (!button || button.disabled) return;
@@ -4012,7 +4073,9 @@
       const trigger = event.target.closest("[data-board-jump]");
       if (!trigger) return;
       event.preventDefault();
-      revealBoardInExplorer(trigger.getAttribute("data-board-jump"));
+      const boardNo = trigger.getAttribute("data-board-jump");
+      if (trigger.closest("#boardExplorerPanel")) revealBoardInExplorer(boardNo);
+      else showBoardOverlay(boardNo);
     });
 
     document.getElementById("rowMode").addEventListener("change", (event) => {

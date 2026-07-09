@@ -312,6 +312,23 @@
     </main>
   </div>
 
+  <div class="board-overlay hidden" id="boardOverlay" role="dialog" aria-modal="true" aria-labelledby="boardOverlayTitle">
+    <div class="board-overlay-backdrop" data-board-overlay-close></div>
+    <div class="board-overlay-panel">
+      <header class="board-overlay-header">
+        <div>
+          <h2 id="boardOverlayTitle">Board</h2>
+          <p id="boardOverlayCaption"></p>
+        </div>
+        <div class="board-overlay-actions">
+          <button type="button" class="ghost" id="boardOverlayOpenExplorer">Open in Explorer</button>
+          <button type="button" id="boardOverlayClose">Close</button>
+        </div>
+      </header>
+      <div class="board-overlay-body" id="boardOverlayBody"></div>
+    </div>
+  </div>
+
   <div class="toast hidden" id="toast"></div>
   <div class="tooltip-popup hidden" id="termTooltip" role="tooltip"></div>
 
