@@ -1344,8 +1344,8 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <h2>Par Score By Board</h2>
-                <p>Positive bars favor NS, negative bars favor EW.</p>
+                <h2 id="scoreChartTitle">Par Score By Board</h2>
+                <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
               </div>
             </div>
             <div class="panel-body">
@@ -1370,34 +1370,20 @@
           </div>
         </section>
 
-        <section class="chart-grid hidden" id="resultsCharts">
+        <section class="grid-2 hidden" id="resultsCharts">
           <article class="panel">
             <div class="panel-header">
-              <div>
-                <h2>Actual Scores Vs Par</h2>
-                <p>Average table result by board, scored from the NS perspective.</p>
-              </div>
+              <h2>Result Contracts</h2>
             </div>
-            <div class="panel-body">
-              <div class="chart-wrap" id="resultScoreChart"></div>
-            </div>
+            <div class="panel-body" id="resultContractChart"></div>
           </article>
 
-          <div class="chart-stack">
-            <article class="panel">
-              <div class="panel-header">
-                <h2>Result Contracts</h2>
-              </div>
-              <div class="panel-body" id="resultContractChart"></div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-header">
-                <h2>Pair Standings</h2>
-              </div>
-              <div class="panel-body" id="pairStandings"></div>
-            </article>
-          </div>
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Pair Standings</h2>
+            </div>
+            <div class="panel-body" id="pairStandings"></div>
+          </article>
         </section>
 
         <section class="panel hidden" id="pairReportPanel">
@@ -1874,6 +1860,22 @@
           element.setAttribute("aria-describedby", "termTooltip");
           if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "0");
         });
+      }
+
+      function setTermElementText(element, text) {
+        if (!element) return;
+        element.textContent = text;
+        const help = termDefinition(text);
+        element.classList.toggle("term-tip", !!help);
+        if (help) {
+          element.setAttribute("data-tooltip", help);
+          element.setAttribute("aria-describedby", "termTooltip");
+          if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "0");
+        } else {
+          element.removeAttribute("data-tooltip");
+          element.removeAttribute("aria-describedby");
+          element.removeAttribute("tabindex");
+        }
       }
 
       function formatSigned(value) {
@@ -3707,6 +3709,7 @@
         STATE.reportPair = defaultReportPair(results);
         STATE.rowMode = "results";
         STATE.selectedColumns = new Set(defaultColumnKeys("results", STATE.analysis));
+        STATE.filters.played = "played";
         renderAll();
         showToast(`Loaded ${plural(results.summary.resultCount, "result")} from ${rawResults.sourceType}.`);
       }
@@ -3742,10 +3745,10 @@
         renderMetadata(analysis);
         renderQuality(analysis);
         renderResultsPanel(analysis, STATE.results);
-        renderCharts(analysis);
+        renderCharts(analysis, STATE.results);
         renderResultsCharts(analysis, STATE.results);
         renderPairImprovementReport(STATE.results);
-        renderNotables(analysis);
+        renderNotables(analysis, visualBoards(analysis, STATE.results));
         renderBoards();
         renderCsvControls();
         annotateTermTooltips(dashboard);
@@ -4016,7 +4019,6 @@
           return;
         }
         section.classList.remove("hidden");
-        document.getElementById("resultScoreChart").innerHTML = renderResultScoreChart(results);
         document.getElementById("resultContractChart").innerHTML = renderResultContractChart(results);
         document.getElementById("pairStandings").innerHTML = renderPairStandings(results);
         annotateTermTooltips(section);
@@ -4210,15 +4212,30 @@
         `;
       }
 
-      function renderCharts(analysis) {
-        document.getElementById("scoreChart").innerHTML = renderScoreChart(analysis);
-        document.getElementById("strainChart").innerHTML = renderStrainChart(analysis);
-        document.getElementById("hcpChart").innerHTML = renderHcpChart(analysis);
-        document.getElementById("heatMap").innerHTML = renderHeatMap(analysis);
+      function visualBoards(analysis, results) {
+        if (!results) return analysis.boards;
+        return analysis.boards.filter((board) => results.boardsByNumber.has(String(board.boardNo)));
       }
 
-      function renderScoreChart(analysis) {
-        const boards = analysis.boards;
+      function renderCharts(analysis, results) {
+        const boards = visualBoards(analysis, results);
+        const scoreTitle = document.getElementById("scoreChartTitle");
+        const scoreCaption = document.getElementById("scoreChartCaption");
+        if (results) {
+          setTermElementText(scoreTitle, "Actual Scores Vs Par");
+          scoreCaption.textContent = "Average table result by played board, scored from the NS perspective.";
+          document.getElementById("scoreChart").innerHTML = renderResultScoreChart(results);
+        } else {
+          setTermElementText(scoreTitle, "Par Score By Board");
+          scoreCaption.textContent = "Positive bars favor NS, negative bars favor EW.";
+          document.getElementById("scoreChart").innerHTML = renderScoreChart(boards);
+        }
+        document.getElementById("strainChart").innerHTML = renderStrainChart(boards);
+        document.getElementById("hcpChart").innerHTML = renderHcpChart(boards);
+        document.getElementById("heatMap").innerHTML = renderHeatMap(boards);
+      }
+
+      function renderScoreChart(boards) {
         if (!boards.length) return `<div class="empty-state">No boards to chart.</div>`;
         const width = Math.max(860, boards.length * 23 + 90);
         const height = 300;
@@ -4228,7 +4245,7 @@
         const bottom = 42;
         const plotWidth = width - left - right;
         const plotHeight = height - top - bottom;
-        const maxAbs = Math.max(100, analysis.summary.maxAbsScore || 0);
+        const maxAbs = Math.max(100, ...boards.map((board) => Math.abs(board.optimum.nsPerspective || 0)));
         const zeroY = top + plotHeight / 2;
         const barGap = 3;
         const step = plotWidth / boards.length;
@@ -4278,13 +4295,14 @@
         `;
       }
 
-      function renderStrainChart(analysis) {
+      function renderStrainChart(boards) {
+        const parContracts = boards.flatMap((board) => board.parContracts || []);
         const counts = DENOMS.map((denom) => ({
           ...denom,
-          count: analysis.summary.strains[denom.key] || 0
+          count: parContracts.filter((contract) => contract.strain === denom.key).length
         })).filter((entry) => entry.count > 0);
         const total = sum(counts.map((entry) => entry.count));
-        if (!total) return `<div class="empty-state">No par strains found.</div>`;
+        if (!total) return `<div class="empty-state">No par strains found for the current board set.</div>`;
         const radius = 58;
         const circumference = 2 * Math.PI * radius;
         let offset = 0;
@@ -4317,11 +4335,12 @@
         `;
       }
 
-      function renderHcpChart(analysis) {
+      function renderHcpChart(boards) {
+        if (!boards.length) return `<div class="empty-state">No boards to summarize.</div>`;
         const entries = [
-          ...SEATS.map((seat) => ({ label: seat, value: analysis.summary.averageHcpBySeat[seat], max: 20 })),
-          { label: "NS", value: analysis.summary.averageHcpByPair.NS, max: 40 },
-          { label: "EW", value: analysis.summary.averageHcpByPair.EW, max: 40 }
+          ...SEATS.map((seat) => ({ label: seat, value: average(boards.map((board) => board.hands[seat].hcp)), max: 20 })),
+          { label: "NS", value: average(boards.map((board) => board.pairs.NS.hcp)), max: 40 },
+          { label: "EW", value: average(boards.map((board) => board.pairs.EW.hcp)), max: 40 }
         ];
 
         return `
@@ -4345,8 +4364,7 @@
         return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
       }
 
-      function renderHeatMap(analysis) {
-        const boards = analysis.boards;
+      function renderHeatMap(boards) {
         if (!boards.length) return `<div class="empty-state">No boards to map.</div>`;
         const cellW = 22;
         const cellH = 23;
@@ -4383,29 +4401,44 @@
         `;
       }
 
-      function renderNotables(analysis) {
+      function renderNotables(analysis, boards) {
+        const currentBoards = boards || analysis.boards;
         const items = [];
-        const scores = analysis.summary.largestScores.map((board) => {
+        const largestScores = [...currentBoards]
+          .filter((board) => board.optimum.nsPerspective != null)
+          .sort((a, b) => Math.abs(b.optimum.nsPerspective || 0) - Math.abs(a.optimum.nsPerspective || 0))
+          .slice(0, 5);
+        const scores = largestScores.map((board) => {
           const edge = board.optimum.edge === "NS" ? "NS" : board.optimum.edge === "EW" ? "EW" : "flat";
           return `Board ${board.boardNo}: ${edge} ${Math.abs(board.optimum.nsPerspective || 0)} (${board.tags.ParContract || "no par"})`;
         });
         if (scores.length) items.push({ tone: "", text: `Largest par swings: ${scores.join("; ")}.` });
 
-        const slamBoards = analysis.summary.slamLevelBoards.map((board) => `Board ${board.boardNo} ${board.tags.ParContract}`);
+        const slamBoards = currentBoards
+          .filter((board) => board.parContracts.some((contract) => contract.level >= 6))
+          .map((board) => `Board ${board.boardNo} ${board.tags.ParContract}`);
         if (slamBoards.length) items.push({ tone: "gold", text: `Slam-level par contracts: ${slamBoards.slice(0, 8).join("; ")}${slamBoards.length > 8 ? "; ..." : ""}.` });
 
-        const voidBoards = analysis.summary.voidBoards.map((board) => `Board ${board.boardNo} ${board.voids.join(", ")}`);
+        const voidBoards = currentBoards
+          .filter((board) => board.voids.length)
+          .map((board) => `Board ${board.boardNo} ${board.voids.join(", ")}`);
         if (voidBoards.length) items.push({ tone: "", text: `Voids appear on ${plural(voidBoards.length, "board")}: ${voidBoards.slice(0, 8).join("; ")}${voidBoards.length > 8 ? "; ..." : ""}.` });
 
-        const longSuitBoards = analysis.summary.longSuitBoards.map((board) => `Board ${board.boardNo} ${board.longSuits.join(", ")}`);
+        const longSuitBoards = currentBoards
+          .filter((board) => board.longSuits.length)
+          .map((board) => `Board ${board.boardNo} ${board.longSuits.join(", ")}`);
         if (longSuitBoards.length) items.push({ tone: "", text: `Seven-card or longer suits: ${longSuitBoards.slice(0, 8).join("; ")}${longSuitBoards.length > 8 ? "; ..." : ""}.` });
 
-        const imbalances = analysis.summary.hcpImbalanceBoards
+        const imbalances = [...currentBoards]
+          .sort((a, b) => Math.abs(b.hcpDeltaNS) - Math.abs(a.hcpDeltaNS))
           .filter((board) => Math.abs(board.hcpDeltaNS) >= 12)
+          .slice(0, 5)
           .map((board) => `Board ${board.boardNo} ${board.hcpNS}-${board.hcpEW}`);
         if (imbalances.length) items.push({ tone: "gold", text: `Large HCP imbalances, NS-EW: ${imbalances.join("; ")}.` });
 
-        if (!items.length) items.push({ tone: "", text: "No notable outliers found in this file." });
+        if (!items.length) {
+          items.push({ tone: "", text: currentBoards.length ? "No notable outliers found in the current board set." : "No played PBN boards are available for this view." });
+        }
 
         document.getElementById("notableList").innerHTML = items.map((item) => `
           <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
