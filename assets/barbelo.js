@@ -235,6 +235,7 @@
     "partscore battle": "Matchpoint losses in small-score competitive or overtrick situations below game level.",
     "passout": "A board where all players pass and no contract is played.",
     "pbn": "Portable Bridge Notation, a text format for bridge deals and related tags.",
+    "pbn match": "A compatibility score estimating whether the uploaded results file appears to belong with the loaded PBN.",
     "penalty double decisions": "Matchpoint losses involving doubled contracts, sacrifices, penalty opportunities, or large set decisions.",
     "pct": "Percentage of available matchpoints earned.",
     "percent": "Percentage of available matchpoints earned.",
@@ -283,7 +284,8 @@
     "vs par": "Difference between an actual result and the theoretical par score.",
     "well below par": "The pair's score was far worse than the theoretical par score.",
     "wrong strain": "Matchpoint losses where same-direction peers scored better in a different denomination.",
-    "wrong row type or short": "A rejected BWS row slice that was not the expected table row type or was too short to parse."
+    "wrong row type or short": "A rejected BWS row slice that was not the expected table row type or was too short to parse.",
+    "unknown": "A value the app could not recover, parse, or classify confidently from the loaded file."
   };
   const TERM_ALIASES = {
     "accepted rows": "accepted results",
@@ -2423,19 +2425,23 @@
 
   function renderImportDiagnosticsPanel(results) {
     const panel = document.getElementById("importDiagnosticsPanel");
+    const title = document.getElementById("importDiagnosticsTitle");
     const caption = document.getElementById("importDiagnosticsCaption");
     const body = document.getElementById("importDiagnosticsSummary");
     const diagnostics = results && results.metadata ? results.metadata.diagnostics : null;
-    if (!panel || !caption || !body) return;
+    if (!panel || !title || !caption || !body) return;
     if (!diagnostics) {
       panel.classList.add("hidden");
+      title.textContent = "BWS Import Diagnostics";
       caption.textContent = "";
       body.innerHTML = "";
       return;
     }
 
     panel.classList.remove("hidden");
-    caption.textContent = `${results.fileName || "Results"} - ${diagnostics.sourceType || results.sourceType || "import"} scan details.`;
+    const sourceType = diagnostics.sourceType || results.sourceType || "Import";
+    title.textContent = sourceType === "BWS" ? "BWS Import Diagnostics" : `${sourceType} Import Diagnostics`;
+    caption.textContent = `${results.fileName || "Results"} - ${sourceType} scan details.`;
     body.innerHTML = renderImportDiagnostics(results);
     annotateTermTooltips(panel);
   }
@@ -2449,7 +2455,6 @@
       : `<div class="diagnostics-note">No import warnings.</div>`;
     return `
       <div class="diagnostics-panel">
-        <h3>Import Diagnostics</h3>
         <div class="diagnostics-grid">
           <div class="metadata-item"><div class="key">Source</div><div class="val">CSV</div></div>
           <div class="metadata-item"><div class="key">File Size</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
@@ -2500,11 +2505,8 @@
       : `<div class="diagnostics-note">No import warnings.</div>`;
     const summaryText = `${diagnostics.acceptedReceivedRows} results, ${diagnostics.acceptedPlayerRows} player rows, ${diagnostics.selectedPageSize} byte pages`;
     return `
-      <details class="diagnostics-panel">
-        <summary>
-          <h3>${term("BWS Import Diagnostics")}</h3>
-          <span class="diagnostics-summary">${escapeHtml(summaryText)}</span>
-        </summary>
+      <div class="diagnostics-panel">
+        <div class="diagnostics-summary">${escapeHtml(summaryText)}</div>
         <div class="diagnostics-grid">
           <div class="metadata-item"><div class="key">${term("File Size")}</div><div class="val">${escapeHtml(formatBytes(diagnostics.fileSize))}</div></div>
           <div class="metadata-item"><div class="key">${term("Jet Signature")}</div><div class="val">${escapeHtml(diagnostics.signature || "Missing")}</div></div>
@@ -2538,7 +2540,7 @@
         <div class="diagnostics-note">All-FF page runs: ${escapeHtml(erasedRuns)}.</div>
         <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and rows scanned under the non-selected page size, so nonzero rejection counts are expected.</div>
         ${warningText}
-      </details>
+      </div>
     `;
   }
 
@@ -2626,6 +2628,12 @@
     `;
   }
 
+  function renderContractClassLabel(label) {
+    const definition = termDefinition(label);
+    const classes = definition ? "contract-type-label term-tip" : "contract-type-label";
+    return `<div class="${classes}"${tooltipAttrs(definition)}>${escapeHtml(label)}</div>`;
+  }
+
   function renderResultContractChart(results) {
     const counts = results.summary.contractClasses;
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -2635,7 +2643,7 @@
         ${entries.map(([key, value]) => `
           <div class="count-tile">
             <strong>${escapeHtml(value)}</strong>
-            <span>${escapeHtml(key)}</span>
+            ${renderContractClassLabel(key)}
           </div>
         `).join("")}
       </div>
@@ -3379,14 +3387,12 @@
     const overlay = document.getElementById("boardOverlay");
     const body = document.getElementById("boardOverlayBody");
     const title = document.getElementById("boardOverlayTitle");
-    const caption = document.getElementById("boardOverlayCaption");
     const closeButton = document.getElementById("boardOverlayClose");
-    if (!overlay || !body || !title || !caption || !closeButton) return;
+    if (!overlay || !body || !title || !closeButton) return;
 
     showBoardOverlay.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlay.setAttribute("data-board-no", String(board.boardNo));
     title.textContent = "Board Preview";
-    caption.textContent = `Dealer ${board.dealer || "-"} / ${board.vulnerable || "-"} / ${board.tags.ParContract || "No par"}`;
     body.innerHTML = renderBoardCard(board, {
       id: `board-overlay-${String(board.boardNo).replace(/[^A-Za-z0-9_-]+/g, "-") || "unknown"}`,
       className: "overlay-board-card"

@@ -821,6 +821,16 @@ svg {
   white-space: nowrap;
 }
 
+.contract-type-label {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .result-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1886,12 +1896,6 @@ body.modal-open {
 .board-overlay-header h2 {
   font-size: 16px;
   letter-spacing: 0;
-}
-
-.board-overlay-header p {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .board-overlay-actions {
