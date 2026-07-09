@@ -105,6 +105,50 @@
     "tieSplit",
     "outlier"
   ];
+  const DECISION_TYPE_INFO = {
+    biddingJudgment: {
+      label: "Bidding Judgment",
+      tone: "gold",
+      categories: ["missedGameSlam", "overreach", "wrongStrain", "contractSelection"],
+      advice: "Use these boards for auction review: level, strain, invitation, signoff, and partnership agreement decisions are the likely swing points."
+    },
+    declarerPlay: {
+      label: "Declarer Play",
+      tone: "gold",
+      categories: ["declarerTricks"],
+      advice: "Replay the contract card by card before checking double-dummy; look for timing, entries, safety plays, and overtrick chances."
+    },
+    defense: {
+      label: "Defense",
+      tone: "gold",
+      categories: ["defensiveTricks"],
+      advice: "Review opening lead, count signals, suit preference, shifts, and cash-out timing against the traveler contracts."
+    },
+    competitiveAuction: {
+      label: "Competitive Auctions",
+      tone: "gold",
+      categories: ["competitiveAuction", "partscoreBattle"],
+      advice: "Focus on vulnerability, total-tricks judgment, balancing, selling out, and whether competing protected or damaged the score."
+    },
+    penaltyDouble: {
+      label: "Penalty / Double Decisions",
+      tone: "red",
+      categories: ["penaltyDouble"],
+      advice: "Review doubles, redoubles, sacrifices, and penalty passes as separate decisions; these boards often swing more than one normal partscore."
+    },
+    smallEdges: {
+      label: "Small Edges",
+      tone: "",
+      categories: ["tieSplit"],
+      advice: "Tied comparisons point to thin overtricks, extra undertricks, and partscore details that convert shared boards into above-average scores."
+    },
+    manualReview: {
+      label: "Manual Review",
+      tone: "",
+      categories: ["outlier"],
+      advice: "The score loss is real, but the app cannot identify a single cause from the traveler alone; compare the auction and play record manually."
+    }
+  };
   const TERM_DEFINITIONS = {
     "accepted results": "Traveler result rows that the BWS scanner recognized as usable played-board records.",
     "actual contract": "The contract actually played at the table, when the PBN or uploaded result file supplies it.",
@@ -138,6 +182,7 @@
     "contract summary": "Most common contracts found in the traveler rows for a board.",
     "controls": "Quick honor-control count: aces count 2 and kings count 1.",
     "competitive auction": "Matchpoint losses where deciding whether to compete, defend, double, or sell out appears central to the score difference.",
+    "confidence": "How strongly the traveler evidence supports the app's diagnosis. High confidence usually means same-direction peers offer a close comparison.",
     "data pages": "Jet database pages that look like table data pages during the BWS scan.",
     "data quality": "Checks for missing tags, invalid deals, result mismatches, and import warnings.",
     "dd": "Double dummy: the theoretical result with all four hands visible and best play by both sides.",
@@ -153,6 +198,7 @@
     "defensive tricks": "Matchpoint losses where same-direction peers defended comparable contracts more successfully.",
     "defensive trick loss vs dd": "The defending side allowed one more trick than double-dummy analysis suggests was necessary.",
     "declarer score": "The contract score from declarer's perspective before converting to NS perspective.",
+    "decision type summary": "Lost matchpoints grouped into broader bridge decision areas such as bidding judgment, declarer play, defense, and competitive auctions.",
     "denomination": "The contract strain: notrump, spades, hearts, diamonds, or clubs.",
     "distribution points": "Extra hand-value estimate from short suits, used as a rough distribution measure.",
     "double dummy": "Theoretical best-play analysis assuming all four hands are visible.",
@@ -219,6 +265,7 @@
     "pair ew": "The East-West pair number in the result row.",
     "pair hcp": "Combined high-card points for a partnership.",
     "pair improvement report": "A prioritized review list for one pair, based on matchpoint losses, field results, par, and double-dummy comparison.",
+    "pair profile": "A compact strength and weakness summary for the selected pair based on board percentages and loss categories.",
     "pair ns": "The North-South pair number in the result row.",
     "pair score": "The selected pair's score on that board, shown from that pair's perspective.",
     "pair standings": "Session ranking by total matchpoints and percentage.",
@@ -242,6 +289,7 @@
     "played in results": "Only boards that appear in the uploaded result file.",
     "player rows": "BWS PlayerNumbers rows used to recover player names, member numbers, seats, and tables.",
     "players": "Recovered names, member numbers, or generated placeholders for a partnership.",
+    "practice priorities": "A short improvement plan based on the selected pair's largest matchpoint-loss patterns.",
     "rank": "Position in the pair standings after sorting by percentage.",
     "recognized jet": "Whether the file header looks like a Microsoft Jet database.",
     "recognized results": "CSV rows that contained enough result fields to import.",
@@ -262,9 +310,11 @@
     "session": "The selected pair's overall matchpoint percentage in the uploaded results.",
     "shape": "Suit lengths in spades-hearts-diamonds-clubs order, such as 4-4-3-2.",
     "same direction": "Other pairs who sat the same way, North-South or East-West, on the same board.",
+    "same-direction peer comparison": "A traveler comparison against other pairs who played the same board in the same direction.",
     "slam-level": "A contract at level 6 or 7.",
     "slam potential": "Double-dummy analysis suggests a slam may have been available, but the table result did not reach it.",
     "small loss": "A modest below-average board with no single stronger diagnostic reason.",
+    "swing explanation": "A short explanation of why one board produced a meaningful matchpoint difference against same-direction peers.",
     "tail": "Trailing bytes at the end of the file after dividing it into candidate Jet pages.",
     "table": "Physical table number for a result row.",
     "tag": "A bracketed PBN field such as Event, Dealer, Deal, or Vulnerable.",
@@ -1609,9 +1659,62 @@
     return LOSS_CATEGORY_INFO[key] || LOSS_CATEGORY_INFO.outlier;
   }
 
+  function decisionTypeInfoForCategory(categoryKey) {
+    return Object.entries(DECISION_TYPE_INFO)
+      .map(([key, info]) => ({ key, ...info }))
+      .find((info) => info.categories.includes(categoryKey)) || { key: "manualReview", ...DECISION_TYPE_INFO.manualReview };
+  }
+
+  function buildDecisionTypeSummary(lossLedger) {
+    const typeMap = new Map();
+    if (!lossLedger || !lossLedger.categories) return [];
+
+    lossLedger.categories.forEach((category) => {
+      const info = decisionTypeInfoForCategory(category.key);
+      if (!typeMap.has(info.key)) {
+        typeMap.set(info.key, {
+          key: info.key,
+          label: info.label,
+          tone: info.tone,
+          advice: info.advice,
+          totalLoss: 0,
+          boardCount: 0,
+          comparisonCount: 0,
+          boards: new Set(),
+          categoryLabels: [],
+          comparisons: []
+        });
+      }
+      const type = typeMap.get(info.key);
+      type.totalLoss += category.totalLoss;
+      type.comparisonCount += category.comparisonCount;
+      category.boards.forEach((boardNo) => type.boards.add(String(boardNo)));
+      type.categoryLabels.push(category.label);
+      type.comparisons.push(...category.comparisons);
+    });
+
+    return Array.from(typeMap.values())
+      .map((type) => ({
+        ...type,
+        boardCount: type.boards.size,
+        boards: Array.from(type.boards).sort(numericPairSort),
+        categoryLabels: uniqueSorted(type.categoryLabels),
+        examples: buildLossExamples(type.comparisons)
+      }))
+      .sort((a, b) => b.totalLoss - a.totalLoss || a.label.localeCompare(b.label));
+  }
+
   function sideScore(row, side) {
     if (!row || row.scoreNS == null) return null;
     return side === "NS" ? row.scoreNS : -row.scoreNS;
+  }
+
+  function sideMatchpoints(row, side) {
+    return side === "NS" ? row.nsMatchpoints : row.ewMatchpoints;
+  }
+
+  function sidePercent(row, side) {
+    return side === "NS" ? row.nsPercent : row.ewPercent;
   }
 
   function sideParticipantKey(row, side) {
@@ -1629,6 +1732,177 @@
   function rowContractText(row) {
     if (!row) return "No contract";
     return `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
+  }
+
+  function dominantBoardLoss(boardItem) {
+    if (!boardItem || !boardItem.comparisons || !boardItem.comparisons.length) return null;
+    const map = new Map();
+    boardItem.comparisons.forEach((comparison) => {
+      if (!map.has(comparison.categoryKey)) {
+        const info = lossCategoryInfo(comparison.categoryKey);
+        map.set(comparison.categoryKey, {
+          key: comparison.categoryKey,
+          label: info.label,
+          loss: 0,
+          comparisons: []
+        });
+      }
+      const entry = map.get(comparison.categoryKey);
+      entry.loss += comparison.loss;
+      entry.comparisons.push(comparison);
+    });
+    return Array.from(map.values())
+      .sort((a, b) => b.loss - a.loss || b.comparisons.length - a.comparisons.length)[0] || null;
+  }
+
+  function comparisonSameContract(comparison) {
+    return samePlayedContract(
+      comparison && comparison.targetRow ? comparison.targetRow.parsedContract : null,
+      comparison && comparison.peerRow ? comparison.peerRow.parsedContract : null
+    );
+  }
+
+  function diagnosisConfidence(item, boardItem, dominant) {
+    if (!boardItem || !dominant) {
+      return {
+        level: "low",
+        label: "Low Confidence",
+        detail: "No same-direction peer loss was found, so this is a general review suggestion."
+      };
+    }
+
+    const sameContractCount = dominant.comparisons.filter(comparisonSameContract).length;
+    const maxDelta = Math.max(...dominant.comparisons.map((comparison) => comparison.scoreDelta || 0));
+    if (["declarerTricks", "defensiveTricks"].includes(dominant.key) && sameContractCount) {
+      return {
+        level: "high",
+        label: "High Confidence",
+        detail: "Same-direction peers produced a better score in the same or directly comparable contract."
+      };
+    }
+    if (["missedGameSlam", "overreach", "penaltyDouble"].includes(dominant.key) && (dominant.loss >= 2 || maxDelta >= 300)) {
+      return {
+        level: "high",
+        label: "High Confidence",
+        detail: "Multiple peer comparisons or a large score gap point to the same decision area."
+      };
+    }
+    if (dominant.key === "outlier") {
+      return {
+        level: "low",
+        label: "Low Confidence",
+        detail: "The traveler shows a loss, but contract and trick clues do not isolate one clear cause."
+      };
+    }
+    if (dominant.key === "tieSplit") {
+      return {
+        level: "medium",
+        label: "Medium Confidence",
+        detail: "The loss comes from tied peer comparisons, usually thin overtrick or undertrick edges."
+      };
+    }
+    if (dominant.loss >= 1.5 || dominant.comparisons.length >= 2 || item.severity >= 60) {
+      return {
+        level: "medium",
+        label: "Medium Confidence",
+        detail: "The same-direction traveler supports the diagnosis, but the exact auction or play decision still needs review."
+      };
+    }
+    return {
+      level: "low",
+      label: "Low Confidence",
+      detail: "Treat this as a review prompt rather than a firm diagnosis."
+    };
+  }
+
+  function peerDisplayName(pairNo, players) {
+    const pair = pairNo == null || pairNo === "" ? "Peer" : `Pair ${pairNo}`;
+    return players ? `${pair} - ${players}` : pair;
+  }
+
+  function buildSwingDiagnosis(item, boardItem) {
+    const dominant = dominantBoardLoss(boardItem);
+    const confidence = diagnosisConfidence(item, boardItem, dominant);
+    if (!boardItem || !dominant) {
+      return {
+        categoryKey: "",
+        categoryLabel: "Review Candidate",
+        lostMp: item.mpLoss || 0,
+        confidence,
+        explanation: reviewPriorityAdvice(item)
+      };
+    }
+
+    const comparisons = [...dominant.comparisons].sort((a, b) => b.scoreDelta - a.scoreDelta || b.loss - a.loss);
+    const bestPeer = comparisons[0];
+    const peerName = bestPeer ? peerDisplayName(bestPeer.peerPair, bestPeer.peerPlayers) : "A same-direction peer";
+    const targetText = `${boardItem.targetContract} for ${formatSigned(boardItem.targetScore)}`;
+    const peerText = bestPeer ? `${bestPeer.peerContract} for ${formatSigned(bestPeer.peerScore)}` : "a better score";
+    const lossText = `${formatMp(dominant.loss)} MP`;
+    let explanation;
+
+    if (dominant.key === "declarerTricks") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} mainly because same-direction peers took more tricks in the same contract family. Compare ${targetText} with ${peerName}'s ${peerText}.`;
+    } else if (dominant.key === "defensiveTricks") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} on defense. Same-direction peers defended the same or similar contract more profitably; start with opening lead, shifts, and cash-out timing.`;
+    } else if (dominant.key === "missedGameSlam") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} because peers reached a game or slam bonus that this table did not. Compare the auction with ${peerName}'s ${peerText}.`;
+    } else if (dominant.key === "overreach") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} after landing too high or in a costly contract. Check whether stopping lower, passing, or defending would have protected the matchpoints.`;
+    } else if (dominant.key === "wrongStrain") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} to strain choice. Compare ${targetText} with ${peerName}'s ${peerText} and look for the auction clue that found the better denomination.`;
+    } else if (dominant.key === "penaltyDouble") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} around a doubled, redoubled, penalty, or sacrifice decision. Review the vulnerability and whether the double or sacrifice was earning its keep.`;
+    } else if (dominant.key === "competitiveAuction" || dominant.key === "partscoreBattle") {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} in a competitive or partscore position. Compare who bought the contract, at what level, and whether an extra trick changed the board.`;
+    } else if (dominant.key === "tieSplit") {
+      explanation = `Board ${boardItem.boardNo}: ${lossText} came from tied same-direction comparisons. Look for small overtrick, undertrick, or partscore details that could turn ties into wins.`;
+    } else {
+      explanation = `Board ${boardItem.boardNo}: this pair lost ${lossText} against same-direction peers, but the traveler does not isolate one clear cause. Use the peer table to compare contracts and scores.`;
+    }
+
+    return {
+      categoryKey: dominant.key,
+      categoryLabel: dominant.label,
+      lostMp: dominant.loss,
+      confidence,
+      explanation
+    };
+  }
+
+  function buildSameDirectionPeerComparison(results, view) {
+    const boardRows = results.rowsByBoard.get(String(view.row.boardNo)) || [];
+    const rows = boardRows
+      .map((row) => {
+        const score = sideScore(row, view.side);
+        if (score == null) return null;
+        const matchpoints = sideMatchpoints(row, view.side);
+        const percent = sidePercent(row, view.side);
+        const pairNo = sideParticipantNo(row, view.side);
+        const players = sideParticipantPlayers(row, view.side);
+        return {
+          row,
+          isTarget: row === view.row,
+          pairNo,
+          players,
+          contract: rowContractText(row),
+          score,
+          matchpoints,
+          percent,
+          scoreDelta: view.pairScore == null ? null : score - view.pairScore,
+          mpDelta: view.matchpoints == null || matchpoints == null ? null : matchpoints - view.matchpoints
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score || numericPairSort(a.pairNo, b.pairNo));
+    const targetIndex = rows.findIndex((entry) => entry.isTarget);
+    return {
+      boardNo: view.row.boardNo,
+      side: view.side,
+      rows,
+      targetRank: targetIndex >= 0 ? targetIndex + 1 : null,
+      peerCount: Math.max(0, rows.length - 1)
+    };
   }
 
   function samePlayedContract(a, b) {
@@ -1827,6 +2101,172 @@
     };
   }
 
+  function averagePercentForViews(views) {
+    const percents = views.map((view) => view.percent).filter((value) => value != null);
+    return percents.length ? average(percents) : null;
+  }
+
+  function buildViewStat(label, views) {
+    const percent = averagePercentForViews(views);
+    const losses = views.map((view) => view.mpLoss).filter((value) => value != null);
+    return {
+      label,
+      count: views.length,
+      percent,
+      averageLoss: losses.length ? average(losses) : null
+    };
+  }
+
+  function bestStat(stats) {
+    return stats
+      .filter((stat) => stat.count >= 2 && stat.percent != null)
+      .sort((a, b) => b.percent - a.percent || b.count - a.count)[0] || null;
+  }
+
+  function weakestStat(stats) {
+    return stats
+      .filter((stat) => stat.count >= 2 && stat.percent != null)
+      .sort((a, b) => a.percent - b.percent || b.count - a.count)[0] || null;
+  }
+
+  function buildPairProfile(views, lossLedger, decisionTypes) {
+    const roleStats = [
+      buildViewStat("Declaring", views.filter((view) => view.declared)),
+      buildViewStat("Defending", views.filter((view) => !view.declared))
+    ];
+    const classGroups = new Map();
+    views.forEach((view) => {
+      const label = view.row.contractClass || "Unknown";
+      if (!classGroups.has(label)) classGroups.set(label, []);
+      classGroups.get(label).push(view);
+    });
+    const contractStats = Array.from(classGroups.entries()).map(([label, group]) => buildViewStat(label, group));
+    const strongestRole = bestStat(roleStats);
+    const weakestRole = weakestStat(roleStats);
+    const strongestContract = bestStat(contractStats);
+    const weakestContract = weakestStat(contractStats);
+    const topCategory = lossLedger && lossLedger.categories ? lossLedger.categories[0] : null;
+    const topDecisionType = decisionTypes && decisionTypes.length ? decisionTypes[0] : null;
+    const highBoards = views.filter((view) => view.percent != null && view.percent >= 65).length;
+    const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35).length;
+    const strengths = [];
+    const weaknesses = [];
+
+    if (strongestRole) {
+      strengths.push({
+        label: "Best Role",
+        value: `${strongestRole.label} ${strongestRole.percent.toFixed(1)}%`,
+        detail: `${plural(strongestRole.count, "board")} in this role.`
+      });
+    }
+    if (strongestContract && (!strongestRole || strongestContract.label !== strongestRole.label)) {
+      strengths.push({
+        label: "Best Contract Class",
+        value: `${strongestContract.label} ${strongestContract.percent.toFixed(1)}%`,
+        detail: `${plural(strongestContract.count, "result")} in this class.`
+      });
+    }
+    if (highBoards) {
+      strengths.push({
+        label: "High Boards",
+        value: plural(highBoards, "board"),
+        detail: "Boards at 65% or better show where the pair converted chances."
+      });
+    }
+
+    if (topCategory) {
+      weaknesses.push({
+        label: "Biggest Loss Theme",
+        value: topCategory.label,
+        detail: `${formatMp(topCategory.totalLoss)} lost MP on ${plural(topCategory.boardCount, "board")}.`
+      });
+    }
+    if (weakestRole) {
+      weaknesses.push({
+        label: "Weakest Role",
+        value: `${weakestRole.label} ${weakestRole.percent.toFixed(1)}%`,
+        detail: `${plural(weakestRole.count, "board")} in this role.`
+      });
+    }
+    if (weakestContract) {
+      weaknesses.push({
+        label: "Weakest Contract Class",
+        value: `${weakestContract.label} ${weakestContract.percent.toFixed(1)}%`,
+        detail: `${plural(weakestContract.count, "result")} in this class.`
+      });
+    }
+    if (lowBoards) {
+      weaknesses.push({
+        label: "Low Boards",
+        value: plural(lowBoards, "board"),
+        detail: "Boards at 35% or worse are the best candidates for detailed partnership review."
+      });
+    }
+
+    const focus = topDecisionType
+      ? `The largest improvement area is ${topDecisionType.label.toLowerCase()}, worth ${formatMp(topDecisionType.totalLoss)} lost MP across ${plural(topDecisionType.boardCount, "board")}. ${topDecisionType.advice}`
+      : "No same-direction loss pattern stands out. Review the lowest boards first and look for small scoring edges.";
+
+    return {
+      strengths: strengths.slice(0, 3),
+      weaknesses: weaknesses.slice(0, 3),
+      roleStats,
+      contractStats,
+      focus
+    };
+  }
+
+  function buildPracticePriorities(lossLedger, decisionTypes, views) {
+    const priorities = [];
+    decisionTypes.slice(0, 5).forEach((type) => {
+      priorities.push({
+        title: type.label,
+        metric: `${formatMp(type.totalLoss)} lost MP`,
+        detail: `${plural(type.boardCount, "board")} / ${plural(type.comparisonCount, "comparison")}`,
+        advice: type.advice,
+        boards: type.examples.slice(0, 4).map((example) => example.boardNo)
+      });
+    });
+
+    if (priorities.length < 3) {
+      const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35);
+      if (lowBoards.length) {
+        priorities.push({
+          title: "Low-Board Triage",
+          metric: plural(lowBoards.length, "board"),
+          detail: "Boards at 35% or worse",
+          advice: "Start with the lowest boards and ask whether the first swing came from the auction, opening lead, declarer plan, or defense.",
+          boards: lowBoards.slice(0, 4).map((view) => view.row.boardNo)
+        });
+      }
+    }
+
+    if (priorities.length < 3) {
+      const trickLosses = views.filter((view) => view.trickDeltaForPair != null && view.trickDeltaForPair < 0);
+      if (trickLosses.length) {
+        priorities.push({
+          title: "Double-Dummy Trick Checks",
+          metric: plural(trickLosses.length, "board"),
+          detail: "Actual tricks below double-dummy expectation",
+          advice: "Use double-dummy only after replaying the hand yourself; then compare where best play finds the missing trick.",
+          boards: trickLosses.slice(0, 4).map((view) => view.row.boardNo)
+        });
+      }
+    }
+
+    if (!priorities.length) {
+      priorities.push({
+        title: "Maintain The Baseline",
+        metric: "No major loss pattern",
+        detail: "Same-direction traveler losses are limited",
+        advice: "Use the review queue to look for thin overtricks, judgment calls, and partnership agreement refinements.",
+        boards: views.slice(0, 4).map((view) => view.row.boardNo)
+      });
+    }
+
+    return priorities.slice(0, 5);
+  }
+
   function buildPairImprovementReport(results, participantKey) {
     if (!results || !participantKey) return null;
     const key = String(participantKey);
@@ -1836,7 +2276,17 @@
       .filter(Boolean);
     if (!views.length) return null;
 
-    const analyzed = views.map(analyzeReviewItem);
+    const lossLedger = buildPairLossLedger(results, views);
+    const boardLossItemsByNo = new Map(lossLedger.boardItems.map((item) => [String(item.boardNo), item]));
+    const analyzed = views.map(analyzeReviewItem).map((item) => {
+      const boardLossItem = boardLossItemsByNo.get(String(item.row.boardNo)) || null;
+      return {
+        ...item,
+        boardLossItem,
+        peerComparison: buildSameDirectionPeerComparison(results, item),
+        diagnosis: buildSwingDiagnosis(item, boardLossItem)
+      };
+    });
     const candidates = analyzed.filter((item) => item.reasons.length || item.severity >= 20);
     const reviewed = (candidates.length ? candidates : analyzed)
       .sort((a, b) => b.severity - a.severity || (a.percent || 0) - (b.percent || 0))
@@ -1846,7 +2296,9 @@
     const trickLosses = views.filter((view) => view.trickDeltaForPair != null && view.trickDeltaForPair < 0);
     const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35);
     const fieldLosses = views.filter((view) => view.fieldDelta != null && view.fieldDelta <= -200);
-    const lossLedger = buildPairLossLedger(results, views);
+    const decisionTypes = buildDecisionTypeSummary(lossLedger);
+    const profile = buildPairProfile(views, lossLedger, decisionTypes);
+    const practicePriorities = buildPracticePriorities(lossLedger, decisionTypes, views);
 
     return {
       pairKey: key,
@@ -1855,6 +2307,9 @@
       rows: views,
       reviewItems: reviewed,
       lossLedger,
+      decisionTypes,
+      practicePriorities,
+      profile,
       summary: {
         boards: views.length,
         players: standing ? standing.players : views[0].players,
@@ -2718,12 +3173,79 @@
         <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
       </div>
+      ${renderPracticePriorities(report)}
+      ${renderPairProfile(report)}
       ${renderTopReviewPriorities(report)}
+      ${renderDecisionTypeSummary(report)}
+      ${renderSwingReview(report)}
       ${renderLossLedger(report)}
       ${renderReviewQueue(report)}
     `;
     panel.classList.remove("hidden");
     annotateTermTooltips(panel);
+  }
+
+  function renderPracticePriorities(report) {
+    if (!report.practicePriorities || !report.practicePriorities.length) return "";
+    return `
+      <section class="coaching-section practice-plan">
+        <div class="section-kicker">
+          <h3>${term("Practice Priorities")}</h3>
+        </div>
+        <div class="practice-card-grid">
+          ${report.practicePriorities.map((priority, index) => `
+            <article class="practice-card">
+              <div class="priority-rank">${escapeHtml(index + 1)}</div>
+              <div class="practice-card-body">
+                <div class="practice-card-head">
+                  <strong>${escapeHtml(priority.title)}</strong>
+                  <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
+                </div>
+                ${priority.boards && priority.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 6)}</div>` : ""}
+                ${renderLossAdvice(priority.advice)}
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderProfileMetric(item) {
+    return `
+      <div class="profile-metric">
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${escapeHtml(item.value)}</strong>
+        <small>${escapeHtml(item.detail)}</small>
+      </div>
+    `;
+  }
+
+  function renderPairProfile(report) {
+    const profile = report.profile;
+    if (!profile) return "";
+    return `
+      <section class="coaching-section pair-profile">
+        <div class="section-kicker">
+          <h3>${term("Pair Profile")}</h3>
+        </div>
+        <div class="profile-grid">
+          <article class="profile-card">
+            <h4>Strengths</h4>
+            <div class="profile-metric-list">
+              ${(profile.strengths.length ? profile.strengths : [{ label: "Baseline", value: "No standout strength", detail: "Review more sessions to establish a clearer pattern." }]).map(renderProfileMetric).join("")}
+            </div>
+          </article>
+          <article class="profile-card">
+            <h4>Weaknesses</h4>
+            <div class="profile-metric-list">
+              ${(profile.weaknesses.length ? profile.weaknesses : [{ label: "Baseline", value: "No standout weakness", detail: "Same-direction loss patterns are limited in this file." }]).map(renderProfileMetric).join("")}
+            </div>
+          </article>
+        </div>
+        ${renderLossAdvice(profile.focus)}
+      </section>
+    `;
   }
 
   function reviewPriorityAdvice(item) {
@@ -2770,8 +3292,9 @@
                   </div>
                   <div class="reason-list">
                     ${item.reasons.slice(0, 3).map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
+                    ${renderConfidenceChip(item.diagnosis.confidence)}
                   </div>
-                  <p>${escapeHtml(reviewPriorityAdvice(item))}</p>
+                  ${renderLossAdvice(item.diagnosis.explanation)}
                   <div class="priority-mini-stats">
                     <span><b>${escapeHtml(mpText)}</b> MP</span>
                     <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> field</span>
@@ -2783,6 +3306,136 @@
           }).join("")}
         </div>
       </section>
+    `;
+  }
+
+  function renderDecisionTypeSummary(report) {
+    const decisionTypes = report.decisionTypes || [];
+    if (!decisionTypes.length) return "";
+    const totalLoss = report.lossLedger ? report.lossLedger.totalLoss : sum(decisionTypes.map((type) => type.totalLoss));
+    return `
+      <section class="coaching-section decision-summary">
+        <div class="section-kicker">
+          <h3>${term("Decision Type Summary")}</h3>
+        </div>
+        <div class="decision-type-grid">
+          ${decisionTypes.map((type) => {
+            const width = totalLoss ? (type.totalLoss / totalLoss) * 100 : 0;
+            const barText = `${type.label}: ${formatMp(type.totalLoss)} lost MP, ${width.toFixed(1)}% of total lost MP.`;
+            return `
+              <article class="decision-type-card ${escapeHtml(type.tone || "")}">
+                <div class="decision-type-head">
+                  <div>
+                    <strong>${escapeHtml(type.label)}</strong>
+                    <span>${escapeHtml(type.categoryLabels.join(", "))}</span>
+                  </div>
+                  <b>${escapeHtml(formatMp(type.totalLoss))} MP</b>
+                </div>
+                <div class="loss-bar term-tip"${tooltipAttrs(barText)} role="img" aria-label="${escapeHtml(barText)}"><span style="width:${width.toFixed(1)}%"></span></div>
+                <div class="cell-note">${escapeHtml(plural(type.boardCount, "board"))}; examples: ${renderBoardJumpList(type.boards.slice(0, 6), 6)}</div>
+                ${renderLossAdvice(type.advice)}
+              </article>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderConfidenceChip(confidence) {
+    if (!confidence) return "";
+    return `<span class="confidence-chip ${escapeHtml(confidence.level)} term-tip"${tooltipAttrs(confidence.detail)}>${escapeHtml(confidence.label)}</span>`;
+  }
+
+  function formatResultPercent(value) {
+    return value == null ? "n/a" : `${value.toFixed(1)}%`;
+  }
+
+  function formatSignedMp(value) {
+    if (value == null || Number.isNaN(value)) return "n/a";
+    return value > 0 ? `+${formatMp(value)}` : formatMp(value);
+  }
+
+  function renderSwingReview(report) {
+    const items = report.reviewItems
+      .filter((item) => item.peerComparison && item.peerComparison.rows.length > 1)
+      .slice(0, 5);
+    if (!items.length) return "";
+    return `
+      <section class="coaching-section swing-review">
+        <div class="section-kicker">
+          <h3>${term("Swing Explanation")}</h3>
+        </div>
+        <div class="swing-card-list">
+          ${items.map(renderSwingCard).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderSwingCard(item) {
+    const row = item.row;
+    const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
+    const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
+    return `
+      <article class="swing-card">
+        <div class="swing-card-head">
+          <div>
+            <h4>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText)}</h4>
+            <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} ${escapeHtml(item.side)} / ${escapeHtml(formatResultPercent(item.percent))}</span>
+          </div>
+          ${renderConfidenceChip(item.diagnosis.confidence)}
+        </div>
+        <div class="swing-facts">
+          <div class="review-stat"><span>Selected Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
+          <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
+          <div class="review-stat"><span>Diagnosis</span><strong>${escapeHtml(item.diagnosis.categoryLabel)}</strong></div>
+          <div class="review-stat"><span>Lost MP</span><strong>${escapeHtml(formatMp(item.diagnosis.lostMp))}</strong></div>
+        </div>
+        ${renderLossAdvice(item.diagnosis.explanation)}
+        ${renderPeerComparisonTable(item.peerComparison)}
+      </article>
+    `;
+  }
+
+  function renderPeerComparisonTable(peerComparison) {
+    if (!peerComparison || !peerComparison.rows.length) return "";
+    return `
+      <div class="peer-table-head">
+        <strong>${term("Same-direction Peer Comparison")}</strong>
+        <span>${escapeHtml(peerComparison.side)} peers${peerComparison.targetRank == null ? "" : `; selected pair ranks ${peerComparison.targetRank} of ${peerComparison.rows.length} by score`}</span>
+      </div>
+      <div class="preview-wrap peer-comparison-wrap">
+        <table class="peer-comparison-table">
+          <thead>
+            <tr>
+              ${th("Pair")}
+              ${th("Contract")}
+              ${th("Score", "numeric")}
+              ${th("MP", "numeric")}
+              ${th("Pct", "numeric")}
+              ${th("Score Delta", "numeric", "Score difference from the selected pair's result, from the selected pair's direction.")}
+              ${th("MP Delta", "numeric", "Matchpoint difference from the selected pair on this board.")}
+            </tr>
+          </thead>
+          <tbody>
+            ${peerComparison.rows.map((entry) => `
+              <tr class="${entry.isTarget ? "selected-peer-row" : ""}">
+                <td>
+                  <strong>${escapeHtml(entry.isTarget ? "Selected Pair" : `Pair ${entry.pairNo || ""}`.trim())}</strong>
+                  ${entry.players ? `<span class="cell-note">${escapeHtml(entry.players)}</span>` : ""}
+                </td>
+                <td>${escapeHtml(entry.contract)}</td>
+                <td class="numeric">${escapeHtml(formatSigned(entry.score))}</td>
+                <td class="numeric">${escapeHtml(entry.matchpoints == null ? "n/a" : formatMp(entry.matchpoints))}</td>
+                <td class="numeric">${escapeHtml(formatResultPercent(entry.percent))}</td>
+                <td class="numeric">${escapeHtml(entry.scoreDelta == null ? "n/a" : formatSigned(entry.scoreDelta))}</td>
+                <td class="numeric">${escapeHtml(formatSignedMp(entry.mpDelta))}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
     `;
   }
 
