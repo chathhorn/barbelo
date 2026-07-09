@@ -2480,11 +2480,72 @@
         <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
       </div>
+      ${renderTopReviewPriorities(report)}
       ${renderLossLedger(report)}
       ${renderReviewQueue(report)}
     `;
     panel.classList.remove("hidden");
     annotateTermTooltips(panel);
+  }
+
+  function reviewPriorityAdvice(item) {
+    const labels = item.reasons.map((reason) => reason.label);
+    if (labels.some((label) => label.includes("trick loss"))) {
+      return item.declared
+        ? "Replay the play card by card against double-dummy: locate the trick where the contract slipped."
+        : "Review opening lead, signal, shift, and cash-out choices before looking at the full traveler.";
+    }
+    if (labels.some((label) => label.includes("failed"))) {
+      return "Check whether the contract was sound, then identify whether the failure came from auction judgment or declarer play.";
+    }
+    if (labels.some((label) => label.includes("game") || label.includes("slam"))) {
+      return "Compare your auction to pairs who reached the higher-scoring level in the same direction.";
+    }
+    if (labels.some((label) => label.includes("below field") || label.includes("far below field"))) {
+      return "Start with field comparison: look for contract, strain, or doubling decisions that separated the result.";
+    }
+    return "Use the traveler to compare same-direction results and isolate the first decision that changed the matchpoint outcome.";
+  }
+
+  function renderTopReviewPriorities(report) {
+    const items = report.reviewItems.slice(0, 3);
+    if (!items.length) return "";
+    return `
+      <section class="review-priority-strip">
+        <div class="section-kicker">
+          <h3>Top Review Priorities</h3>
+          <p>Start here before reading the full ledger.</p>
+        </div>
+        <div class="priority-card-grid">
+          ${items.map((item, index) => {
+            const row = item.row;
+            const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
+            const pctText = item.percent == null ? "n/a" : `${item.percent.toFixed(1)}%`;
+            const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
+            return `
+              <article class="priority-card">
+                <div class="priority-rank">${escapeHtml(index + 1)}</div>
+                <div class="priority-card-body">
+                  <div class="priority-card-head">
+                    <strong>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText)}</strong>
+                    <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} / ${escapeHtml(pctText)}</span>
+                  </div>
+                  <div class="reason-list">
+                    ${item.reasons.slice(0, 3).map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
+                  </div>
+                  <p>${escapeHtml(reviewPriorityAdvice(item))}</p>
+                  <div class="priority-mini-stats">
+                    <span><b>${escapeHtml(mpText)}</b> MP</span>
+                    <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> field</span>
+                    <span><b>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</b> par</span>
+                  </div>
+                </div>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
   }
 
   function renderLossLedger(report) {
@@ -2572,7 +2633,7 @@
     if (!report.reviewItems.length) return `<div class="empty-state">No obvious review candidates found for this pair.</div>`;
     return `
       <section class="priority-review">
-        <h3>Priority Boards</h3>
+        <h3>Full Review Queue</h3>
         <div class="review-list">
           ${report.reviewItems.map(renderReviewItem).join("")}
         </div>
@@ -2801,45 +2862,104 @@
 
   function renderNotables(analysis, boards) {
     const currentBoards = boards || analysis.boards;
-    const items = [];
+    const groups = [];
+    const boardByNo = new Map(currentBoards.map((board) => [String(board.boardNo), board]));
+    const row = (boardNo, detail) => `
+      <li>
+        ${renderBoardJump(boardNo)}
+        <span>${detail}</span>
+      </li>
+    `;
+    const addGroup = (title, summary, rows, tone = "") => {
+      const visibleRows = rows.filter(Boolean).slice(0, 6);
+      if (!visibleRows.length) return;
+      groups.push({ title, summary, rows: visibleRows, tone });
+    };
+
     const largestScores = [...currentBoards]
       .filter((board) => board.optimum.nsPerspective != null)
       .sort((a, b) => Math.abs(b.optimum.nsPerspective || 0) - Math.abs(a.optimum.nsPerspective || 0))
       .slice(0, 5);
-    const scores = largestScores.map((board) => {
+    const parSwingRows = largestScores.map((board) => {
       const edge = board.optimum.edge === "NS" ? "NS" : board.optimum.edge === "EW" ? "EW" : "flat";
-      return `${renderBoardJump(board.boardNo)}: ${escapeHtml(edge)} ${escapeHtml(Math.abs(board.optimum.nsPerspective || 0))} (${escapeHtml(board.tags.ParContract || "no par")})`;
+      return row(
+        board.boardNo,
+        `High theoretical swing: ${escapeHtml(edge)} ${escapeHtml(Math.abs(board.optimum.nsPerspective || 0))}, ${escapeHtml(board.tags.ParContract || "no par")}.`
+      );
     });
-    if (scores.length) items.push({ tone: "", html: `Largest par swings: ${scores.join("; ")}.` });
 
     const slamBoards = currentBoards
       .filter((board) => board.parContracts.some((contract) => contract.level >= 6))
-      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.tags.ParContract || "no par")}`);
-    if (slamBoards.length) items.push({ tone: "gold", html: `Slam-level par contracts: ${slamBoards.slice(0, 8).join("; ")}${slamBoards.length > 8 ? "; ..." : ""}.` });
+      .slice(0, 6)
+      .map((board) => row(board.boardNo, `Slam-level par: ${escapeHtml(board.tags.ParContract || "no par")}. Check whether the field bid enough.`));
+
+    const resultOutliers = STATE.results
+      ? [...STATE.results.boardSummaries]
+        .filter((summary) => summary.averageVsPar != null && boardByNo.has(String(summary.boardNo)))
+        .sort((a, b) => Math.abs(b.averageVsPar || 0) - Math.abs(a.averageVsPar || 0))
+        .slice(0, 6)
+        .map((summary) => row(
+          summary.boardNo,
+          `Field average was ${escapeHtml(formatSigned(Math.round(summary.averageVsPar)))} from PBN par; spread ${escapeHtml(summary.scoreSpread == null ? "n/a" : summary.scoreSpread)}.`
+        ))
+      : [];
+
+    addGroup(
+      "Review Bidding Choices",
+      "Boards where contract level, strain, or field-vs-par divergence is likely to matter.",
+      [...resultOutliers, ...slamBoards, ...parSwingRows],
+      "gold"
+    );
 
     const voidBoards = currentBoards
       .filter((board) => board.voids.length)
-      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.voids.join(", "))}`);
-    if (voidBoards.length) items.push({ tone: "", html: `Voids appear on ${escapeHtml(plural(voidBoards.length, "board"))}: ${voidBoards.slice(0, 8).join("; ")}${voidBoards.length > 8 ? "; ..." : ""}.` });
+      .slice(0, 6)
+      .map((board) => row(board.boardNo, `Voids: ${escapeHtml(board.voids.join(", "))}. Expect unusual auction and play choices.`));
 
     const longSuitBoards = currentBoards
       .filter((board) => board.longSuits.length)
-      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.longSuits.join(", "))}`);
-    if (longSuitBoards.length) items.push({ tone: "", html: `Seven-card or longer suits: ${longSuitBoards.slice(0, 8).join("; ")}${longSuitBoards.length > 8 ? "; ..." : ""}.` });
+      .slice(0, 6)
+      .map((board) => row(board.boardNo, `Seven-card or longer suit: ${escapeHtml(board.longSuits.join(", "))}. Check preempts, competition, and suit establishment.`));
 
     const imbalances = [...currentBoards]
       .sort((a, b) => Math.abs(b.hcpDeltaNS) - Math.abs(a.hcpDeltaNS))
       .filter((board) => Math.abs(board.hcpDeltaNS) >= 12)
       .slice(0, 5)
-      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(`${board.hcpNS}-${board.hcpEW}`)}`);
-    if (imbalances.length) items.push({ tone: "gold", html: `Large HCP imbalances, NS-EW: ${imbalances.join("; ")}.` });
+      .map((board) => row(board.boardNo, `Large HCP imbalance: NS-EW ${escapeHtml(`${board.hcpNS}-${board.hcpEW}`)}.`));
 
-    if (!items.length) {
-      items.push({ tone: "", text: currentBoards.length ? "No notable outliers found in the current board set." : "No played PBN boards are available for this view." });
+    addGroup(
+      "Inspect Play And Defense",
+      "Distributional boards where opening lead, timing, and safety plays can create large swings.",
+      [...voidBoards, ...longSuitBoards, ...imbalances]
+    );
+
+    const dataIssueRows = currentBoards
+      .filter((board) => board.issues.length)
+      .slice(0, 6)
+      .map((board) => row(board.boardNo, `Data issue: ${escapeHtml(board.issues.join("; "))}.`));
+    addGroup(
+      "Check Data Quality",
+      "Boards where missing PBN fields may affect downstream analysis.",
+      dataIssueRows,
+      "red"
+    );
+
+    if (!groups.length) {
+      document.getElementById("notableList").innerHTML = `<div class="empty-state">${escapeHtml(currentBoards.length ? "No notable outliers found in the current board set." : "No played PBN boards are available for this view.")}</div>`;
+      return;
     }
 
-    document.getElementById("notableList").innerHTML = items.map((item) => `
-      <li><span class="dot ${escapeHtml(item.tone)}"></span><span>${item.html || escapeHtml(item.text)}</span></li>
+    document.getElementById("notableList").innerHTML = groups.map((group) => `
+      <article class="notable-group ${escapeHtml(group.tone)}">
+        <div class="notable-group-head">
+          <span class="dot ${escapeHtml(group.tone)}"></span>
+          <div>
+            <h3>${escapeHtml(group.title)}</h3>
+            <p>${escapeHtml(group.summary)}</p>
+          </div>
+        </div>
+        <ul>${group.rows.join("")}</ul>
+      </article>
     `).join("");
   }
 
