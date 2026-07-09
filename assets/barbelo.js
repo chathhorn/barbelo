@@ -2018,11 +2018,26 @@
     `).join("");
   }
 
+  function renderBoardJump(boardNo, label) {
+    const text = label == null ? `Board ${boardNo}` : label;
+    return `<button type="button" class="board-jump" data-board-jump="${escapeHtml(boardNo)}">${escapeHtml(text)}</button>`;
+  }
+
+  function renderBoardJumpList(boardNos, limit = 8) {
+    const visible = boardNos.slice(0, limit).map((boardNo) => renderBoardJump(boardNo)).join(", ");
+    const more = boardNos.length > limit ? `, +${escapeHtml(boardNos.length - limit)} more` : "";
+    return `${visible}${more}`;
+  }
+
   function renderQuality(analysis) {
     const summary = analysis.summary;
     const results = STATE.results;
     const parseWarnings = analysis.parsed.warnings.length;
-    const issueBoards = analysis.boards.filter((board) => board.issues.length).length;
+    const boardsMissingActualTags = analysis.boards
+      .filter((board) => !(board.tags.Contract || board.tags.Declarer || board.tags.Result))
+      .map((board) => board.boardNo);
+    const issueBoardNos = analysis.boards.filter((board) => board.issues.length).map((board) => board.boardNo);
+    const issueBoards = issueBoardNos.length;
     const quality = [
       {
         tone: summary.invalidDeals ? "red" : "",
@@ -2030,9 +2045,10 @@
       },
       {
         tone: summary.boardsMissingActualResults ? "gold" : "",
-        text: summary.boardsMissingActualResults
-          ? `${summary.boardsMissingActualResults} PBN records do not contain played contract, declarer, or result tags.`
-          : "Played contract and result fields are present."
+        text: "Played contract and result fields are present.",
+        html: boardsMissingActualTags.length
+          ? `${escapeHtml(summary.boardsMissingActualResults)} PBN records do not contain played contract, declarer, or result tags (${renderBoardJumpList(boardsMissingActualTags)}).`
+          : ""
       },
       {
         tone: parseWarnings ? "gold" : "",
@@ -2040,7 +2056,8 @@
       },
       {
         tone: issueBoards ? "gold" : "",
-        text: issueBoards ? `${issueBoards} boards have missing par, score, or deal analysis fields.` : "Every board has deal, par, and optimum score fields."
+        text: "Every board has deal, par, and optimum score fields.",
+        html: issueBoards ? `${escapeHtml(issueBoards)} boards have missing par, score, or deal analysis fields (${renderBoardJumpList(issueBoardNos)}).` : ""
       }
     ];
 
@@ -2053,9 +2070,10 @@
       });
       quality.push({
         tone: results.summary.missingResultBoards.length ? "gold" : "",
-        text: results.summary.missingResultBoards.length
-          ? `${results.summary.missingResultBoards.length} PBN boards have no uploaded result.`
-          : "Every PBN board has uploaded results."
+        text: "Every PBN board has uploaded results.",
+        html: results.summary.missingResultBoards.length
+          ? `${escapeHtml(results.summary.missingResultBoards.length)} PBN boards have no uploaded result (${renderBoardJumpList(results.summary.missingResultBoards)}).`
+          : ""
       });
       quality.push({
         tone: results.warnings.length ? "gold" : "",
@@ -2069,7 +2087,7 @@
         ? `${summary.boardsWithActualResults} boards include played-result fields.`
         : "This looks like a hand record rather than a result file.";
     document.getElementById("qualityList").innerHTML = quality.map((item) => `
-      <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
+      <li><span class="dot ${escapeHtml(item.tone)}"></span><span>${item.html || escapeHtml(item.text)}</span></li>
     `).join("");
   }
 
@@ -2462,7 +2480,7 @@
     const percent = example.targetPercent == null ? "" : `, ${example.targetPercent.toFixed(1)}%`;
     return `
       <li>
-        <strong><button type="button" class="board-jump" data-board-jump="${escapeHtml(example.boardNo)}">Board ${escapeHtml(example.boardNo)}</button></strong>
+        <strong>${renderBoardJump(example.boardNo)}</strong>
         <span>Selected ${escapeHtml(example.targetContract)} (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: ${escapeHtml(peerSummaries.join("; "))}${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
       </li>
     `;
@@ -2491,7 +2509,7 @@
     return `
       <article class="review-item">
         <div class="review-head">
-          <strong>Board ${escapeHtml(row.boardNo)} - ${escapeHtml(contractText || "No contract")}</strong>
+          <strong>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText || "No contract")}</strong>
           <span>${escapeHtml(role)} / ${escapeHtml(pctText)}</span>
         </div>
         <div class="reason-list">
@@ -2708,38 +2726,38 @@
       .slice(0, 5);
     const scores = largestScores.map((board) => {
       const edge = board.optimum.edge === "NS" ? "NS" : board.optimum.edge === "EW" ? "EW" : "flat";
-      return `Board ${board.boardNo}: ${edge} ${Math.abs(board.optimum.nsPerspective || 0)} (${board.tags.ParContract || "no par"})`;
+      return `${renderBoardJump(board.boardNo)}: ${escapeHtml(edge)} ${escapeHtml(Math.abs(board.optimum.nsPerspective || 0))} (${escapeHtml(board.tags.ParContract || "no par")})`;
     });
-    if (scores.length) items.push({ tone: "", text: `Largest par swings: ${scores.join("; ")}.` });
+    if (scores.length) items.push({ tone: "", html: `Largest par swings: ${scores.join("; ")}.` });
 
     const slamBoards = currentBoards
       .filter((board) => board.parContracts.some((contract) => contract.level >= 6))
-      .map((board) => `Board ${board.boardNo} ${board.tags.ParContract}`);
-    if (slamBoards.length) items.push({ tone: "gold", text: `Slam-level par contracts: ${slamBoards.slice(0, 8).join("; ")}${slamBoards.length > 8 ? "; ..." : ""}.` });
+      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.tags.ParContract || "no par")}`);
+    if (slamBoards.length) items.push({ tone: "gold", html: `Slam-level par contracts: ${slamBoards.slice(0, 8).join("; ")}${slamBoards.length > 8 ? "; ..." : ""}.` });
 
     const voidBoards = currentBoards
       .filter((board) => board.voids.length)
-      .map((board) => `Board ${board.boardNo} ${board.voids.join(", ")}`);
-    if (voidBoards.length) items.push({ tone: "", text: `Voids appear on ${plural(voidBoards.length, "board")}: ${voidBoards.slice(0, 8).join("; ")}${voidBoards.length > 8 ? "; ..." : ""}.` });
+      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.voids.join(", "))}`);
+    if (voidBoards.length) items.push({ tone: "", html: `Voids appear on ${escapeHtml(plural(voidBoards.length, "board"))}: ${voidBoards.slice(0, 8).join("; ")}${voidBoards.length > 8 ? "; ..." : ""}.` });
 
     const longSuitBoards = currentBoards
       .filter((board) => board.longSuits.length)
-      .map((board) => `Board ${board.boardNo} ${board.longSuits.join(", ")}`);
-    if (longSuitBoards.length) items.push({ tone: "", text: `Seven-card or longer suits: ${longSuitBoards.slice(0, 8).join("; ")}${longSuitBoards.length > 8 ? "; ..." : ""}.` });
+      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(board.longSuits.join(", "))}`);
+    if (longSuitBoards.length) items.push({ tone: "", html: `Seven-card or longer suits: ${longSuitBoards.slice(0, 8).join("; ")}${longSuitBoards.length > 8 ? "; ..." : ""}.` });
 
     const imbalances = [...currentBoards]
       .sort((a, b) => Math.abs(b.hcpDeltaNS) - Math.abs(a.hcpDeltaNS))
       .filter((board) => Math.abs(board.hcpDeltaNS) >= 12)
       .slice(0, 5)
-      .map((board) => `Board ${board.boardNo} ${board.hcpNS}-${board.hcpEW}`);
-    if (imbalances.length) items.push({ tone: "gold", text: `Large HCP imbalances, NS-EW: ${imbalances.join("; ")}.` });
+      .map((board) => `${renderBoardJump(board.boardNo)} ${escapeHtml(`${board.hcpNS}-${board.hcpEW}`)}`);
+    if (imbalances.length) items.push({ tone: "gold", html: `Large HCP imbalances, NS-EW: ${imbalances.join("; ")}.` });
 
     if (!items.length) {
       items.push({ tone: "", text: currentBoards.length ? "No notable outliers found in the current board set." : "No played PBN boards are available for this view." });
     }
 
     document.getElementById("notableList").innerHTML = items.map((item) => `
-      <li><span class="dot ${item.tone}"></span><span>${escapeHtml(item.text)}</span></li>
+      <li><span class="dot ${escapeHtml(item.tone)}"></span><span>${item.html || escapeHtml(item.text)}</span></li>
     `).join("");
   }
 
@@ -3489,9 +3507,10 @@
       STATE.reportPair = event.target.value;
       renderPairImprovementReport(STATE.results);
     });
-    document.getElementById("pairReportBody").addEventListener("click", (event) => {
+    document.getElementById("dashboard").addEventListener("click", (event) => {
       const trigger = event.target.closest("[data-board-jump]");
       if (!trigger) return;
+      event.preventDefault();
       revealBoardInExplorer(trigger.getAttribute("data-board-jump"));
     });
 
