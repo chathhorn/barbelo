@@ -2800,15 +2800,19 @@
 
       function summarizePairRosters(pairRosters) {
         const groups = Array.from(pairRosters.values()).filter((roster) => !roster.side);
+        const sideRosters = Array.from(pairRosters.values()).filter((roster) => roster.side);
         const teamLikeGroups = groups.filter((roster) => {
           const ns = pairRosters.get(pairRosterKey(roster.pairNo, "NS"));
           const ew = pairRosters.get(pairRosterKey(roster.pairNo, "EW"));
           return ns && ns.players.length && ew && ew.players.length;
         });
+        const incompleteSideRosters = sideRosters.filter((roster) => roster.players.length > 0 && roster.players.length < 2);
         return {
           groupCount: groups.length,
           teamLikeGroups: teamLikeGroups.length,
-          maxPlayersPerNumber: groups.length ? Math.max(...groups.map((roster) => roster.players.length)) : 0
+          maxPlayersPerNumber: groups.length ? Math.max(...groups.map((roster) => roster.players.length)) : 0,
+          incompleteSideRosters: incompleteSideRosters.length,
+          incompleteSideRosterLabels: incompleteSideRosters.map((roster) => `${roster.pairNo} ${roster.side}`).slice(0, 6)
         };
       }
 
@@ -2825,22 +2829,43 @@
         return roster ? playerDisplay(roster.playersBySeat[seat]) : "";
       }
 
-      function attachPlayerNames(rows, pairRosters) {
+      function participantKeyFor(pairNo, side, useSidePartnerships) {
+        if (pairNo == null) return "";
+        return useSidePartnerships ? pairRosterKey(pairNo, side) : String(pairNo);
+      }
+
+      function participantLabelFor(pairNo, side, useSidePartnerships) {
+        if (pairNo == null) return "";
+        return useSidePartnerships ? `${pairNo} ${side}` : String(pairNo);
+      }
+
+      function attachPlayerNames(rows, pairRosters, useSidePartnerships) {
         rows.forEach((row) => {
           row.nsPlayers = pairRosterLabel(pairRosters, row.pairNS, "NS");
           row.ewPlayers = pairRosterLabel(pairRosters, row.pairEW, "EW");
+          row.nsParticipantKey = participantKeyFor(row.pairNS, "NS", useSidePartnerships);
+          row.ewParticipantKey = participantKeyFor(row.pairEW, "EW", useSidePartnerships);
+          row.nsParticipantNo = participantLabelFor(row.pairNS, "NS", useSidePartnerships);
+          row.ewParticipantNo = participantLabelFor(row.pairEW, "EW", useSidePartnerships);
+          row.nsParticipantPlayers = useSidePartnerships ? row.nsPlayers : pairRosterLabel(pairRosters, row.pairNS);
+          row.ewParticipantPlayers = useSidePartnerships ? row.ewPlayers : pairRosterLabel(pairRosters, row.pairEW);
           row.declarerName = row.declarerSide === "N" || row.declarerSide === "S"
             ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide, "NS")
             : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide, "EW");
         });
       }
 
-      function addPairStanding(map, pairNo, side, row) {
-        if (pairNo == null || row.nsMatchpoints == null || row.boardTop == null) return;
-        const key = String(pairNo);
+      function addPairStanding(map, side, row) {
+        if (row.nsMatchpoints == null || row.boardTop == null) return;
+        const key = side === "NS" ? row.nsParticipantKey : row.ewParticipantKey;
+        if (!key) return;
         if (!map.has(key)) {
           map.set(key, {
-            pairNo,
+            key,
+            pairNo: side === "NS" ? row.nsParticipantNo : row.ewParticipantNo,
+            sourcePairNo: side === "NS" ? row.pairNS : row.pairEW,
+            rosterSide: side,
+            players: side === "NS" ? row.nsParticipantPlayers : row.ewParticipantPlayers,
             matchpoints: 0,
             top: 0,
             boards: 0,
@@ -2850,6 +2875,7 @@
           });
         }
         const standing = map.get(key);
+        if (!standing.players) standing.players = side === "NS" ? row.nsParticipantPlayers : row.ewParticipantPlayers;
         const mp = side === "NS" ? row.nsMatchpoints : row.ewMatchpoints;
         standing.matchpoints += mp;
         standing.top += row.boardTop;
@@ -2886,8 +2912,8 @@
         const parNS = board && board.optimum.nsPerspective != null ? board.optimum.nsPerspective : null;
         const maxScore = scores.length ? Math.max(...scores) : null;
         const minScore = scores.length ? Math.min(...scores) : null;
-        const topNs = maxScore == null ? [] : scored.filter((row) => row.scoreNS === maxScore).map((row) => row.pairNS).filter((value) => value != null);
-        const topEw = minScore == null ? [] : scored.filter((row) => row.scoreNS === minScore).map((row) => row.pairEW).filter((value) => value != null);
+        const topNs = maxScore == null ? [] : scored.filter((row) => row.scoreNS === maxScore).map((row) => row.nsParticipantNo || row.pairNS).filter((value) => value != null && value !== "");
+        const topEw = minScore == null ? [] : scored.filter((row) => row.scoreNS === minScore).map((row) => row.ewParticipantNo || row.pairEW).filter((value) => value != null && value !== "");
         const averageNsScore = scores.length ? average(scores) : null;
         const contractCounts = countBy(rows.map((row) => row.contract || "Unknown"));
         const contractSummary = Object.entries(contractCounts)
@@ -2924,10 +2950,19 @@
           .filter((row) => row && !row.erased);
         const pairRosters = buildPairRosters(playerNumbers, rows);
         const rosterProfile = pairRosters.profile || {};
+        const useSidePartnerships = !!rosterProfile.teamLikeGroups;
         if (rosterProfile.teamLikeGroups) {
-          warnings.push(`${rosterProfile.teamLikeGroups} result numbers have both NS-side and EW-side player rosters; these look like four-player team/table groups rather than simple two-person partnerships.`);
+          warnings.push(`${rosterProfile.teamLikeGroups} result numbers have both NS-side and EW-side player rosters; pair standings and reports are split into side-specific partnerships.`);
         }
-        attachPlayerNames(rows, pairRosters);
+        if (rosterProfile.incompleteSideRosters) {
+          const examples = rosterProfile.incompleteSideRosterLabels && rosterProfile.incompleteSideRosterLabels.length ? ` (${rosterProfile.incompleteSideRosterLabels.join(", ")})` : "";
+          warnings.push(`${plural(rosterProfile.incompleteSideRosters, "partnership roster has", "partnership rosters have")} fewer than two player names or member numbers in PlayerNumbers${examples}; missing seats cannot be recovered from result rows alone.`);
+        }
+        const numberOnlyPlayers = playerNumbers.filter((player) => player.number && !player.name).length;
+        if (numberOnlyPlayers) {
+          warnings.push(`${plural(numberOnlyPlayers, "PlayerNumbers record has", "PlayerNumbers records have")} a member number but no player name; the member number is shown where no name was available.`);
+        }
+        attachPlayerNames(rows, pairRosters, useSidePartnerships);
         const rowsByBoard = new Map();
         rows.forEach((row) => {
           const key = String(row.boardNo);
@@ -2939,15 +2974,14 @@
 
         const pairMap = new Map();
         rows.forEach((row) => {
-          addPairStanding(pairMap, row.pairNS, "NS", row);
-          addPairStanding(pairMap, row.pairEW, "EW", row);
+          addPairStanding(pairMap, "NS", row);
+          addPairStanding(pairMap, "EW", row);
           if (row.scoringError) warnings.push(`Board ${row.boardNo}, row ${row.id || row.index + 1}: ${row.scoringError}`);
         });
 
         const pairStandings = Array.from(pairMap.values())
           .map((standing) => ({
             ...standing,
-            players: pairRosterLabel(pairRosters, standing.pairNo),
             averageScore: standing.scores.length ? average(standing.scores) : 0,
             percent: standing.top ? (standing.matchpoints / standing.top) * 100 : null
           }))
@@ -2972,6 +3006,7 @@
           playerNumbers,
           pairRosters,
           rosterProfile,
+          participantMode: useSidePartnerships ? "side" : "pair",
           rowsByBoard,
           boardSummaries,
           boardsByNumber,
@@ -3004,7 +3039,8 @@
 
       function defaultReportPair(results) {
         if (!results || !results.pairStandings.length) return "";
-        return String([...results.pairStandings].map((standing) => standing.pairNo).sort(numericPairSort)[0]);
+        const first = [...results.pairStandings].sort((a, b) => numericPairSort(a.pairNo, b.pairNo))[0];
+        return first ? String(first.key) : "";
       }
 
       function contractClassRank(className) {
@@ -3035,10 +3071,10 @@
         return contract && contract.level ? contract.level + 6 : null;
       }
 
-      function pairResultView(results, row, pairNo) {
-        const pairKey = String(pairNo);
-        const isNS = String(row.pairNS) === pairKey;
-        const isEW = String(row.pairEW) === pairKey;
+      function pairResultView(results, row, participantKey) {
+        const pairKey = String(participantKey);
+        const isNS = String(row.nsParticipantKey) === pairKey;
+        const isEW = String(row.ewParticipantKey) === pairKey;
         if (!isNS && !isEW) return null;
         const side = isNS ? "NS" : "EW";
         const boardRows = results.rowsByBoard.get(String(row.boardNo)) || [];
@@ -3059,6 +3095,9 @@
         return {
           row,
           side,
+          participantKey: pairKey,
+          participantNo: isNS ? row.nsParticipantNo : row.ewParticipantNo,
+          players: isNS ? row.nsParticipantPlayers : row.ewParticipantPlayers,
           declared,
           pairScore,
           matchpoints,
@@ -3129,11 +3168,12 @@
         };
       }
 
-      function buildPairImprovementReport(results, pairNo) {
-        if (!results || !pairNo) return null;
-        const standing = results.pairStandings.find((entry) => String(entry.pairNo) === String(pairNo));
+      function buildPairImprovementReport(results, participantKey) {
+        if (!results || !participantKey) return null;
+        const key = String(participantKey);
+        const standing = results.pairStandings.find((entry) => String(entry.key) === key);
         const views = results.rows
-          .map((row) => pairResultView(results, row, pairNo))
+          .map((row) => pairResultView(results, row, key))
           .filter(Boolean);
         if (!views.length) return null;
 
@@ -3149,13 +3189,14 @@
         const fieldLosses = views.filter((view) => view.fieldDelta != null && view.fieldDelta <= -200);
 
         return {
-          pairNo,
+          pairKey: key,
+          pairNo: standing ? standing.pairNo : key,
           standing,
           rows: views,
           reviewItems: reviewed,
           summary: {
             boards: views.length,
-            players: standing ? standing.players : pairRosterLabel(results.pairRosters, pairNo),
+            players: standing ? standing.players : views[0].players,
             percent: standing && standing.percent != null ? standing.percent : percents.length ? average(percents) : null,
             averageBoardPercent: percents.length ? average(percents) : null,
             lowBoards: lowBoards.length,
@@ -3656,20 +3697,23 @@
         const caption = document.getElementById("pairReportCaption");
         const body = document.getElementById("pairReportBody");
         if (!results || !results.pairStandings.length) {
+          select.innerHTML = "";
+          caption.textContent = "";
+          body.innerHTML = "";
           panel.classList.add("hidden");
           return;
         }
 
         const pairOptions = [...results.pairStandings]
           .sort((a, b) => numericPairSort(a.pairNo, b.pairNo));
-        if (!STATE.reportPair || !pairOptions.some((entry) => String(entry.pairNo) === String(STATE.reportPair))) {
+        if (!STATE.reportPair || !pairOptions.some((entry) => String(entry.key) === String(STATE.reportPair))) {
           STATE.reportPair = defaultReportPair(results);
         }
 
         select.innerHTML = pairOptions.map((standing) => {
           const pct = standing.percent == null ? "" : ` (${standing.percent.toFixed(1)}%)`;
           const players = standing.players ? ` - ${standing.players}` : "";
-          return `<option value="${escapeHtml(standing.pairNo)}">Pair ${escapeHtml(standing.pairNo)}${escapeHtml(players)}${escapeHtml(pct)}</option>`;
+          return `<option value="${escapeHtml(standing.key)}">Pair ${escapeHtml(standing.pairNo)}${escapeHtml(players)}${escapeHtml(pct)}</option>`;
         }).join("");
         select.value = String(STATE.reportPair);
 
@@ -4262,8 +4306,10 @@
             col("round", "Round", (ctx) => ctx.result.round),
             col("table", "Table", (ctx) => ctx.result.tableNo),
             col("pair_ns", "Pair NS", (ctx) => ctx.result.pairNS),
+            col("ns_partnership", "NS Partnership", (ctx) => ctx.result.nsParticipantNo),
             col("ns_players", "NS Players", (ctx) => ctx.result.nsPlayers),
             col("pair_ew", "Pair EW", (ctx) => ctx.result.pairEW),
+            col("ew_partnership", "EW Partnership", (ctx) => ctx.result.ewParticipantNo),
             col("ew_players", "EW Players", (ctx) => ctx.result.ewPlayers),
             col("declarer_number", "Declarer Number", (ctx) => ctx.result.declarerNumber),
             col("declarer_side", "Declarer Side", (ctx) => ctx.result.declarerSide),
