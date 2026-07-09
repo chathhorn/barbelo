@@ -137,6 +137,7 @@
     "contract selection": "Matchpoint losses where same-direction peers scored better by reaching a different contract.",
     "contract summary": "Most common contracts found in the traveler rows for a board.",
     "controls": "Quick honor-control count: aces count 2 and kings count 1.",
+    "competitive auction": "Matchpoint losses where deciding whether to compete, defend, double, or sell out appears central to the score difference.",
     "data pages": "Jet database pages that look like table data pages during the BWS scan.",
     "data quality": "Checks for missing tags, invalid deals, result mismatches, and import warnings.",
     "dd": "Double dummy: the theoretical result with all four hands visible and best play by both sides.",
@@ -211,6 +212,7 @@
     "optimum": "Best theoretical score for the deal, usually derived from PBN par or double-dummy data.",
     "optimum score": "The PBN score for best theoretical play and bidding on the board.",
     "optimum side": "The side, NS or EW, favored by the optimum score.",
+    "overreach": "Matchpoint losses where the selected pair appears to have bid too high, sacrificed too expensively, or declared a contract that same-direction peers avoided.",
     "page size": "Jet database page size tested during the BWS scan.",
     "pages": "Candidate Jet database pages scanned inside the BWS file.",
     "pair": "A bridge partnership, usually the two players sitting NS or EW for a board.",
@@ -303,6 +305,7 @@
     "ew score perspective": "ew score",
     "game level": "game-level",
     "hcp delta": "hcp delta ns",
+    "missed game slam": "missed game/slam",
     "no trump": "nt",
     "notrump": "nt",
     "ns ew": "declarer",
@@ -1628,9 +1631,7 @@
         boards: Array.from(category.boards)
       }))
       .sort((a, b) => {
-        const actionRank = (category) => category.key === "tieSplit" || category.key === "outlier" ? 1 : 0;
-        return actionRank(a) - actionRank(b) ||
-          b.totalLoss - a.totalLoss ||
+        return b.totalLoss - a.totalLoss ||
           (orderIndex.get(a.key) ?? 99) - (orderIndex.get(b.key) ?? 99);
       });
 
