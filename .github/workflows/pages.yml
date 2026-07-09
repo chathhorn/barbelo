@@ -30,6 +30,11 @@ jobs:
           cp index.html _site/index.html
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
+          grep -q "data-version=\"${short_sha}\"" _site/index.html
+          if grep -q "__BARBELO_VERSION__" _site/index.html; then
+            echo "Version placeholder survived static-site preparation." >&2
+            exit 1
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
