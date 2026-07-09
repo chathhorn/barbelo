@@ -32,6 +32,10 @@ jobs:
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
           grep -q "data-version=\"${short_sha}\"" _site/index.html
+          grep -q "assets/barbelo.css?v=${short_sha}" _site/index.html
+          grep -q "assets/pbn-parser.js?v=${short_sha}" _site/index.html
+          grep -q "assets/bws-parser.js?v=${short_sha}" _site/index.html
+          grep -q "assets/barbelo.js?v=${short_sha}" _site/index.html
           if grep -q "__BARBELO_VERSION__" _site/index.html; then
             echo "Version placeholder survived static-site preparation." >&2
             exit 1

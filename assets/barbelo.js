@@ -355,6 +355,19 @@
       .replace(/'/g, "&#39;");
   }
 
+  function deployedVersion() {
+    const meta = document.querySelector('meta[name="barbelo-version"]');
+    const version = meta ? meta.getAttribute("content") || "" : "";
+    return version && !version.includes("__") ? version : "";
+  }
+
+  function assetUrl(path) {
+    const version = deployedVersion();
+    if (!version) return path;
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}v=${encodeURIComponent(version)}`;
+  }
+
   function normalizeTerm(value) {
     return String(value || "")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -2462,7 +2475,7 @@
     return `
       <div class="loss-advice">
         <span class="collie-head" aria-hidden="true">
-          <img src="assets/bc-avatar.png" alt="" loading="lazy" decoding="async">
+          <img src="${escapeHtml(assetUrl("assets/bc-avatar.png"))}" alt="" loading="lazy" decoding="async">
         </span>
         <p>${escapeHtml(advice)}</p>
       </div>
