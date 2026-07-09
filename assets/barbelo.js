@@ -2139,6 +2139,7 @@
     setElementHidden("pbnSupplementGrid", true);
     setElementHidden("boardExplorerPanel", true);
     setElementHidden("resultsPanel", false);
+    setElementHidden("importDiagnosticsPanel", false);
     setElementHidden("csvPanel", false);
 
     if (!["results", "boardResults", "pairResults"].includes(STATE.rowMode)) {
@@ -2148,6 +2149,7 @@
 
     renderResultOnlyMetrics(results);
     renderResultsPanel(null, results);
+    renderImportDiagnosticsPanel(results);
     renderResultsCharts(null, results);
     renderPairImprovementReport(results);
     renderCsvControls();
@@ -2182,6 +2184,7 @@
     setElementHidden("pbnSupplementGrid", false);
     setElementHidden("boardExplorerPanel", false);
     setElementHidden("resultsPanel", false);
+    setElementHidden("importDiagnosticsPanel", false);
     setElementHidden("csvPanel", false);
 
     document.getElementById("boardSearch").value = STATE.filters.search;
@@ -2196,6 +2199,7 @@
     renderMetadata(analysis);
     renderQuality(analysis);
     renderResultsPanel(analysis, STATE.results);
+    renderImportDiagnosticsPanel(STATE.results);
     renderCharts(analysis, STATE.results);
     renderResultsCharts(analysis, STATE.results);
     renderPairImprovementReport(STATE.results);
@@ -2383,7 +2387,6 @@
         </div>
         <div id="resultContractChart">${renderResultContractChart(results)}</div>
       </section>
-      ${renderImportDiagnostics(results)}
     `;
   }
 
@@ -2416,6 +2419,25 @@
     if (diagnostics.sourceType === "BWS") return renderBwsDiagnostics(diagnostics, results);
     if (diagnostics.sourceType === "CSV") return renderCsvDiagnostics(diagnostics, results);
     return "";
+  }
+
+  function renderImportDiagnosticsPanel(results) {
+    const panel = document.getElementById("importDiagnosticsPanel");
+    const caption = document.getElementById("importDiagnosticsCaption");
+    const body = document.getElementById("importDiagnosticsSummary");
+    const diagnostics = results && results.metadata ? results.metadata.diagnostics : null;
+    if (!panel || !caption || !body) return;
+    if (!diagnostics) {
+      panel.classList.add("hidden");
+      caption.textContent = "";
+      body.innerHTML = "";
+      return;
+    }
+
+    panel.classList.remove("hidden");
+    caption.textContent = `${results.fileName || "Results"} - ${diagnostics.sourceType || results.sourceType || "import"} scan details.`;
+    body.innerHTML = renderImportDiagnostics(results);
+    annotateTermTooltips(panel);
   }
 
   function renderCsvDiagnostics(diagnostics, results) {

@@ -131,7 +131,7 @@
           </article>
         </section>
 
-        <section class="panel" id="resultsPanel" data-views="results diagnostics">
+        <section class="panel" id="resultsPanel" data-views="results">
           <details class="panel-disclosure" id="resultsDisclosure" open>
             <summary class="panel-header">
               <div>
@@ -140,6 +140,18 @@
               </div>
             </summary>
             <div class="panel-body" id="resultsSummary"></div>
+          </details>
+        </section>
+
+        <section class="panel hidden" id="importDiagnosticsPanel" data-views="diagnostics">
+          <details class="panel-disclosure" id="importDiagnosticsDisclosure" open>
+            <summary class="panel-header">
+              <div>
+                <h2>Import Diagnostics</h2>
+                <p id="importDiagnosticsCaption"></p>
+              </div>
+            </summary>
+            <div class="panel-body" id="importDiagnosticsSummary"></div>
           </details>
         </section>
 
