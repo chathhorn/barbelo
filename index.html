@@ -3008,6 +3008,11 @@
           }))
           .sort((a, b) => (b.percent || 0) - (a.percent || 0) || String(a.pairNo).localeCompare(String(b.pairNo), undefined, { numeric: true }))
           .map((standing, index) => ({ ...standing, rank: index + 1 }));
+        const missingRosterStandings = pairStandings.filter((standing) => standing.boards && !standing.players);
+        if (missingRosterStandings.length) {
+          const examples = missingRosterStandings.map((standing) => standing.pairNo).sort(numericPairSort).slice(0, 8).join(", ");
+          warnings.push(`${plural(missingRosterStandings.length, "active partnership has", "active partnerships have")} no player names or member numbers in PlayerNumbers${examples ? ` (${examples})` : ""}; names cannot be recovered from the BWS without a supplemental roster.`);
+        }
 
         const boardSummaries = Array.from(rowsByBoard.entries())
           .map(([boardNo, boardRows]) => summarizeResultBoard(Number(boardNo), boardRows, boardMap.get(String(boardNo))))
