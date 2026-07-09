@@ -480,11 +480,6 @@ main {
   gap: 16px;
 }
 
-.visualization-stack {
-  display: grid;
-  gap: 16px;
-}
-
 .visualization-section {
   display: grid;
   align-content: start;
@@ -506,8 +501,12 @@ main {
   font-size: 12px;
 }
 
-.visualization-full {
+.visualization-hcp-row {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(132px, 0.7fr);
+  gap: 16px;
+  min-width: 0;
   border-top: 1px solid var(--line);
   padding-top: 14px;
 }

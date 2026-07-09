@@ -114,41 +114,43 @@
         </section>
 
         <section class="panel" id="pbnCharts">
-          <div class="panel-header">
-            <div>
-              <h2>Visualizations</h2>
-              <p>Par, result, HCP, and strain summaries for the current board set.</p>
-            </div>
-          </div>
-          <div class="panel-body visualization-grid">
-            <section class="visualization-section visualization-main">
+          <details class="panel-disclosure" id="visualizationsDisclosure" open>
+            <summary class="panel-header">
               <div>
-                <h3 id="scoreChartTitle">Par Score By Board</h3>
-                <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
+                <h2>Visualizations</h2>
+                <p>Par, result, HCP, and strain summaries for the current board set.</p>
               </div>
-              <div class="chart-wrap" id="scoreChart"></div>
-            </section>
+            </summary>
+            <div class="panel-body visualization-grid">
+              <section class="visualization-section visualization-main">
+                <div>
+                  <h3 id="scoreChartTitle">Par Score By Board</h3>
+                  <p id="scoreChartCaption">Positive bars favor NS, negative bars favor EW.</p>
+                </div>
+                <div class="chart-wrap" id="scoreChart"></div>
+              </section>
 
-            <div class="visualization-stack">
               <section class="visualization-section">
                 <h3>Par Strains</h3>
                 <div id="strainChart"></div>
               </section>
 
-              <section class="visualization-section">
-                <h3>Average HCP</h3>
-                <div id="hcpChart"></div>
-              </section>
-            </div>
+              <div class="visualization-hcp-row">
+                <section class="visualization-section">
+                  <div>
+                    <h3>HCP Heat Map</h3>
+                    <p>Each row is a seat, each column is a board.</p>
+                  </div>
+                  <div class="chart-wrap" id="heatMap"></div>
+                </section>
 
-            <section class="visualization-section visualization-full">
-              <div>
-                <h3>HCP Heat Map</h3>
-                <p>Each row is a seat, each column is a board.</p>
+                <section class="visualization-section">
+                  <h3>Average HCP</h3>
+                  <div id="hcpChart"></div>
+                </section>
               </div>
-              <div class="chart-wrap" id="heatMap"></div>
-            </section>
-          </div>
+            </div>
+          </details>
         </section>
 
         <section class="panel hidden" id="resultsCharts">
