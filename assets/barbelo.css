@@ -358,6 +358,66 @@ main {
   font-size: 15px;
 }
 
+.has-loaded-data .drop-zone {
+  padding: 12px 16px;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.has-loaded-data .drop-copy {
+  min-height: 0;
+  gap: 3px;
+}
+
+.has-loaded-data .drop-copy h2 {
+  max-width: none;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.has-loaded-data .drop-copy p {
+  max-width: none;
+  font-size: 13px;
+}
+
+.task-nav {
+  position: sticky;
+  top: 92px;
+  z-index: 18;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid rgba(217, 224, 231, 0.86);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 22px rgba(23, 33, 43, 0.06);
+  padding: 8px;
+  backdrop-filter: blur(12px);
+}
+
+.task-nav button {
+  min-height: 34px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.task-nav button:hover {
+  border-color: var(--line);
+}
+
+.task-nav button.active {
+  border-color: rgba(15, 123, 108, 0.34);
+  background: #eefaf6;
+  color: var(--green-dark);
+}
+
+.view-hidden {
+  display: none !important;
+}
+
 .report-actions {
   min-width: min(320px, 100%);
 }
@@ -431,7 +491,7 @@ main {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 

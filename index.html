@@ -73,10 +73,35 @@
         </div>
       </section>
 
-      <section class="dashboard hidden" id="dashboard">
-        <div class="metric-grid" id="metricGrid"></div>
+      <nav class="task-nav hidden" id="taskNav" aria-label="Analysis sections">
+        <button type="button" data-task-view="overview">Overview</button>
+        <button type="button" data-task-view="improve">Improve</button>
+        <button type="button" data-task-view="boards">Boards</button>
+        <button type="button" data-task-view="results">Results</button>
+        <button type="button" data-task-view="export">Export</button>
+        <button type="button" data-task-view="diagnostics">Diagnostics</button>
+      </nav>
 
-        <section class="grid-2" id="pbnInfoGrid">
+      <section class="dashboard hidden" id="dashboard">
+        <div class="metric-grid" id="metricGrid" data-views="overview"></div>
+
+        <section class="panel hidden" id="pairReportPanel" data-views="improve">
+          <details class="panel-disclosure" id="pairReportDisclosure" open>
+            <summary class="panel-header">
+              <div>
+                <h2>Pair Improvement Report</h2>
+                <p id="pairReportCaption"></p>
+              </div>
+              <div class="report-actions summary-control">
+                <label for="reportPairSelect">Pair</label>
+                <select id="reportPairSelect"></select>
+              </div>
+            </summary>
+            <div class="panel-body" id="pairReportBody"></div>
+          </details>
+        </section>
+
+        <section class="grid-2" id="pbnInfoGrid" data-views="diagnostics">
           <article class="panel">
             <details class="panel-disclosure" id="headerInfoDisclosure">
               <summary class="panel-header">
@@ -106,7 +131,7 @@
           </article>
         </section>
 
-        <section class="panel" id="resultsPanel">
+        <section class="panel" id="resultsPanel" data-views="results diagnostics">
           <details class="panel-disclosure" id="resultsDisclosure" open>
             <summary class="panel-header">
               <div>
@@ -118,7 +143,7 @@
           </details>
         </section>
 
-        <section class="panel" id="pbnCharts">
+        <section class="panel" id="pbnCharts" data-views="overview">
           <details class="panel-disclosure" id="visualizationsDisclosure" open>
             <summary class="panel-header">
               <div>
@@ -158,7 +183,7 @@
           </details>
         </section>
 
-        <section class="panel hidden" id="resultsCharts">
+        <section class="panel hidden" id="resultsCharts" data-views="results">
           <details class="panel-disclosure" id="pairStandingsDisclosure" open>
             <summary class="panel-header">
               <h2>Pair Standings</h2>
@@ -167,34 +192,18 @@
           </details>
         </section>
 
-        <section class="panel hidden" id="pairReportPanel">
-          <details class="panel-disclosure" id="pairReportDisclosure" open>
-            <summary class="panel-header">
-              <div>
-                <h2>Pair Improvement Report</h2>
-                <p id="pairReportCaption"></p>
-              </div>
-              <div class="report-actions summary-control">
-                <label for="reportPairSelect">Pair</label>
-                <select id="reportPairSelect"></select>
-              </div>
-            </summary>
-            <div class="panel-body" id="pairReportBody"></div>
-          </details>
-        </section>
-
-        <section class="panel" id="pbnSupplementGrid">
+        <section class="panel" id="pbnSupplementGrid" data-views="overview">
           <details class="panel-disclosure" id="notableBoardsDisclosure" open>
             <summary class="panel-header">
               <h2>Notable Boards</h2>
             </summary>
             <div class="panel-body">
-              <ul class="notable-list" id="notableList"></ul>
+              <div class="notable-list" id="notableList"></div>
             </div>
           </details>
         </section>
 
-        <section class="panel" id="boardExplorerPanel">
+        <section class="panel" id="boardExplorerPanel" data-views="boards">
           <details class="panel-disclosure" id="boardExplorerDisclosure" open>
             <summary class="panel-header">
               <div>
@@ -251,7 +260,7 @@
           </details>
         </section>
 
-        <section class="panel" id="csvPanel">
+        <section class="panel" id="csvPanel" data-views="export">
           <details class="panel-disclosure" id="csvDisclosure">
             <summary class="panel-header">
               <div>

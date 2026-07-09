@@ -335,6 +335,7 @@
     rawResults: null,
     results: null,
     reportPair: "",
+    activeView: "overview",
     rowMode: "boards",
     selectedColumns: new Set(),
     filters: {
@@ -1767,6 +1768,7 @@
     STATE.analysis = analysis;
     STATE.results = STATE.rawResults ? buildResultsAnalysis(STATE.rawResults, analysis) : null;
     STATE.reportPair = STATE.results ? defaultReportPair(STATE.results) : "";
+    STATE.activeView = STATE.results ? "improve" : "overview";
     STATE.rowMode = STATE.results ? "results" : "boards";
     STATE.selectedColumns = new Set(defaultColumnKeys(STATE.rowMode, analysis));
     STATE.filters = defaultFilters();
@@ -1783,6 +1785,7 @@
     STATE.rawResults = null;
     STATE.results = null;
     STATE.reportPair = "";
+    STATE.activeView = "overview";
     STATE.rowMode = "boards";
     STATE.selectedColumns = new Set();
     STATE.filters = defaultFilters();
@@ -1828,6 +1831,7 @@
     STATE.rawResults = rawResults;
     STATE.results = results;
     STATE.reportPair = defaultReportPair(results);
+    STATE.activeView = "improve";
     STATE.rowMode = "results";
     STATE.selectedColumns = new Set(defaultColumnKeys("results", STATE.analysis));
     if (STATE.analysis) STATE.filters.played = "played";
@@ -1848,6 +1852,66 @@
   function setElementHidden(id, hidden) {
     const element = document.getElementById(id);
     if (element) element.classList.toggle("hidden", !!hidden);
+  }
+
+  function updateDropZone(analysis, results) {
+    const hasLoadedData = Boolean(analysis || results);
+    document.body.classList.toggle("has-loaded-data", hasLoadedData);
+    const heading = document.querySelector("#dropZone .drop-copy h2");
+    const copy = document.querySelector("#dropZone .drop-copy p");
+    if (!heading || !copy) return;
+    if (hasLoadedData) {
+      heading.textContent = "Drop another PBN, BWS, or CSV file here.";
+      copy.textContent = "Loaded files stay active until you replace them or clear the session.";
+    } else {
+      heading.textContent = "Turn bridge deals and travelers into a readable session report.";
+      copy.textContent = "Drop a PBN hand record, BWS database, or CSV results file here. Results can be opened before or after the PBN.";
+    }
+  }
+
+  function availableTaskViews(analysis, results) {
+    return {
+      overview: Boolean(analysis),
+      improve: Boolean(results && results.pairStandings.length),
+      boards: Boolean(analysis),
+      results: Boolean(results),
+      export: Boolean(analysis || results),
+      diagnostics: Boolean(analysis || results)
+    };
+  }
+
+  function ensureActiveView(analysis, results) {
+    const available = availableTaskViews(analysis, results);
+    if (available[STATE.activeView]) return;
+    if (available.improve) STATE.activeView = "improve";
+    else if (available.overview) STATE.activeView = "overview";
+    else if (available.results) STATE.activeView = "results";
+    else if (available.export) STATE.activeView = "export";
+    else STATE.activeView = "overview";
+  }
+
+  function renderTaskNav(analysis, results) {
+    const nav = document.getElementById("taskNav");
+    if (!nav) return;
+    const hasLoadedData = Boolean(analysis || results);
+    nav.classList.toggle("hidden", !hasLoadedData);
+    if (!hasLoadedData) return;
+
+    const available = availableTaskViews(analysis, results);
+    nav.querySelectorAll("[data-task-view]").forEach((button) => {
+      const view = button.getAttribute("data-task-view");
+      const enabled = Boolean(available[view]);
+      button.classList.toggle("active", view === STATE.activeView);
+      button.disabled = !enabled;
+      button.setAttribute("aria-current", view === STATE.activeView ? "page" : "false");
+    });
+  }
+
+  function applyActiveView() {
+    document.querySelectorAll("#dashboard [data-views]").forEach((element) => {
+      const views = String(element.getAttribute("data-views") || "").split(/\s+/).filter(Boolean);
+      element.classList.toggle("view-hidden", !views.includes(STATE.activeView));
+    });
   }
 
   function updateFileStatus() {
@@ -1888,10 +1952,8 @@
     const metrics = [
       { label: "Result Rows", value: results.summary.resultCount, note: `${results.summary.scoredCount} scored` },
       { label: "Boards", value: results.summary.boardsCovered, note: "covered by results" },
-      { label: "Tables", value: results.summary.tables, note: `${results.summary.rounds} rounds` },
       { label: "Pairs", value: results.summary.pairs, note: results.participantMode === "side" ? "side partnerships" : "pair numbers" },
-      { label: "Named Players", value: results.summary.namedPlayers || 0, note: `${results.summary.playerRecords} player rows` },
-      { label: "Source", value: results.sourceType, note: results.fileName || "Results file" }
+      { label: "Named Players", value: results.summary.namedPlayers || 0, note: `${results.summary.playerRecords} player rows` }
     ];
 
     document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
@@ -1921,6 +1983,7 @@
     renderResultsCharts(null, results);
     renderPairImprovementReport(results);
     renderCsvControls();
+    applyActiveView();
   }
 
   // DOM rendering for dashboard panels, charts, reports, boards, and CSV export.
@@ -1928,10 +1991,14 @@
     const analysis = STATE.analysis;
     const results = STATE.results;
     const dashboard = document.getElementById("dashboard");
+    updateDropZone(analysis, results);
+    ensureActiveView(analysis, results);
     updateFileStatus();
+    renderTaskNav(analysis, results);
     document.getElementById("fileSubtitle").textContent = appSubtitle(analysis, results);
     if (!analysis && !results) {
       dashboard.classList.add("hidden");
+      renderTaskNav(null, null);
       return;
     }
 
@@ -1966,6 +2033,7 @@
     renderNotables(analysis, visualBoards(analysis, STATE.results));
     renderBoards();
     renderCsvControls();
+    applyActiveView();
     annotateTermTooltips(dashboard);
   }
 
@@ -1977,22 +2045,23 @@
     const slamCount = summary.slamLevelBoards.length;
     const gameCount = summary.classes["Game-level"] || 0;
     const partCount = summary.classes.Partscore || 0;
-    const avgNS = summary.averageHcpByPair.NS.toFixed(1);
-    const avgEW = summary.averageHcpByPair.EW.toFixed(1);
+    const avgVsPar = results && results.summary.averageVsPar != null
+      ? formatSigned(Math.round(results.summary.averageVsPar))
+      : null;
 
     const metrics = [
       { label: "Boards", value: summary.boardCount, note: `${summary.validDeals} valid deals` },
-      { label: "Par Edge", value: `${edgeNS}/${edgeEW}`, note: "NS / EW boards" },
-      { label: "Slam-Level", value: slamCount, note: "Par contracts at 6 or 7" },
-      { label: "Games", value: gameCount, note: `${partCount} partscore boards` },
-      { label: "Avg Pair HCP", value: `${avgNS}/${avgEW}`, note: "NS / EW" },
       {
         label: "Results",
         value: results ? results.summary.resultCount : summary.boardsWithActualResults,
         note: results
           ? `${results.summary.boardsCovered} boards, ${results.summary.pairs} pairs`
           : "Played contracts found"
-      }
+      },
+      results
+        ? { label: "Avg Vs Par", value: avgVsPar, note: "NS average result" }
+        : { label: "Par Edge", value: `${edgeNS}/${edgeEW}`, note: "NS / EW boards" },
+      { label: "Shape Of Set", value: `${gameCount}/${slamCount}`, note: `${partCount} partscores; games / slams` }
     ];
 
     document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
@@ -3495,6 +3564,13 @@
     });
 
     document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
+    document.getElementById("taskNav").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-task-view]");
+      if (!button || button.disabled) return;
+      STATE.activeView = button.getAttribute("data-task-view");
+      renderTaskNav(STATE.analysis, STATE.results);
+      applyActiveView();
+    });
 
     document.getElementById("boardSearch").addEventListener("input", (event) => {
       STATE.filters.search = event.target.value;
