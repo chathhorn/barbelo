@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="barbelo-version" content="__BARBELO_VERSION__">
   <title>Barbelo Bridge Analyzer</title>
   <style>
     :root {
@@ -195,6 +196,23 @@
       font-size: 20px;
       line-height: 1.1;
       letter-spacing: 0;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .version-chip {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      line-height: 1;
+      letter-spacing: 0;
+      opacity: 0.72;
+      white-space: nowrap;
     }
 
     .subtitle {
@@ -1189,7 +1207,10 @@
           <span class="club">&clubs;</span>
         </div>
         <div>
-          <h1>barbelo</h1>
+          <div class="brand-title">
+            <h1>barbelo</h1>
+            <span class="version-chip" id="appVersion" data-version="__BARBELO_VERSION__" title="Build version">vdev</span>
+          </div>
           <p class="subtitle" id="fileSubtitle">Open a Portable Bridge Notation hand record.</p>
         </div>
       </div>
@@ -4652,7 +4673,17 @@
       }
 
       function init() {
+        initAppVersion();
         setupEvents();
+      }
+
+      function initAppVersion() {
+        const element = document.getElementById("appVersion");
+        if (!element) return;
+        const version = element.getAttribute("data-version") || "";
+        if (version && !version.includes("__")) {
+          element.textContent = `v${version}`;
+        }
       }
 
       if (typeof window !== "undefined") {
