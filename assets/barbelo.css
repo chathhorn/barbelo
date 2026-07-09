@@ -1360,6 +1360,39 @@ details.board-details summary {
   margin-top: 14px;
 }
 
+.report-subsection {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.report-subsection > summary.section-kicker {
+  cursor: pointer;
+  list-style: none;
+}
+
+.report-subsection > summary.section-kicker::-webkit-details-marker {
+  display: none;
+}
+
+.report-subsection > summary.section-kicker::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.report-subsection[open] > summary.section-kicker::after {
+  content: "-";
+}
+
+.report-subsection-body {
+  display: grid;
+  gap: 10px;
+}
+
 .section-kicker {
   display: flex;
   align-items: baseline;

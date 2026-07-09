@@ -324,6 +324,7 @@
     "small loss": "A modest below-average board with no single stronger diagnostic reason.",
     "small edges": "Thin matchpoint gains from overtricks, extra undertricks, partscore judgment, and avoiding tied comparisons.",
     "swing explanation": "A short explanation of why one board produced a meaningful matchpoint difference against same-direction peers.",
+    "board swing explanation": "Board-by-board explanations of meaningful matchpoint swings, using same-direction peer comparisons where available.",
     "tail": "Trailing bytes at the end of the file after dividing it into candidate Jet pages.",
     "table": "Physical table number for a result row.",
     "tag": "A bracketed PBN field such as Event, Dealer, Deal, or Vulnerable.",
@@ -3178,22 +3179,32 @@
       ${renderPairProfile(report)}
       ${renderPracticePriorities(report)}
       ${renderDecisionTypeSummary(report)}
-      ${renderSwingReview(report)}
       ${renderLossLedger(report)}
       ${renderTopReviewPriorities(report)}
+      ${renderSwingReview(report)}
       ${renderReviewQueue(report)}
     `;
     panel.classList.remove("hidden");
     annotateTermTooltips(panel);
   }
 
+  function renderReportSubsection(className, title, bodyHtml, summaryExtra = "") {
+    return `
+      <details class="report-subsection ${escapeHtml(className)}" open>
+        <summary class="section-kicker">
+          <h3>${term(title)}</h3>
+          ${summaryExtra}
+        </summary>
+        <div class="report-subsection-body">
+          ${bodyHtml}
+        </div>
+      </details>
+    `;
+  }
+
   function renderPracticePriorities(report) {
     if (!report.practicePriorities || !report.practicePriorities.length) return "";
-    return `
-      <section class="coaching-section practice-plan">
-        <div class="section-kicker">
-          <h3>${term("Practice Priorities")}</h3>
-        </div>
+    return renderReportSubsection("practice-plan", "Practice Priorities", `
         <div class="practice-card-grid">
           ${report.practicePriorities.map((priority, index) => `
             <article class="practice-card">
@@ -3209,8 +3220,7 @@
             </article>
           `).join("")}
         </div>
-      </section>
-    `;
+    `);
   }
 
   function renderProfileMetric(item) {
@@ -3226,11 +3236,7 @@
   function renderPairProfile(report) {
     const profile = report.profile;
     if (!profile) return "";
-    return `
-      <section class="coaching-section pair-profile">
-        <div class="section-kicker">
-          <h3>${term("Pair Profile")}</h3>
-        </div>
+    return renderReportSubsection("pair-profile", "Pair Profile", `
         <div class="profile-grid">
           <article class="profile-card">
             <h4>Strengths</h4>
@@ -3246,8 +3252,7 @@
           </article>
         </div>
         ${renderLossAdvice(profile.focus)}
-      </section>
-    `;
+    `);
   }
 
   function reviewPriorityAdvice(item) {
@@ -3272,11 +3277,7 @@
   function renderTopReviewPriorities(report) {
     const items = report.reviewItems.slice(0, 3);
     if (!items.length) return "";
-    return `
-      <section class="review-priority-strip">
-        <div class="section-kicker">
-          <h3>${term("Top Boards To Review")}</h3>
-        </div>
+    return renderReportSubsection("review-priority-strip", "Top Boards To Review", `
         <div class="priority-card-grid">
           ${items.map((item, index) => {
             const row = item.row;
@@ -3306,19 +3307,14 @@
             `;
           }).join("")}
         </div>
-      </section>
-    `;
+    `);
   }
 
   function renderDecisionTypeSummary(report) {
     const decisionTypes = report.decisionTypes || [];
     if (!decisionTypes.length) return "";
     const totalLoss = report.lossLedger ? report.lossLedger.totalLoss : sum(decisionTypes.map((type) => type.totalLoss));
-    return `
-      <section class="coaching-section decision-summary">
-        <div class="section-kicker">
-          <h3>${term("Decision Type Summary")}</h3>
-        </div>
+    return renderReportSubsection("decision-summary", "Decision Type Summary", `
         <div class="decision-type-grid">
           ${decisionTypes.map((type) => {
             const width = totalLoss ? (type.totalLoss / totalLoss) * 100 : 0;
@@ -3339,8 +3335,7 @@
             `;
           }).join("")}
         </div>
-      </section>
-    `;
+    `);
   }
 
   function renderConfidenceChip(confidence) {
@@ -3362,16 +3357,11 @@
       .filter((item) => item.peerComparison && item.peerComparison.rows.length > 1)
       .slice(0, 5);
     if (!items.length) return "";
-    return `
-      <section class="coaching-section swing-review">
-        <div class="section-kicker">
-          <h3>${term("Swing Explanation")}</h3>
-        </div>
+    return renderReportSubsection("swing-review", "Board Swing Explanation", `
         <div class="swing-card-list">
           ${items.map(renderSwingCard).join("")}
         </div>
-      </section>
-    `;
+    `);
   }
 
   function renderSwingCard(item) {
@@ -3444,31 +3434,23 @@
     const ledger = report.lossLedger;
     const barExplanation = "Bars show each category's share of total lost MP in this report.";
     if (!ledger || !ledger.categories.length) {
-      return `
-        <section class="loss-ledger">
-          <div class="loss-ledger-head">
-            <h3>${term("Matchpoint Loss Ledger")}</h3>
-            <p>No same-direction matchpoint losses found for this pair.</p>
-          </div>
-        </section>
-      `;
+      return renderReportSubsection("loss-ledger", "Matchpoint Loss Ledger", `
+        <div class="empty-state">No same-direction matchpoint losses found for this pair.</div>
+      `);
     }
 
     const totalLoss = ledger.totalLoss || sum(ledger.categories.map((category) => category.totalLoss));
-    return `
-      <section class="loss-ledger">
-        <div class="loss-ledger-head">
-          <h3>${term("Matchpoint Loss Ledger")}</h3>
-          <p>
-            <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
-            <span class="ledger-bar-note term-tip"${tooltipAttrs(barExplanation)}>Bars show each theme's share of total lost MP.</span>
-          </p>
-        </div>
+    const summary = `
+      <p>
+        <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
+        <span class="ledger-bar-note term-tip"${tooltipAttrs(barExplanation)}>Bars show each theme's share of total lost MP.</span>
+      </p>
+    `;
+    return renderReportSubsection("loss-ledger", "Matchpoint Loss Ledger", `
         <div class="loss-category-list">
           ${ledger.categories.map((category) => renderLossCategory(category, totalLoss)).join("")}
         </div>
-      </section>
-    `;
+    `, summary);
   }
 
   function renderLossCategory(category, totalLoss) {
@@ -3523,15 +3505,16 @@
 
   function renderReviewQueue(report) {
     const items = report.reviewItems.slice(3);
-    if (!items.length) return `<div class="empty-state">No additional notable boards found for this pair.</div>`;
-    return `
-      <section class="priority-review">
-        <h3>${term("Other Notable Boards")}</h3>
+    if (!items.length) {
+      return renderReportSubsection("priority-review", "Other Notable Boards", `
+        <div class="empty-state">No additional notable boards found for this pair.</div>
+      `);
+    }
+    return renderReportSubsection("priority-review", "Other Notable Boards", `
         <div class="review-list">
           ${items.map(renderReviewItem).join("")}
         </div>
-      </section>
-    `;
+    `);
   }
 
   function renderReviewItem(item) {
