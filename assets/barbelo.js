@@ -2725,6 +2725,7 @@
     setElementHidden("resultsPanel", false);
     setElementHidden("importDiagnosticsPanel", false);
     setElementHidden("csvPanel", false);
+    document.getElementById("metricGrid").setAttribute("data-views", "overview results improve");
 
     if (!["results", "boardResults", "pairResults"].includes(STATE.rowMode)) {
       STATE.rowMode = "results";
@@ -2770,6 +2771,7 @@
     setElementHidden("resultsPanel", false);
     setElementHidden("importDiagnosticsPanel", false);
     setElementHidden("csvPanel", false);
+    document.getElementById("metricGrid").setAttribute("data-views", "overview");
 
     document.getElementById("boardSearch").value = STATE.filters.search;
     document.getElementById("sideFilter").value = STATE.filters.side;
@@ -4665,7 +4667,8 @@
   }
 
   function csvCell(value) {
-    const text = String(value == null ? "" : value);
+    let text = String(value == null ? "" : value);
+    if (/^[=+\-@\t\r]/.test(text) && text !== "=" && Number.isNaN(Number(text))) text = `'${text}`;
     if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, "\"\"")}"`;
     return text;
   }
@@ -4698,16 +4701,25 @@
   }
 
   // Browser file I/O, drag-and-drop, event wiring, and startup.
+  function decodeTextBuffer(buffer) {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer || 0);
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch (error) {
+      return new TextDecoder("windows-1252").decode(bytes);
+    }
+  }
+
   function readFile(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setCurrentPbn(String(reader.result || ""), file.name);
+      setCurrentPbn(decodeTextBuffer(reader.result), file.name);
     };
     reader.onerror = () => {
       showToast("Could not read the selected file.", "error");
     };
-    reader.readAsText(file, "ISO-8859-1");
+    reader.readAsArrayBuffer(file);
   }
 
   function readResultsFile(file) {
@@ -4718,7 +4730,7 @@
       try {
         const raw = lowerName.endsWith(".bws")
           ? parseBwsBuffer(reader.result, file.name)
-          : parseResultsCsv(String(reader.result || ""), file.name, file.size);
+          : parseResultsCsv(decodeTextBuffer(reader.result), file.name, file.size);
         setCurrentResults(raw);
       } catch (error) {
         showToast(`Could not import results: ${error.message}`, "error");
@@ -4727,8 +4739,7 @@
     reader.onerror = () => {
       showToast("Could not read the selected results file.", "error");
     };
-    if (lowerName.endsWith(".bws")) reader.readAsArrayBuffer(file);
-    else reader.readAsText(file, "ISO-8859-1");
+    reader.readAsArrayBuffer(file);
   }
 
   function droppedFileKind(file) {
@@ -4740,18 +4751,27 @@
     return "";
   }
 
-  function readDroppedFile(file) {
-    if (!file) return;
-    const kind = droppedFileKind(file);
-    if (kind === "results") {
-      readResultsFile(file);
+  function readDroppedFiles(files) {
+    const dropped = Array.from(files || []).filter(Boolean);
+    if (!dropped.length) return;
+    let pbnFile = null;
+    let resultsFile = null;
+    const ignored = [];
+    dropped.forEach((file) => {
+      const kind = droppedFileKind(file);
+      if (kind === "pbn" && !pbnFile) pbnFile = file;
+      else if (kind === "results" && !resultsFile) resultsFile = file;
+      else ignored.push(file.name);
+    });
+    if (!pbnFile && !resultsFile) {
+      showToast("Drop a PBN hand record or a BWS/CSV results file.", "error");
       return;
     }
-    if (kind === "pbn") {
-      readFile(file);
-      return;
+    if (pbnFile) readFile(pbnFile);
+    if (resultsFile) readResultsFile(resultsFile);
+    if (ignored.length) {
+      showToast(`Ignored ${plural(ignored.length, "extra file")}: ${ignored.join(", ")}`, "error");
     }
-    showToast("Drop a PBN hand record or a BWS/CSV results file.", "error");
   }
 
   function setupSummaryControls() {
@@ -4805,7 +4825,7 @@
       });
     });
     dropZone.addEventListener("drop", (event) => {
-      readDroppedFile(event.dataTransfer.files[0]);
+      readDroppedFiles(event.dataTransfer.files);
     });
 
     document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
@@ -4992,7 +5012,9 @@
       scoreDuplicateContract,
       parseDeal,
       getColumnDefs,
-      getCsvContexts
+      getCsvContexts,
+      csvCell,
+      decodeTextBuffer
     };
     window.addEventListener("DOMContentLoaded", init);
   }
