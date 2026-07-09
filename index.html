@@ -2758,6 +2758,18 @@
         return player.name || player.number || "";
       }
 
+      function pairRosterKey(pairNo, side) {
+        return side ? `${pairNo}:${side}` : String(pairNo);
+      }
+
+      function ensurePairRoster(pairRosters, pairNo, side) {
+        const key = pairRosterKey(pairNo, side);
+        if (!pairRosters.has(key)) {
+          pairRosters.set(key, { pairNo, side: side || "", playersBySeat: {}, players: [], label: "" });
+        }
+        return pairRosters.get(key);
+      }
+
       function buildPairRosters(playerNumbers, rows) {
         const earliestByTable = new Map();
         rows.forEach((row) => {
@@ -2771,40 +2783,55 @@
         playerNumbers.forEach((player) => {
           const tableRow = earliestByTable.get(String(player.tableNo));
           if (!tableRow) return;
-          const pairNo = player.direction === "N" || player.direction === "S" ? tableRow.pairNS : tableRow.pairEW;
+          const side = player.direction === "N" || player.direction === "S" ? "NS" : "EW";
+          const pairNo = side === "NS" ? tableRow.pairNS : tableRow.pairEW;
           if (pairNo == null) return;
-          const key = String(pairNo);
-          if (!pairRosters.has(key)) {
-            pairRosters.set(key, { pairNo, playersBySeat: {}, players: [], label: "" });
-          }
-          const roster = pairRosters.get(key);
-          roster.playersBySeat[player.direction] = player;
+          ensurePairRoster(pairRosters, pairNo, side).playersBySeat[player.direction] = player;
+          ensurePairRoster(pairRosters, pairNo).playersBySeat[player.direction] = player;
         });
 
         pairRosters.forEach((roster) => {
           roster.players = SEATS.map((seat) => roster.playersBySeat[seat]).filter((player) => player && playerDisplay(player));
           roster.label = roster.players.map(playerDisplay).join(" / ");
         });
+        pairRosters.profile = summarizePairRosters(pairRosters);
         return pairRosters;
       }
 
-      function pairRosterLabel(pairRosters, pairNo) {
-        const roster = pairRosters.get(String(pairNo));
+      function summarizePairRosters(pairRosters) {
+        const groups = Array.from(pairRosters.values()).filter((roster) => !roster.side);
+        const teamLikeGroups = groups.filter((roster) => {
+          const ns = pairRosters.get(pairRosterKey(roster.pairNo, "NS"));
+          const ew = pairRosters.get(pairRosterKey(roster.pairNo, "EW"));
+          return ns && ns.players.length && ew && ew.players.length;
+        });
+        return {
+          groupCount: groups.length,
+          teamLikeGroups: teamLikeGroups.length,
+          maxPlayersPerNumber: groups.length ? Math.max(...groups.map((roster) => roster.players.length)) : 0
+        };
+      }
+
+      function pairRosterLabel(pairRosters, pairNo, side) {
+        const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
+        if (sideRoster && sideRoster.label) return sideRoster.label;
+        const roster = pairRosters.get(pairRosterKey(pairNo));
         return roster ? roster.label : "";
       }
 
-      function pairSeatPlayer(pairRosters, pairNo, seat) {
-        const roster = pairRosters.get(String(pairNo));
+      function pairSeatPlayer(pairRosters, pairNo, seat, side) {
+        const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
+        const roster = sideRoster || pairRosters.get(pairRosterKey(pairNo));
         return roster ? playerDisplay(roster.playersBySeat[seat]) : "";
       }
 
       function attachPlayerNames(rows, pairRosters) {
         rows.forEach((row) => {
-          row.nsPlayers = pairRosterLabel(pairRosters, row.pairNS);
-          row.ewPlayers = pairRosterLabel(pairRosters, row.pairEW);
+          row.nsPlayers = pairRosterLabel(pairRosters, row.pairNS, "NS");
+          row.ewPlayers = pairRosterLabel(pairRosters, row.pairEW, "EW");
           row.declarerName = row.declarerSide === "N" || row.declarerSide === "S"
-            ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide)
-            : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide);
+            ? pairSeatPlayer(pairRosters, row.pairNS, row.declarerSide, "NS")
+            : pairSeatPlayer(pairRosters, row.pairEW, row.declarerSide, "EW");
         });
       }
 
@@ -2896,6 +2923,10 @@
           .map((row, index) => normalizeResultRow(row, index, analysis, boardMap))
           .filter((row) => row && !row.erased);
         const pairRosters = buildPairRosters(playerNumbers, rows);
+        const rosterProfile = pairRosters.profile || {};
+        if (rosterProfile.teamLikeGroups) {
+          warnings.push(`${rosterProfile.teamLikeGroups} result numbers have both NS-side and EW-side player rosters; these look like four-player team/table groups rather than simple two-person partnerships.`);
+        }
         attachPlayerNames(rows, pairRosters);
         const rowsByBoard = new Map();
         rows.forEach((row) => {
@@ -2940,6 +2971,7 @@
           rows,
           playerNumbers,
           pairRosters,
+          rosterProfile,
           rowsByBoard,
           boardSummaries,
           boardsByNumber,
