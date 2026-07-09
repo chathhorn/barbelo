@@ -3385,7 +3385,7 @@
 
     showBoardOverlay.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlay.setAttribute("data-board-no", String(board.boardNo));
-    title.textContent = `Board ${board.boardNo}`;
+    title.textContent = "Board Preview";
     caption.textContent = `Dealer ${board.dealer || "-"} / ${board.vulnerable || "-"} / ${board.tags.ParContract || "No par"}`;
     body.innerHTML = renderBoardCard(board, {
       id: `board-overlay-${String(board.boardNo).replace(/[^A-Za-z0-9_-]+/g, "-") || "unknown"}`,
