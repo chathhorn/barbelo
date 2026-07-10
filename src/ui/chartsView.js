@@ -76,7 +76,6 @@ function renderResultScoreChart(results, outliersOnly = false) {
     `;
   }).join("");
   const labels = summaries.map((summary, index) => {
-    if (index % Math.ceil(summaries.length / 12) !== 0 && index !== summaries.length - 1) return "";
     const x = left + index * step + step / 2;
     return `<text class="chart-board-label" data-board-jump="${escapeHtml(summary.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(summary.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
   }).join("");
@@ -222,7 +221,6 @@ function renderScoreChart(boards, outliersOnly = false) {
   }).join("");
 
   const labels = boards.map((board, index) => {
-    if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return "";
     const x = left + index * step + barWidth / 2;
     return `<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(board.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
   }).join("");
