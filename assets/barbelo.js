@@ -3122,7 +3122,7 @@
         </div>
         <div class="diagnostics-note">Selected-page profile: ${escapeHtml(formatPageTypes(pageProfile.pageTypes))}.</div>
         <div class="diagnostics-note">All-FF page runs: ${escapeHtml(erasedRuns)}.</div>
-        <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and rows scanned under the non-selected page size, so nonzero rejection counts are expected.</div>
+        <div class="diagnostics-note">Rejected row slices include non-result rows from other Jet tables and deleted row slots, so nonzero rejection counts are expected.</div>
         ${warningText}
       </div>
     `;
