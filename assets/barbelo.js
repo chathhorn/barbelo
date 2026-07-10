@@ -14,7 +14,7 @@
     { key: "N", label: "NT", color: "#2457a6" },
     { key: "S", label: "Spades", color: "#1d2b3a" },
     { key: "H", label: "Hearts", color: "#bb3f45" },
-    { key: "D", label: "Diamonds", color: "#d08a20" },
+    { key: "D", label: "Diamonds", color: "#b7791f" },
     { key: "C", label: "Clubs", color: "#0f7b6c" }
   ];
   const RANK_ORDER = "AKQJT98765432";
@@ -487,7 +487,7 @@
   function th(label, className, definition) {
     const help = definition || termDefinition(label);
     const classes = [className || "", help ? "term-tip" : ""].filter(Boolean).join(" ");
-    return `<th${classes ? ` class="${escapeHtml(classes)}"` : ""}${tooltipAttrs(help)}>${escapeHtml(label)}</th>`;
+    return `<th scope="col"${classes ? ` class="${escapeHtml(classes)}"` : ""}${tooltipAttrs(help)}>${escapeHtml(label)}</th>`;
   }
 
   function annotateTermTooltips(root) {
@@ -3205,7 +3205,7 @@
     const grid = gridValues.map((value) => {
       const y = yFor(value);
       return `
-        <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#8ca0b2" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
+        <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#607083" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
         <text x="${left - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end" fill="#607083" font-size="11">${escapeHtml(Math.round(value))}</text>
       `;
     }).join("");
@@ -3217,7 +3217,7 @@
       const parY = summary.parNS == null ? null : yFor(summary.parNS);
       const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
       return `
-        <g class="chart-board-mark" data-board-jump="${escapeHtml(summary.boardNo)}">
+        <g class="chart-board-mark" data-board-jump="${escapeHtml(summary.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(summary.boardNo)}">
           <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
             <title>Board ${escapeHtml(summary.boardNo)}: average NS ${escapeHtml(Math.round(value))}${summary.parNS == null ? "" : `, par ${escapeHtml(summary.parNS)}`}</title>
           </rect>
@@ -3228,7 +3228,7 @@
     const labels = summaries.map((summary, index) => {
       if (index % Math.ceil(summaries.length / 12) !== 0 && index !== summaries.length - 1) return "";
       const x = left + index * step + step / 2;
-      return `<text class="chart-board-label" data-board-jump="${escapeHtml(summary.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
+      return `<text class="chart-board-label" data-board-jump="${escapeHtml(summary.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(summary.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(summary.boardNo)}</text>`;
     }).join("");
 
     return `
@@ -3274,7 +3274,7 @@
     if (!standings.length) return `<div class="empty-state">No pair standings could be calculated.</div>`;
     return `
       <table class="standings-table">
-        <thead><tr><th>Rank</th><th>Pair</th><th>Players</th><th class="numeric">MP</th><th class="numeric">Pct</th><th>Form</th></tr></thead>
+        <thead><tr><th scope="col">Rank</th><th scope="col">Pair</th><th scope="col">Players</th><th scope="col" class="numeric">MP</th><th scope="col" class="numeric">Pct</th><th scope="col">Form</th></tr></thead>
         <tbody>
           ${standings.map((standing) => `
             <tr>
@@ -3734,7 +3734,7 @@
     const grid = gridValues.map((value) => {
       const y = yFor(value);
       return `
-        <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#8ca0b2" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
+        <line x1="${left}" y1="${y.toFixed(2)}" x2="${width - right}" y2="${y.toFixed(2)}" stroke="${value === 0 ? "#607083" : "#e1e7ed"}" stroke-width="${value === 0 ? 1.4 : 1}" />
         <text x="${left - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end" fill="#607083" font-size="11">${escapeHtml(Math.round(value))}</text>
       `;
     }).join("");
@@ -3746,7 +3746,7 @@
       const h = Math.abs(yFor(value) - zeroY);
       const color = value >= 0 ? "#0f7b6c" : "#bb3f45";
       return `
-        <g class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}">
+        <g class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(board.boardNo)}">
           <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${Math.max(1, h).toFixed(2)}" rx="2" fill="${color}">
             <title>Board ${escapeHtml(board.boardNo)}: NS ${escapeHtml(formatSigned(value))}; ${escapeHtml(board.tags.ParContract || "No par contract")}</title>
           </rect>
@@ -3757,7 +3757,7 @@
     const labels = boards.map((board, index) => {
       if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return "";
       const x = left + index * step + barWidth / 2;
-      return `<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
+      return `<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(board.boardNo)}" x="${x.toFixed(2)}" y="${height - 18}" text-anchor="middle" fill="#607083" font-size="11">${escapeHtml(board.boardNo)}</text>`;
     }).join("");
 
     return `
@@ -3786,12 +3786,14 @@
     const radius = 58;
     const circumference = 2 * Math.PI * radius;
     let offset = 0;
+    const gapSize = counts.length > 1 ? 3 : 0;
     const circles = counts.map((entry) => {
       const length = (entry.count / total) * circumference;
+      const visible = Math.max(1.5, length - gapSize);
       const circle = `
         <circle cx="88" cy="88" r="${radius}" fill="none" stroke="${entry.color}" stroke-width="30"
-          stroke-dasharray="${length.toFixed(2)} ${(circumference - length).toFixed(2)}"
-          stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 88 88)">
+          stroke-dasharray="${visible.toFixed(2)} ${(circumference - visible).toFixed(2)}"
+          stroke-dashoffset="${(-(offset + gapSize / 2)).toFixed(2)}" transform="rotate(-90 88 88)">
           <title>${escapeHtml(entry.label)}: ${entry.count}</title>
         </circle>`;
       offset += length;
@@ -3860,7 +3862,7 @@
         const x = left + col * cellW;
         const y = top + row * cellH;
         cells.push(`
-          <rect class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}" x="${x}" y="${y}" width="18" height="18" rx="3" fill="${hcpColor(hcp)}" stroke="#ffffff">
+          <rect class="chart-board-mark" data-board-jump="${escapeHtml(board.boardNo)}" tabindex="0" role="button" aria-label="Board ${escapeHtml(board.boardNo)} ${escapeHtml(seat)}: ${escapeHtml(hcp)} HCP" x="${x}" y="${y}" width="18" height="18" rx="3" fill="${hcpColor(hcp)}" stroke="#ffffff">
             <title>Board ${escapeHtml(board.boardNo)} ${seat}: ${hcp} HCP</title>
           </rect>
         `);
@@ -3870,7 +3872,7 @@
     boards.forEach((board, index) => {
       if (index % Math.ceil(boards.length / 12) !== 0 && index !== boards.length - 1) return;
       const x = left + index * cellW + 9;
-      cells.push(`<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" x="${x}" y="${height - 8}" fill="#607083" font-size="10" text-anchor="middle">${escapeHtml(board.boardNo)}</text>`);
+      cells.push(`<text class="chart-board-label" data-board-jump="${escapeHtml(board.boardNo)}" tabindex="0" role="button" aria-label="Open board ${escapeHtml(board.boardNo)}" x="${x}" y="${height - 8}" fill="#607083" font-size="10" text-anchor="middle">${escapeHtml(board.boardNo)}</text>`);
     });
 
     return `
@@ -4178,7 +4180,7 @@
       card.classList.remove("board-card-target");
     });
     target.classList.add("board-card-target");
-    if (options.scroll !== false) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (options.scroll !== false) target.scrollIntoView({ behavior: window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     target.focus({ preventScroll: true });
     return target;
   }
@@ -4210,6 +4212,8 @@
     });
     overlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
+    const appShell = document.querySelector(".app-shell");
+    if (appShell) appShell.inert = true;
     annotateTermTooltips(body);
     closeButton.focus();
   }
@@ -4220,6 +4224,8 @@
     if (!overlay || overlay.classList.contains("hidden")) return;
     overlay.classList.add("hidden");
     overlay.removeAttribute("data-board-no");
+    const appShell = document.querySelector(".app-shell");
+    if (appShell) appShell.inert = false;
     if (body) body.innerHTML = "";
     document.body.classList.remove("modal-open");
     if (restoreFocus && showBoardOverlay.returnFocus && document.contains(showBoardOverlay.returnFocus)) {
@@ -4875,27 +4881,8 @@
     }
   }
 
-  function setupSummaryControls() {
-    const selector = [
-      "summary.panel-header .summary-control",
-      "summary.panel-header button",
-      "summary.panel-header select",
-      "summary.panel-header input",
-      "summary.panel-header label"
-    ].join(",");
-    const controls = document.querySelectorAll(selector);
-    controls.forEach((control) => {
-      ["click", "mousedown", "pointerdown", "keydown"].forEach((eventName) => {
-        control.addEventListener(eventName, (event) => {
-          event.stopPropagation();
-        });
-      });
-    });
-  }
 
   function setupEvents() {
-    setupSummaryControls();
-
     const fileInputs = [document.getElementById("pbnFile")];
     fileInputs.forEach((input) => {
       input.addEventListener("change", (event) => {
@@ -4941,6 +4928,13 @@
     });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeBoardOverlay();
+      if ((event.key === "Enter" || event.key === " ") && event.target instanceof Element) {
+        const jump = event.target.closest("[data-board-jump], [data-board-select]");
+        if (jump && jump.tagName !== "BUTTON" && jump.tagName !== "A") {
+          event.preventDefault();
+          jump.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      }
     });
     document.getElementById("taskNav").addEventListener("click", (event) => {
       const button = event.target.closest("[data-task-view]");
@@ -5075,6 +5069,18 @@
     document.addEventListener("focusout", (event) => {
       const target = event.target.closest("[data-tooltip]");
       if (target) hide(target);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && activeTarget) {
+        activeTarget = null;
+        tooltip.classList.add("hidden");
+      }
+    });
+
+    tooltip.addEventListener("mouseleave", () => {
+      activeTarget = null;
+      tooltip.classList.add("hidden");
     });
 
     window.addEventListener("scroll", () => {

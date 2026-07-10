@@ -7,7 +7,7 @@
   --ink: #17212b;
   --muted: #607083;
   --line: #d9e0e7;
-  --line-strong: #b9c5d0;
+  --line-strong: #93a1af;
   --green: #0f7b6c;
   --green-dark: #09564d;
   --blue: #2457a6;
@@ -77,6 +77,11 @@ button.primary,
   color: #fff;
 }
 
+.file-button:has(+ input[type="file"]:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
 button.primary:hover,
 .file-button.primary:hover {
   background: var(--green-dark);
@@ -110,12 +115,14 @@ select {
   padding: 9px 11px;
 }
 
-label {
+label,
+.field-label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  display: inline-block;
 }
 
 .app-shell {
@@ -294,7 +301,6 @@ h1 {
   font-size: 11px;
   line-height: 1;
   letter-spacing: 0;
-  opacity: 0.72;
   white-space: nowrap;
 }
 
@@ -461,6 +467,10 @@ main {
 
 .panel-body {
   padding: 16px;
+}
+
+details.panel-disclosure {
+  position: relative;
 }
 
 .panel-disclosure > summary.panel-header {
@@ -997,7 +1007,7 @@ svg {
 }
 
 .board-row-button {
-  min-height: 0;
+  min-height: 24px;
   border: 0;
   background: transparent;
   padding: 0;
@@ -1484,6 +1494,10 @@ details.board-details summary {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .traveler-wrap {
@@ -2562,6 +2576,7 @@ body.modal-open {
 .tooltip-popup {
   position: fixed;
   z-index: 80;
+  pointer-events: auto;
   max-width: min(340px, calc(100vw - 28px));
   border: 1px solid rgba(23, 33, 43, 0.18);
   border-radius: 7px;
@@ -2571,7 +2586,6 @@ body.modal-open {
   padding: 9px 11px;
   font-size: 12px;
   line-height: 1.35;
-  pointer-events: none;
 }
 
 .tooltip-popup.hidden {
@@ -2648,5 +2662,31 @@ body.modal-open {
 
   .drop-copy {
     min-height: 0;
+  }
+}
+
+.panel-header-controls {
+  position: absolute;
+  top: 10px;
+  right: 48px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-board-mark:focus-visible,
+.chart-board-label:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

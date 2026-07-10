@@ -92,11 +92,11 @@
                 <h2>Pair Improvement Report</h2>
                 <p id="pairReportCaption"></p>
               </div>
-              <div class="report-actions summary-control">
-                <label for="reportPairSelect">Pair</label>
-                <select id="reportPairSelect"></select>
-              </div>
             </summary>
+            <div class="report-actions panel-header-controls">
+              <label for="reportPairSelect">Pair</label>
+              <select id="reportPairSelect"></select>
+            </div>
             <div class="panel-body" id="pairReportBody"></div>
           </details>
         </section>
@@ -285,8 +285,10 @@
                 <h2>CSV Builder</h2>
                 <p id="csvCaption"></p>
               </div>
-              <button type="button" id="downloadCsvButton" class="primary summary-control">Download CSV</button>
             </summary>
+            <div class="panel-header-controls">
+              <button type="button" id="downloadCsvButton" class="primary">Download CSV</button>
+            </div>
             <div class="panel-body">
               <div class="csv-grid">
                 <div>
@@ -313,7 +315,7 @@
                   <div class="column-list" id="columnList"></div>
                 </div>
                 <div>
-                  <label>Preview</label>
+                  <span class="field-label">Preview</span>
                   <div class="preview-wrap" id="csvPreview"></div>
                 </div>
               </div>
@@ -340,7 +342,7 @@
     </div>
   </div>
 
-  <div class="toast hidden" id="toast"></div>
+  <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
   <div class="tooltip-popup hidden" id="termTooltip" role="tooltip"></div>
 
   <script src="assets/pbn-parser.js?v=__BARBELO_VERSION__"></script>
