@@ -162,6 +162,15 @@ function bestMakeableForPair(board, pair) {
   return best || { className: "None", rank: 0, text: "Nothing makes" };
 }
 
+/**
+ * Recasts one result row from the selected pair's perspective. Returns
+ * null when the pair did not play the row.
+ *
+ * @param {import("./types.js").ResultsAnalysis} results
+ * @param {import("./types.js").ResultRow} row
+ * @param {string} participantKey
+ * @returns {import("./types.js").ReportView|null}
+ */
 function pairResultView(results, row, participantKey) {
   const pairKey = String(participantKey);
   const isNS = String(row.nsParticipantKey) === pairKey;
@@ -840,6 +849,15 @@ function reviewPriorityAdvice(item) {
   return "Use the traveler to compare same-direction results and isolate the first decision that changed the matchpoint outcome.";
 }
 
+/**
+ * Builds the full improvement report for one pair: per-board views,
+ * loss ledger, decision types, profile, and practice priorities.
+ * Returns null when the pair has no played boards.
+ *
+ * @param {import("./types.js").ResultsAnalysis} results
+ * @param {string} participantKey Key from `ResultsAnalysis.pairStandings`.
+ * @returns {import("./types.js").Report|null}
+ */
 function buildPairImprovementReport(results, participantKey) {
   if (!results || !participantKey) return null;
   const key = String(participantKey);

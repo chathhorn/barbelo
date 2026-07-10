@@ -60,6 +60,17 @@ function undertrickPenalty(undertricks, vulnerable, doubled) {
   return doubled === "XX" ? penalty * 2 : penalty;
 }
 
+/**
+ * Scores one played contract under duplicate (Law 77) scoring.
+ *
+ * @param {string} contractText Contract text ("3 NT X", "PASS", ...).
+ * @param {string} resultText Result text ("=", "+1", "-2", or tricks).
+ * @param {string} declarerSide Declarer seat letter, or "".
+ * @param {string} vulnerable "None", "NS", "EW", or "All".
+ * @param {string} [declarerPairOverride] "NS"/"EW" fallback when the
+ *   declarer seat is missing but the declaring pair is known.
+ * @returns {{ contract: import("./types.js").ParsedContract, tricks: number|null, scoreDeclarer: number|null, scoreNS: number|null, error: string }}
+ */
 function scoreDuplicateContract(contractText, resultText, declarerSide, vulnerable, declarerPairOverride) {
   const contract = parsePlayedContract(contractText);
   if (contract.passout) {

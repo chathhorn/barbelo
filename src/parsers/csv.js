@@ -47,6 +47,14 @@ function parseCsvRows(text) {
   return rows;
 }
 
+/**
+ * Parses a results CSV export into the same raw shape as the BWS parser.
+ *
+ * @param {string} text Decoded CSV text.
+ * @param {string} [fileName]
+ * @param {number} [fileSize] Original byte size, for diagnostics.
+ * @returns {import("../core/types.js").RawResults}
+ */
 function parseResultsCsv(text, fileName, fileSize) {
   const rows = parseCsvRows(text);
   const warnings = [];

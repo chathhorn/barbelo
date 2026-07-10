@@ -79,12 +79,21 @@ import { classifyContract } from "../core/contracts.js";
   }
 
   // PBN parsing and hand/deal analysis.
+  /**
+   * Splits PBN text into directives and per-board tag records.
+   *
+   * @param {string} text
+   * @param {string} [fileName]
+   * @returns {{ fileName: string, directives: Array<Object>, records: Array<Object>, warnings: string[] }}
+   */
   function parsePbn(text, fileName) {
     const lines = normalizeText(text).split("\n");
     const directives = [];
     const records = [];
     const warnings = [];
+    /** @type {ReturnType<typeof makeRecord>|null} */
     let current = null;
+    /** @type {string|null} */
     let section = null;
 
     lines.forEach((line, index) => {
@@ -160,6 +169,12 @@ import { classifyContract } from "../core/contracts.js";
       .join("");
   }
 
+  /**
+   * Parses a PBN Deal tag ("N:AKQ2.T98... ...") into per-seat holdings.
+   *
+   * @param {string} dealText
+   * @returns {import("../core/types.js").Deal}
+   */
   function parseDeal(dealText) {
     const result = {
       raw: dealText || "",

@@ -28,6 +28,12 @@ jobs:
       - name: Run test suite
         run: node --test
 
+      # Type-checks the dependency-free analysis core and parsers via
+      # JSDoc annotations (see src/core/types.js and jsconfig.json). The
+      # UI layer is intentionally outside the checked include set.
+      - name: Type-check core and parsers
+        run: npx --yes -p typescript@5.9 tsc -p jsconfig.json --noEmit
+
   build:
     runs-on: ubuntu-latest
     needs: test

@@ -41,6 +41,16 @@ function boardMapByNumber(analysis) {
   return new Map((analysis ? analysis.boards : []).map((board) => [String(board.boardNo), board]));
 }
 
+/**
+ * Normalizes and scores one raw traveler row. Returns null when the row
+ * has no recognizable board number.
+ *
+ * @param {Object<string, *>} row One raw receivedData row.
+ * @param {number} index Position in the raw receivedData array.
+ * @param {import("./types.js").PbnAnalysis} analysis
+ * @param {Map<string, import("./types.js").Board>} boardMap PBN boards keyed by boardNo.
+ * @returns {import("./types.js").ResultRow|null}
+ */
 function normalizeResultRow(row, index, analysis, boardMap) {
   const boardNo = safeNumber(pickField(row, ["Board", "board", "Board Number", "board_number"]));
   if (boardNo == null) return null;
@@ -179,6 +189,7 @@ function buildPairRosters(playerNumbers, rows, multiSection) {
     }
   };
 
+  /** @type {Map<string, Object<string, *>> & { profile?: Object<string, *> }} */
   const pairRosters = new Map();
   playerNumbers.forEach((player) => {
     const tableRow = assignmentFor(player);
@@ -440,6 +451,15 @@ function rowContractText(row) {
   return `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
 }
 
+/**
+ * Builds the scored session from raw parser output: row normalization,
+ * rosters, matchpointing, standings, board summaries, and warnings.
+ *
+ * @param {import("./types.js").RawResults} rawResults
+ * @param {import("./types.js").PbnAnalysis} [analysis] Omit or pass null
+ *   in results-only mode.
+ * @returns {import("./types.js").ResultsAnalysis}
+ */
 function buildResultsAnalysis(rawResults, analysis) {
   analysis = analysis || emptyAnalysis();
   const boardMap = boardMapByNumber(analysis);

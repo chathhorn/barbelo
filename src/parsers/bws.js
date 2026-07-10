@@ -22,6 +22,14 @@ import { parseResultsCsv } from "./csv.js";
 
 
 
+  /**
+   * Scans a Bridgemate .BWS file (a Microsoft Jet3 database) for
+   * ReceivedData and PlayerNumbers rows.
+   *
+   * @param {ArrayBuffer|Uint8Array} buffer Raw file bytes.
+   * @param {string} [fileName]
+   * @returns {import("../core/types.js").RawResults}
+   */
   function parseBwsBuffer(buffer, fileName) {
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     const signature = decodeAscii(bytes.subarray(4, 68)).trim();

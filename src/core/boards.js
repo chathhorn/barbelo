@@ -26,12 +26,15 @@ function sortHolding(holding) {
 }
 
 function analyzeHand(hand) {
+  /** @type {Object<string, string>} */
   const normalized = {};
   SUITS.forEach((suit) => {
     normalized[suit.key] = sortHolding(hand && hand[suit.key]);
   });
 
+  /** @type {Object<string, number>} */
   const lengths = {};
+  /** @type {Object<string, number>} */
   const hcpBySuit = {};
   let hcp = 0;
   let controls = 0;
@@ -79,7 +82,9 @@ function analyzeHand(hand) {
 
 function combinePairStats(hands, pair) {
   const seats = pair === "NS" ? ["N", "S"] : ["E", "W"];
+  /** @type {Object<string, number>} */
   const lengths = {};
+  /** @type {Object<string, string>} */
   const holdings = {};
   SUITS.forEach((suit) => {
     holdings[suit.key] = seats.map((seat) => hands[seat] ? hands[seat].cards[suit.key] : "").join("");
@@ -116,6 +121,13 @@ function standardVulnerability(boardNo) {
   return cycle[(board - 1) % cycle.length];
 }
 
+/**
+ * Builds a reduced Board for result rows with no PBN board loaded:
+ * dealer and vulnerability follow standard board numbering.
+ *
+ * @param {number} boardNo
+ * @returns {import("./types.js").Board}
+ */
 function fallbackResultBoard(boardNo) {
   return {
     boardNo,
@@ -134,6 +146,14 @@ function getDoubleDummyTricks(board, declarer, denomination) {
   return row ? row.tricks : "";
 }
 
+/**
+ * Analyzes one parsed PBN record into a Board: hands, HCP, par,
+ * optimum score, and the double-dummy table.
+ *
+ * @param {Object} record One record from `parsePbn`.
+ * @param {number} index Record index in the PBN file.
+ * @returns {import("./types.js").Board}
+ */
 function normalizeBoard(record, index) {
   const tags = record.tags;
   const boardNo = safeNumber(tags.Board) || index + 1;
@@ -141,6 +161,7 @@ function normalizeBoard(record, index) {
   const dealer = SEATS.includes(dealerTag) ? dealerTag : standardDealer(boardNo);
   const vulnerable = normalizeVulnerability(tags.Vulnerable) || standardVulnerability(boardNo);
   const deal = parseDeal(tags.Deal);
+  /** @type {Object<string, import("./types.js").HandAnalysis>} */
   const hands = {};
   SEATS.forEach((seat) => {
     hands[seat] = analyzeHand(deal.hands[seat]);
@@ -194,6 +215,12 @@ function normalizeBoard(record, index) {
   };
 }
 
+/**
+ * Builds the full PBN analysis from `parsePbn` output.
+ *
+ * @param {{ fileName: string, directives: Array<Object>, records: Array<Object>, warnings: string[] }} parsed
+ * @returns {import("./types.js").PbnAnalysis}
+ */
 function buildAnalysis(parsed) {
   const boards = parsed.records.map((record, index) => normalizeBoard(record, index));
   const tags = uniqueSorted(parsed.records.flatMap((record) => Object.keys(record.tags)));
@@ -242,6 +269,11 @@ function buildAnalysis(parsed) {
   };
 }
 
+/**
+ * The PbnAnalysis used when no PBN is loaded (results-only mode).
+ *
+ * @returns {import("./types.js").PbnAnalysis}
+ */
 function emptyAnalysis() {
   return {
     parsed: { fileName: "", directives: [], warnings: [] },

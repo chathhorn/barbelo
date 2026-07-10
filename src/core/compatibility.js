@@ -25,6 +25,14 @@ function compatibilityPercent(value) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
+/**
+ * Scores how plausibly a results file belongs to the loaded PBN.
+ *
+ * @param {import("./types.js").PbnAnalysis} analysis
+ * @param {import("./types.js").ResultRow[]} rows
+ * @param {import("./types.js").BoardSummary[]} boardSummaries
+ * @returns {{ status: string, label: string, score: number|null, primaryConcern?: string, details: string[], metrics: Object<string, *> }}
+ */
 function assessPbnResultsCompatibility(analysis, rows, boardSummaries) {
   const hasPbn = analysis && analysis.boards && analysis.boards.length;
   const resultBoardNumbers = new Set(boardSummaries.map((summary) => String(summary.boardNo)));
