@@ -302,7 +302,7 @@ function renderSwingCard(item, index) {
   `;
 }
 
-const COLLIE_VARIANTS = 10;
+const COLLIE_VARIANTS = 20;
 
 // Deterministic per-advice pick: the coach's pose varies across cards but
 // never flickers between renders of the same advice.

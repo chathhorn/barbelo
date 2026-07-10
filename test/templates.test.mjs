@@ -171,9 +171,9 @@ test("the coach avatar varies deterministically across advice texts", async () =
   const variants = new Set(adviceTexts.map(collieVariant));
   assert.ok(variants.size >= 3, `expected pose variety, got ${[...variants].join(",")}`);
   for (const variant of variants) {
-    assert.match(variant, /^(0[1-9]|10)$/);
+    assert.match(variant, /^(0[1-9]|1[0-9]|20)$/);
   }
   const html = renderLossAdvice(adviceTexts[0]);
-  assert.match(html, /assets\/collie-(0[1-9]|10)\.svg/);
+  assert.match(html, /assets\/collie-(0[1-9]|1[0-9]|20)\.svg/);
   assert.doesNotMatch(html, /bc-avatar/);
 });
