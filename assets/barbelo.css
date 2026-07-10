@@ -1095,103 +1095,252 @@ svg {
   gap: 12px;
 }
 
-.board-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  gap: 8px;
-}
-
-.board-stat {
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 8px;
-  background: var(--panel-soft);
+.board-placard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
 }
 
-.board-stat span {
-  color: var(--muted);
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.board-no {
+  font-size: 17px;
 }
 
-.board-stat strong {
-  display: block;
-  margin-top: 3px;
-  font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.board-dealer {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.board-dealer b {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.vul-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: #445261;
   white-space: nowrap;
+}
+
+.vul-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.vul-chip.vul {
+  background: #f9e9ea;
+  color: #a13039;
+}
+
+.vul-chip.vul .dot {
+  background: var(--red);
 }
 
 .deal-diagram {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-areas:
-    ". north ."
-    "west center east"
-    ". south .";
-  gap: 8px;
+    "nw n ne"
+    "w  t e"
+    "sw s se";
+  gap: 4px 14px;
   align-items: center;
+  justify-items: center;
 }
+
+.deal-corner {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 210px;
+  min-height: 1px;
+}
+
+.deal-corner b {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.deal-corner .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.corner-nw { grid-area: nw; justify-self: start; align-self: start; }
+.corner-ne { grid-area: ne; justify-self: end; align-self: start; text-align: right; }
+.corner-sw { grid-area: sw; justify-self: start; align-self: end; }
+.corner-se { grid-area: se; justify-self: end; align-self: end; text-align: right; }
+
+.hcp-bar {
+  display: flex;
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 5px;
+  width: 150px;
+  margin-left: auto;
+}
+
+.hcp-bar .ns { background: var(--blue); }
+.hcp-bar .ew { background: var(--line-strong); }
 
 .hand-block {
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: #fff;
-  padding: 8px;
-  min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
+  min-width: 168px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  min-height: 0;
 }
 
-.hand-block.north {
-  grid-area: north;
+.seat-n { grid-area: n; }
+.seat-e { grid-area: e; justify-self: start; }
+.seat-s { grid-area: s; }
+.seat-w { grid-area: w; justify-self: end; }
+
+.hand-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 3px;
 }
 
-.hand-block.east {
-  grid-area: east;
-}
-
-.hand-block.south {
-  grid-area: south;
-}
-
-.hand-block.west {
-  grid-area: west;
-}
-
-.table-center {
-  grid-area: center;
-  min-height: 86px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background:
-    linear-gradient(135deg, rgba(15, 123, 108, 0.10), rgba(36, 87, 166, 0.08)),
-    #fff;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 8px;
+.hand-seat {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.hand-hcp {
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hand-hcp span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.hand-suit {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+.hand-suit .suit-glyph {
+  width: 1em;
+  text-align: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+}
+
+.hand-cards {
+  letter-spacing: 0.14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hand-void {
+  color: var(--muted);
+  font-style: italic;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 11.5px;
+}
+
+.hand-shape {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.deal-table {
+  grid-area: t;
+  width: 112px;
+  height: 112px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #0e6e60, #0a5449);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.deal-table .band {
+  position: absolute;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.deal-table .band.ns { left: 24px; right: 24px; height: 7px; }
+.deal-table .band.top { top: 7px; }
+.deal-table .band.bottom { bottom: 7px; }
+.deal-table .band.ew { top: 24px; bottom: 24px; width: 7px; }
+.deal-table .band.left { left: 7px; }
+.deal-table .band.right { right: 7px; }
+.deal-table .band.vul { background: #d84b52; }
+
+.dealer-pip {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--green-dark);
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.dealer-pip.n { top: -8px; left: 50%; transform: translateX(-50%); }
+.dealer-pip.s { bottom: -8px; left: 50%; transform: translateX(-50%); }
+.dealer-pip.e { right: -8px; top: 50%; transform: translateY(-50%); }
+.dealer-pip.w { left: -8px; top: 50%; transform: translateY(-50%); }
+
+.deal-table-center {
+  color: #eaf6f2;
+  text-align: center;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  font-weight: 650;
   text-transform: uppercase;
 }
 
-.hand-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
-  color: var(--ink);
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
+.deal-table-center b {
+  display: block;
+  font-size: 21px;
+  letter-spacing: 0;
+  font-weight: 780;
+}
+
+.deal-missing {
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .suit-glyph.spade { color: var(--spade); }
@@ -1205,41 +1354,124 @@ svg {
   font-weight: 700;
 }
 
-.suit-line {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 5px;
-  min-height: 18px;
-  align-items: center;
+.board-section {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.board-card-body > * {
+  min-width: 0;
+}
+
+.board-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.traveler-table td {
   white-space: nowrap;
 }
 
-.suit-symbol {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 15px;
-  line-height: 1;
+.traveler-table tr.traveler-top td {
+  background: rgba(15, 123, 108, 0.07);
 }
 
-.suit-line.spade .suit-symbol,
-.suit-line.club .suit-symbol {
-  color: var(--spade);
+.traveler-table tr.traveler-selected td {
+  background: rgba(183, 121, 31, 0.10);
 }
 
-.suit-line.heart .suit-symbol,
-.suit-line.diamond .suit-symbol {
-  color: var(--red);
+.traveler-table .score.pos { color: var(--green-dark); font-weight: 650; }
+.traveler-table .score.neg { color: var(--red); font-weight: 650; }
+
+.mp-bar {
+  display: inline-block;
+  vertical-align: middle;
+  width: 52px;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  margin-left: 8px;
+  overflow: hidden;
 }
 
-.cards {
+.mp-bar i {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+}
+
+.traveler-pairs .pair-names {
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.shape-line {
-  margin-top: 5px;
+.dd-wrap {
+  overflow-x: auto;
+}
+
+.dd-table td {
+  text-align: center;
+  min-width: 42px;
   color: var(--muted);
-  font-size: 11px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.dd-table td.dd-part {
+  color: var(--ink);
+  opacity: 1;
+  background: rgba(15, 123, 108, 0.08);
+  font-weight: 600;
+}
+
+.dd-table td.dd-game {
+  color: #6b4b0e;
+  opacity: 1;
+  background: rgba(183, 121, 31, 0.16);
+  font-weight: 750;
+}
+
+.dd-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.board-dv {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.vul-text {
+  color: var(--red);
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  .deal-diagram {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "t t"
+      "n n"
+      "w e"
+      "s s"
+      "nw ne"
+      "sw se";
+    gap: 8px;
+  }
+
+  .deal-table { width: 92px; height: 92px; }
+  .hand-block { min-width: 0; width: 100%; }
+  .seat-w { justify-self: stretch; }
+  .seat-e { justify-self: stretch; }
+  .corner-nw, .corner-sw { align-self: start; }
+  .corner-ne, .corner-se { align-self: start; }
 }
 
 details.board-details {
@@ -1252,12 +1484,6 @@ details.board-details summary {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
-}
-
-.detail-grid {
-  margin-top: 10px;
-  display: grid;
-  gap: 12px;
 }
 
 .traveler-wrap {
@@ -2305,24 +2531,6 @@ body.modal-open {
 
   .board-grid {
     grid-template-columns: 1fr;
-  }
-
-  .board-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .deal-diagram {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "north"
-      "east"
-      "south"
-      "west"
-      "center";
-  }
-
-  .table-center {
-    min-height: 58px;
   }
 
   .drop-copy {

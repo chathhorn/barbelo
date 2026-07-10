@@ -553,12 +553,12 @@
     }
   }
 
-  const CONTRACT_TOKEN_RE = /([1-7])\s?(NT|[SHDC])\s?(XX|X)?(?![A-Za-z])/g;
+  const CONTRACT_TOKEN_RE = /([1-7])\s?(NT|[SHDCN])\s?(XX|X)?(?![A-Za-z])/g;
 
   function contractGlyphHtml(text) {
     const escaped = escapeHtml(String(text == null ? "" : text));
     return escaped.replace(CONTRACT_TOKEN_RE, (match, level, strain, doubled) => {
-      const suit = SUITS.find((entry) => entry.key === strain);
+      const suit = strain === "NT" || strain === "N" ? null : SUITS.find((entry) => entry.key === strain);
       const strainHtml = suit ? `<span class="suit-glyph ${suit.className}">${suit.html}</span>` : "NT";
       const doubledHtml = doubled ? `<span class="dbl">${doubled === "XX" ? "&times;&times;" : "&times;"}</span>` : "";
       return `${level}${strainHtml}${doubledHtml}`;
@@ -4062,11 +4062,12 @@
         <table class="board-list-table">
           <thead>
             <tr>
-              <th>Board</th>
-              <th>Deal</th>
-              <th>Par</th>
-              <th class="numeric">NS</th>
-              <th>Results</th>
+              <th scope="col">Board</th>
+              <th scope="col">D &middot; Vul</th>
+              <th scope="col">Par</th>
+              <th scope="col" class="numeric">NS</th>
+              <th scope="col" class="numeric">#</th>
+              <th scope="col" class="numeric">Avg</th>
             </tr>
           </thead>
           <tbody>
@@ -4080,16 +4081,16 @@
   function renderBoardListRow(board, selected) {
     const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
     const selectedClass = selected && String(selected.boardNo) === String(board.boardNo) ? " selected" : "";
-    const resultText = resultSummary
-      ? `${resultSummary.resultCount} scores${resultSummary.averageNsScore == null ? "" : `, avg ${formatSigned(Math.round(resultSummary.averageNsScore))}`}`
-      : "No results";
+    const vulShort = { None: "-", NS: "NS", EW: "EW", All: "Both" }[board.vulnerable] || "?";
+    const vul = vulSides(board.vulnerable);
     return `
       <tr class="${selectedClass}">
         <td><button type="button" class="board-row-button" data-board-select="${escapeHtml(board.boardNo)}">Board ${escapeHtml(board.boardNo)}</button></td>
-        <td>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</td>
-        <td class="contract">${contractGlyphHtml(board.tags.ParContract || "No par")}</td>
+        <td class="board-dv">${escapeHtml(board.dealer || "?")} &middot; <span class="${vul.ns || vul.ew ? "vul-text" : ""}">${escapeHtml(vulShort)}</span></td>
+        <td class="contract">${contractGlyphHtml((board.tags.ParContract || "No par").replace(/\b(NS|EW|[NSEW])\s+(?=[1-7])/gi, ""))}</td>
         <td class="numeric">${escapeHtml(board.optimum.nsPerspective == null ? "" : formatSigned(board.optimum.nsPerspective))}</td>
-        <td>${escapeHtml(resultText)}</td>
+        <td class="numeric">${escapeHtml(resultSummary ? resultSummary.resultCount : "")}</td>
+        <td class="numeric">${escapeHtml(resultSummary && resultSummary.averageNsScore != null ? formatSigned(Math.round(resultSummary.averageNsScore)) : "")}</td>
       </tr>
     `;
   }
@@ -4099,45 +4100,90 @@
     return `board-explorer-${safe || "unknown"}`;
   }
 
+  function vulSides(vulnerable) {
+    return {
+      ns: vulnerable === "NS" || vulnerable === "All",
+      ew: vulnerable === "EW" || vulnerable === "All"
+    };
+  }
+
+  function vulLabel(vulnerable) {
+    if (vulnerable === "None") return "None vul";
+    if (vulnerable === "NS") return "NS vul";
+    if (vulnerable === "EW") return "EW vul";
+    if (vulnerable === "All") return "Both vul";
+    return "Vul unknown";
+  }
+
+  function makeableSummary(board, pair) {
+    if (!board.optimumRows.length) return "";
+    const best = new Map();
+    board.optimumRows.forEach((row) => {
+      if (row.pair !== pair || row.makeableLevel < 1) return;
+      const current = best.get(row.denomination) || 0;
+      if (row.makeableLevel > current) best.set(row.denomination, row.makeableLevel);
+    });
+    if (!best.size) return "nothing";
+    const denomOrder = ["N", "S", "H", "D", "C"];
+    return Array.from(best.entries())
+      .sort((a, b) => b[1] - a[1] || denomOrder.indexOf(a[0]) - denomOrder.indexOf(b[0]))
+      .slice(0, 4)
+      .map(([denom, level]) => contractGlyphHtml(`${level} ${denom === "N" ? "NT" : denom}`))
+      .join(", ");
+  }
+
+  function mostPlayedSummary(resultSummary) {
+    if (!resultSummary) return "";
+    const played = resultSummary.rows.filter((row) => row.contract && row.contract !== "PASS");
+    if (!played.length) return "";
+    const counts = countBy(played.map((row) => `${row.contract} by ${row.declarerSide || "?"}`));
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    return `${contractGlyphHtml(top[0])} (${escapeHtml(top[1])}&times;)`;
+  }
+
+  function parChipHtml(board) {
+    const parText = String(board.tags.ParContract || "").trim();
+    const score = board.optimum.nsPerspective;
+    if (score == null && !parText) return "";
+    const scorePart = score == null ? "" : `Par NS ${formatSigned(score)}`;
+    const contractPart = parText ? contractGlyphHtml(parText.replace(/\b(NS|EW|[NSEW])\s+(?=[1-7])/gi, "")) : "";
+    return `<span class="contract-chip">${[scorePart, contractPart].filter(Boolean).join(" &middot; ")}</span>`;
+  }
+
   function renderBoardCard(board, options = {}) {
-    const opt = board.optimum;
     const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
     const cardId = options.id || boardElementId(board.boardNo);
     const className = options.className ? ` ${options.className}` : "";
-    const scoreText = opt.nsPerspective == null ? "" : `NS ${formatSigned(opt.nsPerspective)}`;
-    const edgeChip = opt.edge && opt.edge !== "Flat"
-      ? `<span class="side-chip ${sideClass(opt.edge)}">${escapeHtml(opt.edge)} edge</span>`
-      : `<span class="side-chip">No edge</span>`;
-    const parText = board.tags.ParContract || "No par";
-    const resultStat = resultSummary
-      ? `<div class="board-stat"><span>Travelers</span><strong>${escapeHtml(resultSummary.resultCount)} scores</strong></div>
-         <div class="board-stat"><span>Avg Result</span><strong>${escapeHtml(resultSummary.averageNsScore == null ? "Unknown" : `NS ${formatSigned(Math.round(resultSummary.averageNsScore))}`)}</strong></div>`
+    const vul = vulSides(board.vulnerable);
+    const boardTop = resultSummary ? Math.max(0, ...resultSummary.rows.map((row) => row.boardTop || 0)) : 0;
+    const travelerLabel = resultSummary
+      ? `Traveler - ${plural(resultSummary.resultCount, "result")}${boardTop ? `, top ${formatMp(boardTop)}` : ""}`
       : "";
     return `
       <article class="board-card${escapeHtml(className)}" id="${escapeHtml(cardId)}" data-board-no="${escapeHtml(board.boardNo)}" tabindex="-1">
         <div class="board-card-header">
-          <div class="board-title">
-            <strong>Board ${escapeHtml(board.boardNo)}</strong>
-            <span>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</span>
+          <div class="board-placard">
+            <strong class="board-no">Board ${escapeHtml(board.boardNo)}</strong>
+            <span class="board-dealer">Dealer <b>${escapeHtml(seatName(board.dealer) || "?")}</b></span>
+            <span class="vul-chip${vul.ns || vul.ew ? " vul" : ""}"><span class="dot" aria-hidden="true"></span>${escapeHtml(vulLabel(board.vulnerable))}</span>
           </div>
-          <span class="contract-chip">${contractGlyphHtml(parText)}</span>
+          ${parChipHtml(board)}
         </div>
         <div class="board-card-body">
-          <div class="board-stats">
-            <div class="board-stat"><span>Optimum</span><strong>${escapeHtml(board.tags.OptimumScore || "Missing")}</strong></div>
-            <div class="board-stat"><span>NS Score</span><strong>${escapeHtml(scoreText || "Unknown")}</strong></div>
-            <div class="board-stat"><span>HCP</span><strong>NS ${board.hcpNS} / EW ${board.hcpEW}</strong></div>
-            ${resultStat}
-          </div>
-          <div>${edgeChip}</div>
-          ${renderDealDiagram(board)}
+          ${renderDealDiagram(board, resultSummary)}
+          ${resultSummary ? `
+          <div class="board-section">
+            <div class="board-section-label">${escapeHtml(travelerLabel)}</div>
+            ${renderBoardTraveler(board)}
+          </div>` : ""}
+          ${board.optimumRows.length ? `
+          <div class="board-section">
+            <div class="board-section-label">Double dummy - tricks by declarer</div>
+            ${renderDoubleDummyTable(board)}
+          </div>` : ""}
           <details class="board-details">
-            <summary>Double dummy, traveler, tags, and notes</summary>
-            <div class="detail-grid">
-              ${renderBoardTraveler(board)}
-              ${renderDoubleDummyTable(board)}
-              ${renderBoardTagTable(board)}
-            </div>
+            <summary>Raw PBN tags</summary>
+            ${renderBoardTagTable(board)}
           </details>
         </div>
       </article>
@@ -4252,59 +4298,96 @@
   function renderBoardTraveler(board) {
     const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
     if (!resultSummary) return `<div class="empty-state">No uploaded traveler rows for this board.</div>`;
-    const rows = [...resultSummary.rows].sort((a, b) => (b.scoreNS || 0) - (a.scoreNS || 0) || (a.tableNo || 0) - (b.tableNo || 0));
+    const rows = [...resultSummary.rows].sort((a, b) =>
+      (b.scoreNS == null ? -1e9 : b.scoreNS) - (a.scoreNS == null ? -1e9 : a.scoreNS) ||
+      (a.tableNo || 0) - (b.tableNo || 0));
+    const scored = rows.filter((row) => row.scoreNS != null);
+    const rankByScore = new Map();
+    scored.forEach((row, index) => {
+      if (!rankByScore.has(row.scoreNS)) rankByScore.set(row.scoreNS, index + 1);
+    });
+    const tieCounts = countBy(scored.map((row) => String(row.scoreNS)));
+    const hasPar = rows.some((row) => row.vsParNS != null);
+    const reportKey = STATE.reportPair == null ? "" : String(STATE.reportPair);
     return `
       <div class="traveler-wrap">
-        <table>
+        <table class="traveler-table">
           <thead>
             <tr>
-              <th>Table</th>
-              <th>NS</th>
-              <th>EW</th>
-              <th>Decl</th>
-              <th>Contract</th>
-              <th>Result</th>
-              <th class="numeric">NS Score</th>
-              <th class="numeric">NS MP</th>
-              <th class="numeric">Vs Par</th>
-              <th class="numeric">DD</th>
+              <th scope="col">#</th>
+              <th scope="col">Contract</th>
+              <th scope="col">By</th>
+              <th scope="col">Result</th>
+              <th scope="col" class="numeric">NS Score</th>
+              <th scope="col" class="numeric">NS MP</th>
+              ${hasPar ? `<th scope="col" class="numeric">Vs Par</th>` : ""}
+              <th scope="col">Pairs</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <td>${escapeHtml(row.tableNo || "")}</td>
-                <td>${renderPairCell(row.pairNS, row.nsPlayers)}</td>
-                <td>${renderPairCell(row.pairEW, row.ewPlayers)}</td>
+            ${rows.map((row) => {
+              const rank = row.scoreNS == null
+                ? ""
+                : `${rankByScore.get(row.scoreNS)}${tieCounts[String(row.scoreNS)] > 1 ? "=" : ""}`;
+              const isTop = row.scoreNS != null && rankByScore.get(row.scoreNS) === 1;
+              const isReport = reportKey && (String(row.nsParticipantKey) === reportKey || String(row.ewParticipantKey) === reportKey);
+              const mpPct = row.boardTop && row.nsMatchpoints != null ? (row.nsMatchpoints / row.boardTop) * 100 : null;
+              const contractCell = row.adjustment && row.scoreNS == null
+                ? escapeHtml(`Adjusted ${row.adjustment.nsPercent}%/${row.adjustment.ewPercent}%`)
+                : contractGlyphHtml(row.contract || "-");
+              const names = [row.nsPlayers, row.ewPlayers].filter(Boolean).join(" vs ");
+              return `
+              <tr class="${[isTop ? "traveler-top" : "", isReport ? "traveler-selected" : ""].filter(Boolean).join(" ")}">
+                <td class="numeric">${escapeHtml(rank)}</td>
+                <td class="contract">${contractCell}</td>
                 <td>${escapeHtml(row.declarerSide || "")}${row.declarerName ? `<span class="cell-note">${escapeHtml(row.declarerName)}</span>` : ""}</td>
-                <td class="contract">${contractGlyphHtml(row.contract || "")}</td>
                 <td>${escapeHtml(row.result || "")}</td>
-                <td class="numeric">${escapeHtml(row.scoreNS == null ? "" : row.scoreNS)}</td>
-                <td class="numeric">${escapeHtml(row.nsMatchpoints == null ? "" : row.nsMatchpoints.toFixed(1))}</td>
-                <td class="numeric">${escapeHtml(row.vsParNS == null ? "" : formatSigned(row.vsParNS))}</td>
-                <td class="numeric">${escapeHtml(row.ddDelta == null ? "" : formatSigned(row.ddDelta))}</td>
-              </tr>
-            `).join("")}
+                <td class="numeric score ${row.scoreNS > 0 ? "pos" : row.scoreNS < 0 ? "neg" : ""}">${escapeHtml(row.scoreNS == null ? "" : formatSigned(row.scoreNS))}</td>
+                <td class="numeric">${row.nsMatchpoints == null ? "" : `${escapeHtml(formatMp(row.nsMatchpoints))}${mpPct == null ? "" : `<span class="mp-bar" aria-hidden="true"><i style="width:${mpPct.toFixed(0)}%"></i></span>`}`}</td>
+                ${hasPar ? `<td class="numeric">${escapeHtml(row.vsParNS == null ? "" : formatSigned(row.vsParNS))}</td>` : ""}
+                <td class="traveler-pairs">${escapeHtml(row.pairNS == null ? "" : row.pairNS)} v ${escapeHtml(row.pairEW == null ? "" : row.pairEW)}${isReport ? `<span class="cell-note">Selected pair</span>` : ""}${names ? `<span class="cell-note pair-names" title="${escapeHtml(names)}">${escapeHtml(names)}</span>` : ""}</td>
+              </tr>`;
+            }).join("")}
           </tbody>
         </table>
       </div>
     `;
   }
 
-  function renderPairCell(pairNo, players) {
-    return `${escapeHtml(pairNo || "")}${players ? `<span class="cell-note">${escapeHtml(players)}</span>` : ""}`;
-  }
-
-  function renderDealDiagram(board) {
+  function renderDealDiagram(board, resultSummary) {
+    if (!board.deal || !board.deal.raw) {
+      return `<div class="deal-missing">No deal recorded for this board.</div>`;
+    }
+    const vul = vulSides(board.vulnerable);
+    const dealerClass = { N: "n", E: "e", S: "s", W: "w" }[board.dealer] || "";
+    const nsMakeable = makeableSummary(board, "NS");
+    const ewMakeable = makeableSummary(board, "EW");
+    const hcpTotal = (board.hcpNS + board.hcpEW) || 1;
+    const makeableCorner = nsMakeable || ewMakeable
+      ? `<div class="deal-corner corner-nw"><b>Makeable</b><br>NS: ${nsMakeable || "?"} &middot; EW: ${ewMakeable || "?"}</div>`
+      : `<div class="deal-corner corner-nw"></div>`;
+    const mostPlayed = mostPlayedSummary(resultSummary);
     return `
       <div class="deal-diagram">
+        ${makeableCorner}
+        <div class="deal-corner corner-ne">
+          <b>HCP</b> <span class="num">NS ${escapeHtml(board.hcpNS)} &middot; EW ${escapeHtml(board.hcpEW)}</span>
+          <div class="hcp-bar" role="img" aria-label="High-card points: NS ${escapeHtml(board.hcpNS)}, EW ${escapeHtml(board.hcpEW)}"><span class="ns" style="width:${((board.hcpNS / hcpTotal) * 100).toFixed(1)}%"></span><span class="ew" style="width:${((board.hcpEW / hcpTotal) * 100).toFixed(1)}%"></span></div>
+        </div>
         ${renderHandBlock(board, "N")}
         ${renderHandBlock(board, "W")}
-        <div class="table-center">
-          <div>Board ${escapeHtml(board.boardNo)}<br>D ${escapeHtml(board.dealer || "-")}<br>${escapeHtml(board.vulnerable || "-")}</div>
+        <div class="deal-table" role="img" aria-label="Board ${escapeHtml(board.boardNo)}, dealer ${escapeHtml(seatName(board.dealer) || "unknown")}, ${escapeHtml(vulLabel(board.vulnerable))}">
+          <span class="band ns top${vul.ns ? " vul" : ""}"></span>
+          <span class="band ns bottom${vul.ns ? " vul" : ""}"></span>
+          <span class="band ew left${vul.ew ? " vul" : ""}"></span>
+          <span class="band ew right${vul.ew ? " vul" : ""}"></span>
+          ${dealerClass ? `<span class="dealer-pip ${dealerClass}" aria-hidden="true">D</span>` : ""}
+          <span class="deal-table-center"><b>${escapeHtml(board.boardNo)}</b>${escapeHtml(vulLabel(board.vulnerable))}</span>
         </div>
         ${renderHandBlock(board, "E")}
         ${renderHandBlock(board, "S")}
+        <div class="deal-corner corner-sw">${resultSummary ? `<b>Field</b><br>${escapeHtml(plural(resultSummary.resultCount, "table"))}${resultSummary.averageNsScore == null ? "" : ` &middot; avg NS <span class="num">${escapeHtml(formatSigned(Math.round(resultSummary.averageNsScore)))}</span>`}` : ""}</div>
+        <div class="deal-corner corner-se">${mostPlayed ? `<b>Most played</b><br>${mostPlayed}` : ""}</div>
       </div>
     `;
   }
@@ -4312,16 +4395,22 @@
   function renderHandBlock(board, seat) {
     const hand = board.hands[seat];
     const player = board.tags[seatName(seat)] || "";
+    const shapeText = hand.shape ? hand.shape.replace(/-/g, "=") : "";
     return `
-      <div class="hand-block ${seatName(seat).toLowerCase()}">
-        <div class="hand-title"><span>${escapeHtml(seat)}${player ? ` ${escapeHtml(player)}` : ""}</span><span>${hand.hcp} HCP</span></div>
+      <div class="hand-block seat-${seat.toLowerCase()}">
+        <div class="hand-head">
+          <span class="hand-seat">${escapeHtml(seatName(seat).toUpperCase())}${player ? ` &middot; ${escapeHtml(player)}` : ""}</span>
+          <span class="hand-hcp">${escapeHtml(hand.hcp)} <span>HCP</span></span>
+        </div>
         ${SUITS.map((suit) => `
-          <div class="suit-line ${suit.className}">
-            <span class="suit-symbol">${suit.html}</span>
-            <span class="cards">${escapeHtml(hand.cards[suit.key] || "-")}</span>
+          <div class="hand-suit">
+            <span class="suit-glyph ${suit.className}">${suit.html}</span>
+            ${hand.cards[suit.key]
+              ? `<span class="hand-cards">${escapeHtml(hand.cards[suit.key])}</span>`
+              : `<span class="hand-void">void</span>`}
           </div>
         `).join("")}
-        <div class="shape-line">${escapeHtml(hand.shape)} shape, ${escapeHtml(hand.controls)} controls</div>
+        <div class="hand-shape">${shapeText ? `${escapeHtml(shapeText)} &middot; ` : ""}${escapeHtml(plural(hand.controls, "control"))}</div>
       </div>
     `;
   }
@@ -4332,36 +4421,50 @@
 
   function renderDoubleDummyTable(board) {
     if (!board.optimumRows.length) return `<div class="empty-state">No double-dummy table found for this board.</div>`;
+    const gameTricks = { N: 9, S: 10, H: 10, D: 11, C: 11 };
+    const ddSeats = ["N", "S", "E", "W"];
     return `
-      <table class="dd-table">
-        <thead>
-          <tr>
-            <th>Declarer</th>
-            ${DENOMS.map((denom) => `<th>${escapeHtml(denom.label)}</th>`).join("")}
-          </tr>
-        </thead>
-        <tbody>
-          ${SEATS.map((seat) => `
+      <div class="dd-wrap">
+        <table class="dd-table">
+          <thead>
             <tr>
-              <th>${seat}</th>
-              ${DENOMS.map((denom) => `<td>${escapeHtml(getDoubleDummyTricks(board, seat, denom.key))}</td>`).join("")}
+              <th scope="col">Declarer</th>
+              ${DENOMS.map((denom) => `<th scope="col">${denom.key === "N" ? "NT" : `<span class="suit-glyph ${suitMeta(denom.key).className}">${suitMeta(denom.key).html}</span>`}</th>`).join("")}
             </tr>
-          `).join("")}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${ddSeats.map((seat) => `
+              <tr>
+                <th scope="row">${seat}</th>
+                ${DENOMS.map((denom) => {
+                  const tricks = getDoubleDummyTricks(board, seat, denom.key);
+                  const value = tricks === "" ? null : Number(tricks);
+                  const cellClass = value == null ? "" : value >= gameTricks[denom.key] ? " class=\"dd-game\"" : value >= 7 ? " class=\"dd-part\"" : "";
+                  return `<td${cellClass}>${escapeHtml(tricks)}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="dd-note">Shaded cells make a contract; gold marks a game or slam. Faded cells go down.</div>
     `;
   }
 
   function renderBoardTagTable(board) {
     const visibleKeys = ["Event", "Site", "Date", "Dealer", "Vulnerable", "Deal", "Declarer", "Contract", "Result", "ParContract", "OptimumScore"];
+    const rows = visibleKeys
+      .map((key) => [key, board.tags[key]])
+      .filter(([, value]) => value != null && String(value).trim() !== "");
+    if (board.issues.length) rows.push(["Issues", board.issues.join("; ")]);
+    if (!rows.length) return `<div class="empty-state">No PBN tags recorded for this board.</div>`;
     return `
       <table>
-        <thead><tr><th>Tag</th><th>Value</th></tr></thead>
+        <thead><tr><th scope="col">Tag</th><th scope="col">Value</th></tr></thead>
         <tbody>
-          ${visibleKeys.map((key) => `
-            <tr><td>${escapeHtml(key)}</td><td>${escapeHtml(board.tags[key] || "")}</td></tr>
+          ${rows.map(([key, value]) => `
+            <tr><td>${escapeHtml(key)}</td><td>${escapeHtml(value)}</td></tr>
           `).join("")}
-          ${board.issues.length ? `<tr><td>Issues</td><td>${escapeHtml(board.issues.join("; "))}</td></tr>` : ""}
         </tbody>
       </table>
     `;

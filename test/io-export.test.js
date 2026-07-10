@@ -51,3 +51,10 @@ test("contractGlyphHtml renders suit glyphs and doubling marks safely", () => {
   assert.equal(contractGlyphHtml("N 3 S"), "N 3<span class=\"suit-glyph spade\">&spades;</span>");
   assert.equal(contractGlyphHtml("<img src=x>"), "&lt;img src=x&gt;");
 });
+
+test("contractGlyphHtml treats bare N after a level as notrump", () => {
+  const { contractGlyphHtml } = app.PBNAnalyzer;
+  assert.equal(contractGlyphHtml("6N="), "6NT=");
+  assert.equal(contractGlyphHtml("2NX-1"), "2NT<span class=\"dbl\">&times;</span>-1");
+  assert.equal(contractGlyphHtml("Pair 1 North"), "Pair 1 North");
+});
