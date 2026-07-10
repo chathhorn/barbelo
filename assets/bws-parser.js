@@ -172,7 +172,7 @@
       warnings.push(`${pageProfile.allFfPageCount} database pages are filled with 0xFF bytes; result or player tables may be missing, erased, or unreadable.`);
     }
     const erasedRows = receivedData.reduce((count, row) => count + (row.Erased ? 1 : 0), 0);
-    const deletedRows = (best.diagnostics.received.rejections.deleted_row || 0);
+    const deletedRowSlots = (best.diagnostics.received.rejections.deleted_row || 0);
     const diagnostics = {
       sourceType: "BWS",
       fileSize: bytes.length,
@@ -184,7 +184,7 @@
       duplicateReceivedRows: Math.max(0, best.receivedData.length - receivedData.length),
       acceptedPlayerRows: best.playerNumbers.length,
       erasedRows,
-      deletedRows,
+      deletedRowSlots,
       pageProfile,
       candidates: candidates.map((candidate) => candidate.diagnostics)
     };

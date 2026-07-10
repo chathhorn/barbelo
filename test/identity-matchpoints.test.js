@@ -165,3 +165,28 @@ test("erased rows are excluded from matchpointing with a warning", () => {
   assert.equal(results.rows[0].boardTop, 1);
   assert.ok(results.warnings.some((warning) => /erased/i.test(warning)));
 });
+
+test("placeholder rows with pair number 0 do not flip a Howell into side partnerships", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["2", "2", "1", "N", "2 S", "+1"],
+    ["3", "0", "0", "", "", ""]
+  ]);
+  assert.equal(results.participantMode, "pair");
+  assert.equal(results.pairStandings.length, 2);
+  assert.ok(!results.warnings.some((warning) => /Mitchell/i.test(warning)));
+});
+
+test("percentage adjustments above 100% are rejected as unscorable", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],
+    ["1", "1", "2", "N", "3 NT", "=", ""],
+    ["1", "3", "4", "N", "3 NT", "-1", ""],
+    ["1", "5", "6", "", "", "", "150%-0%"]
+  ]);
+  const bogus = results.rows.find((row) => row.pairNS === 5);
+  assert.equal(bogus.adjustment, null);
+  assert.ok(bogus.scoringError);
+  assert.equal(bogus.nsPercent, undefined);
+});

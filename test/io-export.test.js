@@ -34,3 +34,9 @@ test("a UTF-8 BOM does not corrupt the first CSV header", () => {
   assert.equal(parsed.receivedData.length, 1);
   assert.equal(parsed.receivedData[0].Board, "7");
 });
+
+test("csvCell leaves hand displays with void suits intact but still guards formulas", () => {
+  assert.equal(csvCell("-.Q5.AQ7632.T9653"), "-.Q5.AQ7632.T9653");
+  assert.equal(csvCell("-IMPORTXML(\"http://x\",\"//a\")"), "\"'-IMPORTXML(\"\"http://x\"\",\"\"//a\"\")\"");
+  assert.equal(csvCell("+cmd()"), "'+cmd()");
+});

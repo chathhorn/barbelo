@@ -885,7 +885,10 @@
     const text = String(remarks || "").trim().toUpperCase().replace(/\s+/g, "");
     if (!text) return null;
     const tokenPercent = (token) => {
-      if (/^\d{1,3}%$/.test(token)) return Number(token.slice(0, -1));
+      if (/^\d{1,3}%$/.test(token)) {
+        const percent = Number(token.slice(0, -1));
+        return percent > 100 ? null : percent;
+      }
       if (/^(AVE|AVG|A)$/.test(token)) return 50;
       if (/^(AVE|AVG|A)\+$/.test(token)) return 60;
       if (/^(AVE|AVG|A)-$/.test(token)) return 40;
@@ -1645,11 +1648,14 @@
   function detectSidePairCollision(rows) {
     const nsKeys = new Set();
     const ewKeys = new Set();
-    for (const row of rows) {
-      if (row.pairNS != null && row.pairNS === row.pairEW) return true;
+    const relevant = rows.filter((row) => row.scoreNS != null || row.adjustment);
+    for (const row of relevant) {
+      const validNS = row.pairNS != null && row.pairNS > 0;
+      const validEW = row.pairEW != null && row.pairEW > 0;
+      if (validNS && validEW && row.pairNS === row.pairEW) return true;
       const sectionKey = row.section == null ? "" : row.section;
-      if (row.pairNS != null) nsKeys.add(`${sectionKey}|${row.boardNo}|${row.pairNS}`);
-      if (row.pairEW != null) ewKeys.add(`${sectionKey}|${row.boardNo}|${row.pairEW}`);
+      if (validNS) nsKeys.add(`${sectionKey}|${row.boardNo}|${row.pairNS}`);
+      if (validEW) ewKeys.add(`${sectionKey}|${row.boardNo}|${row.pairEW}`);
     }
     for (const key of nsKeys) {
       if (ewKeys.has(key)) return true;
@@ -2422,7 +2428,9 @@
         diagnosis: buildSwingDiagnosis(item, boardLossItem)
       };
     });
-    const candidates = analyzed.filter((item) => item.reasons.length || item.severity >= 20);
+    const candidates = analyzed.filter((item) =>
+      (item.reasons.length || item.severity >= 20) &&
+      !(item.row.adjustment && item.row.scoreNS == null));
     const reviewed = candidates
       .sort((a, b) => b.severity - a.severity || (a.percent || 0) - (b.percent || 0))
       .slice(0, 10);
@@ -2592,13 +2600,26 @@
   }
 
   function showToast(message, type) {
+    showToast.queue = showToast.queue || [];
+    showToast.queue.push({ message, type });
+    if (!showToast.active) drainToastQueue();
+  }
+
+  function drainToastQueue() {
+    const next = showToast.queue && showToast.queue.shift();
+    if (!next) {
+      showToast.active = false;
+      return;
+    }
+    showToast.active = true;
     const toast = document.getElementById("toast");
-    toast.textContent = message;
-    toast.className = `toast${type === "error" ? " error" : ""}`;
+    toast.textContent = next.message;
+    toast.className = `toast${next.type === "error" ? " error" : ""}`;
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => {
       toast.classList.add("hidden");
-    }, type === "error" ? 5200 : 1800);
+      drainToastQueue();
+    }, next.type === "error" ? 5200 : 1800);
   }
 
   function setElementHidden(id, hidden) {
@@ -3099,6 +3120,8 @@
           <div class="metadata-item"><div class="key">${term("Accepted Results")}</div><div class="val">${escapeHtml(diagnostics.acceptedReceivedRows)}</div></div>
           <div class="metadata-item"><div class="key">${term("Player Rows")}</div><div class="val">${escapeHtml(diagnostics.acceptedPlayerRows)}</div></div>
           <div class="metadata-item"><div class="key">${term("Duplicate Results")}</div><div class="val">${escapeHtml(diagnostics.duplicateReceivedRows)}</div></div>
+          <div class="metadata-item"><div class="key">${term("Erased Results")}</div><div class="val">${escapeHtml(diagnostics.erasedRows || 0)}</div></div>
+          <div class="metadata-item"><div class="key">${term("Deleted Row Slots")}</div><div class="val">${escapeHtml(diagnostics.deletedRowSlots || 0)}</div></div>
           <div class="metadata-item"><div class="key">${term("Rejected Row Slices")}</div><div class="val">${escapeHtml(received.rejectedRows || 0)}</div></div>
           <div class="metadata-item"><div class="key">${term("All-FF Pages")}</div><div class="val">${escapeHtml(pageProfile.allFfPageCount || 0)}</div></div>
         </div>
@@ -4668,7 +4691,8 @@
 
   function csvCell(value) {
     let text = String(value == null ? "" : value);
-    if (/^[=+\-@\t\r]/.test(text) && text !== "=" && Number.isNaN(Number(text))) text = `'${text}`;
+    const formulaLike = (/^[=@\t\r]/.test(text) && text !== "=") || /^[+-][A-Za-z(@]/.test(text);
+    if (formulaLike) text = `'${text}`;
     if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, "\"\"")}"`;
     return text;
   }

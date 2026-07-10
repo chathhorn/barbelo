@@ -72,20 +72,45 @@ function packJet3Row(columnCount, fixedBytes, varValues, nullBits) {
     }
   }
 
-  const offsetHigh = [pos >> 8];
-  buf[pos] = pos & 0xff; // end-of-data marker
+  const eod = pos;
+  buf[pos] = eod & 0xff; // end-of-data marker
   pos += 1;
   for (let i = varCols - 1; i >= 0; i -= 1) {
     buf[pos++] = offsets[i] & 0xff;
-    offsetHigh.push(offsets[i] >> 8);
   }
+
+  // Jump table: entry value v means "add 256 starting at var column v"; a
+  // 256-boundary crossed within one gap needs duplicate entries. The reader
+  // derives the entry count from the total row length, so pad with inert
+  // 0xFF entries until the two agree.
+  const positions = offsets.concat([eod]);
+  const entries = [];
+  let previousHigh = 0;
+  positions.forEach((position, index) => {
+    for (let high = previousHigh; high < position >> 8; high += 1) entries.push(index);
+    previousHigh = position >> 8;
+  });
+
+  // The reader sizes the region as floor((rowLen-1)/256) BEFORE its
+  // one-entry adjustment and never recomputes the offset-table pointer, so
+  // the region byte count must satisfy that equation exactly.
   const bitmaskSize = Math.floor((columnCount + 7) / 8);
-  if (offsetHigh[0] < Math.floor((pos + bitmaskSize - 1) / 255)) {
-    buf[pos++] = 0xff; // dummy jump-table entry
+  const rowLenBase = pos + 1 + bitmaskSize;
+  let regionSize = 0;
+  while (Math.floor((rowLenBase + regionSize - 1) / 256) !== regionSize) {
+    regionSize += 1;
+    if (regionSize > 32) throw new Error("cannot size the jump-table region");
   }
-  for (let i = 0; i < varCols; i += 1) {
-    if (offsetHigh[i] > offsetHigh[i + 1]) buf[pos++] = varCols - i;
+  const rowLen = rowLenBase + regionSize;
+  const varCountPos = rowLen - bitmaskSize - 1;
+  const colPtr = varCountPos - regionSize - 1;
+  let consumable = regionSize;
+  if (Math.floor((colPtr - varCols) / 256) < consumable) consumable -= 1;
+  if (entries.length > consumable) {
+    throw new Error(`jump table needs ${entries.length} entries but the reader consumes at most ${consumable}`);
   }
+  for (let i = 0; i < regionSize - entries.length; i += 1) buf[pos++] = 0xff;
+  for (let i = entries.length - 1; i >= 0; i -= 1) buf[pos++] = entries[i];
   buf[pos++] = varCols;
 
   let bit = 0;

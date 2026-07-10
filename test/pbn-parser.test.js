@@ -69,3 +69,25 @@ test("sample PBN files keep parsing with full-deck invariants", (t) => {
     assert.equal(totalHcp, 40, `board ${board.boardNo} HCP sum ${totalHcp}`);
   });
 });
+
+test("repeated Note tags stay inside one game record", () => {
+  const pbn = [
+    "[Event \"Club Game\"]",
+    "[Board \"1\"]",
+    `[Deal \"${DEAL_1}\"]`,
+    "[Note \"1:alert shows a weak two\"]",
+    "[Note \"2:transfer\"]",
+    "",
+    "[Event \"Club Game\"]",
+    "[Board \"2\"]",
+    `[Deal \"${DEAL_2}\"]`,
+    "[Note \"1:takeout\"]"
+  ].join("\n");
+  const parsed = parsePbn(pbn, "t.pbn");
+  assert.equal(parsed.records.length, 2);
+  assert.equal(parsed.records[0].tags.Board, "1");
+  assert.equal(parsed.records[1].tags.Board, "2");
+  const analysis = buildAnalysis(parsed);
+  assert.equal(analysis.boards.length, 2);
+  assert.ok(analysis.boards.every((board) => board.validDeal));
+});

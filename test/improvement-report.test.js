@@ -135,3 +135,21 @@ test("swing items report total board MP loss, with the category loss kept on the
   assert.equal(item.mpLoss, 3);
   assert.equal(item.diagnosis.lostMp, 3);
 });
+
+test("director-adjusted boards never appear in the review queue", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],
+    ["1", "1", "2", "N", "3 NT", "=", ""],
+    ["1", "3", "4", "N", "3 NT", "+1", ""],
+    ["1", "5", "6", "N", "3 NT", "+2", ""],
+    ["1", "7", "8", "", "", "", "30%-70%"],
+    ["2", "7", "8", "N", "2 S", "-1", ""],
+    ["2", "1", "2", "N", "2 S", "=", ""]
+  ]);
+  const report = buildPairImprovementReport(results, "7");
+  assert.ok(report, "report missing");
+  assert.ok(
+    report.reviewItems.every((item) => String(item.row.boardNo) !== "1"),
+    "adjusted board 1 leaked into the review queue"
+  );
+});

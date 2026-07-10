@@ -91,7 +91,7 @@ test("rows flagged 0x4000 in the row directory are skipped as deleted", () => {
   const parsed = parseFixtureFile({ pages: [[keep, { bytes: drop, flags: fixture.DELETED_FLAG }]] });
   assert.deepEqual(parsed.receivedData.map((row) => row.ID), [1]);
   assert.equal(selectedCandidate(parsed).received.rejections.deleted_row, 1);
-  assert.equal(parsed.metadata.diagnostics.deletedRows, 1);
+  assert.equal(parsed.metadata.diagnostics.deletedRowSlots, 1);
 });
 
 test("rows flagged 0x8000 (lookup) are still read, like mdbtools", () => {
@@ -286,4 +286,16 @@ test("sample 01.BWS diagnostics keep the renderer contract", (t) => {
     assert.ok(key in candidate.received, `candidate.received.${key}`);
     assert.ok(key in candidate.players, `candidate.players.${key}`);
   }
+});
+
+test("rows spanning 256-byte jump-table boundaries round-trip through the fixture packer", () => {
+  [200, 240, 260, 468, 520, 700, 900, 1200, 1500, 1900].forEach((length) => {
+    const remarks = "R".repeat(length);
+    const parsed = parseFixtureFile({
+      pages: [[fixture.buildReceivedRow(baseReceivedFields({ remarks }))]]
+    });
+    assert.equal(parsed.receivedData.length, 1, `row with ${length}-char remarks rejected`);
+    assert.equal(parsed.receivedData[0].Remarks, remarks, `remarks mangled at length ${length}`);
+    assert.equal(parsed.receivedData[0].Contract, "4 H", `contract mangled at length ${length}`);
+  });
 });

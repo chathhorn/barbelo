@@ -56,6 +56,14 @@
     };
   }
 
+  // Tags that identify a game record and appear at most once per game; a
+  // repeat of one of these starts the next record. Tags like Note legally
+  // repeat within a single game and must never split it.
+  const RECORD_BOUNDARY_TAGS = new Set([
+    "Event", "Site", "Date", "Board", "West", "North", "East", "South",
+    "Dealer", "Vulnerable", "Deal", "Scoring", "Declarer", "Contract", "Result"
+  ]);
+
   function makeRecord(startLine) {
     return {
       startLine,
@@ -99,6 +107,7 @@
         const startsNextRecord =
           current &&
           Object.keys(current.tags).length > 0 &&
+          RECORD_BOUNDARY_TAGS.has(tag.key) &&
           Object.prototype.hasOwnProperty.call(current.tags, tag.key);
         if (startsNextRecord) {
           records.push(current);
