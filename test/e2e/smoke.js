@@ -111,7 +111,7 @@ function check(condition, label) {
     `CSV preview clean (content=${csvCheck.hasContent} undefined=${csvCheck.undef} NaN=${csvCheck.nan})`);
 
   // 6. Encoding: UTF-8 CSV without BOM
-  const utf8Csv = path.join(__dirname, "utf8-results.csv");
+  const utf8Csv = path.join(require("node:os").tmpdir(), "barbelo-utf8-results.csv");
   fs.writeFileSync(utf8Csv, "Board,PairNS,PairEW,NS/EW,Contract,Result,Remarks\n1,1,2,N,3 NT,=,José & Müller\n1,3,4,N,3 NT,-1,\n");
   await page.setInputFiles("#resultsFile", utf8Csv);
   await page.waitForTimeout(500);
