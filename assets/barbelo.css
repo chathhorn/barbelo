@@ -14,7 +14,7 @@
   --red: #bb3f45;
   --gold: #b7791f;
   --club: #1f7a4d;
-  --diamond: #c6463b;
+  --diamond: #c26a1d;
   --heart: #b73750;
   --spade: #1d2b3a;
   --shadow: 0 16px 40px rgba(25, 38, 52, 0.10);
@@ -1192,6 +1192,17 @@ svg {
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 12px;
   font-weight: 800;
+}
+
+.suit-glyph.spade { color: var(--spade); }
+.suit-glyph.heart { color: var(--heart); }
+.suit-glyph.diamond { color: var(--diamond); }
+.suit-glyph.club { color: var(--club); }
+
+.contract { white-space: nowrap; }
+
+.dbl {
+  font-weight: 700;
 }
 
 .suit-line {

@@ -40,3 +40,14 @@ test("csvCell leaves hand displays with void suits intact but still guards formu
   assert.equal(csvCell("-IMPORTXML(\"http://x\",\"//a\")"), "\"'-IMPORTXML(\"\"http://x\"\",\"\"//a\"\")\"");
   assert.equal(csvCell("+cmd()"), "'+cmd()");
 });
+
+test("contractGlyphHtml renders suit glyphs and doubling marks safely", () => {
+  const { contractGlyphHtml } = app.PBNAnalyzer;
+  assert.equal(contractGlyphHtml("4 D X"), "4<span class=\"suit-glyph diamond\">&diams;</span><span class=\"dbl\">&times;</span>");
+  assert.equal(contractGlyphHtml("7NT XX"), "7NT<span class=\"dbl\">&times;&times;</span>");
+  assert.equal(contractGlyphHtml("NS 4DX-1"), "NS 4<span class=\"suit-glyph diamond\">&diams;</span><span class=\"dbl\">&times;</span>-1");
+  assert.equal(contractGlyphHtml("S 3 NT+1"), "S 3NT+1");
+  assert.equal(contractGlyphHtml("PASS"), "PASS");
+  assert.equal(contractGlyphHtml("N 3 S"), "N 3<span class=\"suit-glyph spade\">&spades;</span>");
+  assert.equal(contractGlyphHtml("<img src=x>"), "&lt;img src=x&gt;");
+});

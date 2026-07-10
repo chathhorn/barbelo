@@ -553,6 +553,18 @@
     }
   }
 
+  const CONTRACT_TOKEN_RE = /([1-7])\s?(NT|[SHDC])\s?(XX|X)?(?![A-Za-z])/g;
+
+  function contractGlyphHtml(text) {
+    const escaped = escapeHtml(String(text == null ? "" : text));
+    return escaped.replace(CONTRACT_TOKEN_RE, (match, level, strain, doubled) => {
+      const suit = SUITS.find((entry) => entry.key === strain);
+      const strainHtml = suit ? `<span class="suit-glyph ${suit.className}">${suit.html}</span>` : "NT";
+      const doubledHtml = doubled ? `<span class="dbl">${doubled === "XX" ? "&times;&times;" : "&times;"}</span>` : "";
+      return `${level}${strainHtml}${doubledHtml}`;
+    });
+  }
+
   function formatSigned(value) {
     if (value == null || Number.isNaN(value)) return "";
     return value > 0 ? `+${value}` : String(value);
@@ -1688,7 +1700,7 @@
           ...row,
           className,
           rank: contractClassRank(className),
-          text: `${row.declarer} ${row.makeableLevel} ${denomMeta(row.denomination).label}`
+          text: `${row.declarer} ${row.makeableLevel} ${row.denomination === "N" ? "NT" : row.denomination}`
         };
       })
       .sort((a, b) => b.rank - a.rank || b.makeableLevel - a.makeableLevel)[0];
@@ -3442,7 +3454,7 @@
                 <div class="priority-rank">${escapeHtml(index + 1)}</div>
                 <div class="priority-card-body">
                   <div class="priority-card-head">
-                    <strong>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText)}</strong>
+                    <strong>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></strong>
                     <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} / ${escapeHtml(pctText)}</span>
                   </div>
                   <div class="reason-list">
@@ -3525,7 +3537,7 @@
       <article class="swing-card">
         <div class="swing-card-head">
           <div>
-            <h4>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText)}</h4>
+            <h4>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></h4>
             <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} ${escapeHtml(item.side)} / ${escapeHtml(formatResultPercent(item.percent))}</span>
           </div>
           ${renderConfidenceChip(item.diagnosis.confidence)}
@@ -3569,7 +3581,7 @@
                   <strong>${escapeHtml(entry.isTarget ? "Selected Pair" : `Pair ${entry.pairNo || ""}`.trim())}</strong>
                   ${entry.players ? `<span class="cell-note">${escapeHtml(entry.players)}</span>` : ""}
                 </td>
-                <td>${escapeHtml(entry.contract)}</td>
+                <td class="contract">${contractGlyphHtml(entry.contract)}</td>
                 <td class="numeric">${escapeHtml(formatSigned(entry.score))}</td>
                 <td class="numeric">${escapeHtml(entry.matchpoints == null ? "n/a" : formatMp(entry.matchpoints))}</td>
                 <td class="numeric">${escapeHtml(formatResultPercent(entry.percent))}</td>
@@ -3651,7 +3663,7 @@
     return `
       <li>
         <strong>${renderBoardJump(example.boardNo)}</strong>
-        <span>Selected ${escapeHtml(example.targetContract)} (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: ${escapeHtml(peerSummaries.join("; "))}${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
+        <span>Selected <span class="contract">${contractGlyphHtml(example.targetContract)}</span> (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: <span class="contract">${contractGlyphHtml(peerSummaries.join("; "))}</span>${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
       </li>
     `;
   }
@@ -3681,7 +3693,7 @@
     return `
       <article class="review-item">
         <div class="review-head">
-          <strong>${renderBoardJump(row.boardNo)} - ${escapeHtml(contractText || "No contract")}</strong>
+          <strong>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText || "No contract")}</span></strong>
           <span>${escapeHtml(role)} / ${escapeHtml(pctText)}</span>
         </div>
         <div class="reason-list">
@@ -3693,7 +3705,7 @@
           <div class="review-stat"><span>Vs Field Avg</span><strong>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</strong></div>
           <div class="review-stat"><span>Vs Par</span><strong>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</strong></div>
           <div class="review-stat"><span>DD Effect</span><strong>${escapeHtml(ddText)}</strong></div>
-          <div class="review-stat"><span>Makeable</span><strong>${escapeHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
+          <div class="review-stat"><span>Makeable</span><strong class="contract">${contractGlyphHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
         </div>
         ${row.declarerName ? `<div class="cell-note">Declarer: ${escapeHtml(row.declarerName)}</div>` : ""}
       </article>
@@ -4075,7 +4087,7 @@
       <tr class="${selectedClass}">
         <td><button type="button" class="board-row-button" data-board-select="${escapeHtml(board.boardNo)}">Board ${escapeHtml(board.boardNo)}</button></td>
         <td>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</td>
-        <td>${escapeHtml(board.tags.ParContract || "No par")}</td>
+        <td class="contract">${contractGlyphHtml(board.tags.ParContract || "No par")}</td>
         <td class="numeric">${escapeHtml(board.optimum.nsPerspective == null ? "" : formatSigned(board.optimum.nsPerspective))}</td>
         <td>${escapeHtml(resultText)}</td>
       </tr>
@@ -4108,7 +4120,7 @@
             <strong>Board ${escapeHtml(board.boardNo)}</strong>
             <span>D ${escapeHtml(board.dealer || "-")} / ${escapeHtml(board.vulnerable || "-")}</span>
           </div>
-          <span class="contract-chip">${escapeHtml(parText)}</span>
+          <span class="contract-chip">${contractGlyphHtml(parText)}</span>
         </div>
         <div class="board-card-body">
           <div class="board-stats">
@@ -4265,7 +4277,7 @@
                 <td>${renderPairCell(row.pairNS, row.nsPlayers)}</td>
                 <td>${renderPairCell(row.pairEW, row.ewPlayers)}</td>
                 <td>${escapeHtml(row.declarerSide || "")}${row.declarerName ? `<span class="cell-note">${escapeHtml(row.declarerName)}</span>` : ""}</td>
-                <td>${escapeHtml(row.contract || "")}</td>
+                <td class="contract">${contractGlyphHtml(row.contract || "")}</td>
                 <td>${escapeHtml(row.result || "")}</td>
                 <td class="numeric">${escapeHtml(row.scoreNS == null ? "" : row.scoreNS)}</td>
                 <td class="numeric">${escapeHtml(row.nsMatchpoints == null ? "" : row.nsMatchpoints.toFixed(1))}</td>
@@ -5038,7 +5050,8 @@
       getColumnDefs,
       getCsvContexts,
       csvCell,
-      decodeTextBuffer
+      decodeTextBuffer,
+      contractGlyphHtml
     };
     window.addEventListener("DOMContentLoaded", init);
   }
