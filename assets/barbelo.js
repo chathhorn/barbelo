@@ -3328,19 +3328,23 @@
     const summary = report.summary;
     caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed.`;
     body.innerHTML = `
-      <div class="report-summary-grid">
+      <nav class="report-nav" aria-label="Report sections">
+        <a href="#rs-summary">Summary</a>
+        <a href="#rs-profile">Profile</a>
+        <a href="#rs-themes">Loss Themes</a>
+        <a href="#rs-boards">Boards To Review</a>
+      </nav>
+      <div class="report-summary-grid" id="rs-summary">
         <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.averageBoardPercent == null ? "n/a" : `${summary.averageBoardPercent.toFixed(1)}%`)}</strong><span>Avg Board</span></div>
-        <div class="result-summary-card"><strong>${escapeHtml(formatMp(summary.lostMatchpoints))}</strong><span>Lost MP</span></div>
+        <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints given up to same-direction peers: for each board, one MP per peer pair that beat this result and half an MP per tie.")}>${escapeHtml(formatMp(summary.lostMatchpoints))}</strong><span>Lost MP</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.lossCategories)}</strong><span>Loss Themes</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
         <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
       </div>
       ${renderPairProfile(report)}
-      ${renderPracticePriorities(report)}
-      ${renderDecisionTypeSummary(report)}
-      ${renderLossLedger(report)}
+      ${renderLossThemes(report)}
       ${renderTopReviewPriorities(report)}
       ${renderSwingReview(report)}
       ${renderReviewQueue(report)}
@@ -3349,9 +3353,9 @@
     annotateTermTooltips(panel);
   }
 
-  function renderReportSubsection(className, title, bodyHtml, summaryExtra = "") {
+  function renderReportSubsection(className, title, bodyHtml, summaryExtra = "", options = {}) {
     return `
-      <details class="report-subsection ${escapeHtml(className)}" open>
+      <details class="report-subsection ${escapeHtml(className)}"${options.open === false ? "" : " open"}${options.id ? ` id="${escapeHtml(options.id)}"` : ""}>
         <summary class="section-kicker">
           <h3>${term(title)}</h3>
           ${summaryExtra}
@@ -3363,11 +3367,10 @@
     `;
   }
 
-  function renderPracticePriorities(report) {
-    if (!report.practicePriorities || !report.practicePriorities.length) return "";
-    return renderReportSubsection("practice-plan", "Practice Priorities", `
+  function renderPracticeCards(priorities) {
+    return `
         <div class="practice-card-grid">
-          ${report.practicePriorities.map((priority, index) => `
+          ${priorities.map((priority, index) => `
             <article class="practice-card">
               <div class="priority-rank">${escapeHtml(index + 1)}</div>
               <div class="practice-card-body">
@@ -3376,12 +3379,74 @@
                   <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
                 </div>
                 ${priority.boards && priority.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 6)}</div>` : ""}
-                ${renderLossAdvice(priority.advice)}
+                ${renderLossAdvice(priority.advice, { avatar: index === 0 })}
               </div>
             </article>
           `).join("")}
         </div>
-    `);
+    `;
+  }
+
+  function renderLossThemes(report) {
+    const types = report.decisionTypes || [];
+    const ledger = report.lossLedger;
+    if (!types.length) {
+      const fallback = report.practicePriorities && report.practicePriorities.length
+        ? renderPracticeCards(report.practicePriorities)
+        : `<div class="empty-state">No same-direction matchpoint losses found for this pair.</div>`;
+      return renderReportSubsection("loss-themes", "Loss Themes", fallback, "", { id: "rs-themes" });
+    }
+    const totalLoss = ledger.totalLoss || sum(types.map((type) => type.totalLoss));
+    const categoriesByType = new Map();
+    (ledger.categories || []).forEach((category) => {
+      const typeKey = decisionTypeInfoForCategory(category.key).key;
+      if (!categoriesByType.has(typeKey)) categoriesByType.set(typeKey, []);
+      categoriesByType.get(typeKey).push(category);
+    });
+    const summary = `
+      <p>
+        <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
+      </p>
+    `;
+    const body = `
+        <div class="decision-type-grid">
+          ${types.map((type, index) => {
+            const width = totalLoss ? (type.totalLoss / totalLoss) * 100 : 0;
+            const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(totalLoss)} lost MP in this report (${width.toFixed(0)}%). One MP per beaten same-direction comparison, half per tie.`;
+            const categories = categoriesByType.get(type.key) || [];
+            return `
+              <article class="decision-type-card ${escapeHtml(type.tone || "")}">
+                <div class="decision-type-head">
+                  <div>
+                    <strong>${term(type.label)}</strong>
+                    <span>${escapeHtml(plural(type.boardCount, "board"))} / ${escapeHtml(plural(type.comparisonCount, "comparison"))}</span>
+                  </div>
+                  <b class="term-tip"${tooltipAttrs(basis)}>${escapeHtml(formatMp(type.totalLoss))} MP</b>
+                </div>
+                <div class="loss-bar" role="img" aria-label="${escapeHtml(basis)}"><span style="width:${width.toFixed(1)}%"></span></div>
+                ${type.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(type.boards, 8)}</div>` : ""}
+                ${renderLossAdvice(type.advice, { avatar: index === 0 })}
+                ${categories.length ? `
+                <details class="theme-detail">
+                  <summary>${escapeHtml(plural(categories.length, "contributing pattern"))} with examples</summary>
+                  ${categories.map((category) => `
+                    <div class="theme-category">
+                      <div class="theme-category-head">
+                        <strong>${term(category.label)}</strong>
+                        <span>${escapeHtml(formatMp(category.totalLoss))} MP &middot; ${escapeHtml(plural(category.comparisonCount, "comparison"))}</span>
+                      </div>
+                      <ul class="loss-example-list">
+                        ${category.examples.slice(0, 2).map(renderLossExample).join("")}
+                      </ul>
+                    </div>
+                  `).join("")}
+                </details>` : ""}
+              </article>
+            `;
+          }).join("")}
+        </div>
+    `;
+    return renderReportSubsection("loss-themes", "Loss Themes", body, summary, { id: "rs-themes" });
   }
 
   function renderProfileMetric(item) {
@@ -3413,7 +3478,7 @@
           </article>
         </div>
         ${renderLossAdvice(profile.focus)}
-    `);
+    `, "", { id: "rs-profile" });
   }
 
   function reviewPriorityAdvice(item) {
@@ -3440,7 +3505,7 @@
     if (!items.length) {
       return renderReportSubsection("review-priority-strip", "Top Boards To Review", `
         <div class="empty-state">No boards were flagged for review; no significant matchpoint losses stood out for this pair.</div>
-      `);
+      `, "", { id: "rs-boards" });
     }
     return renderReportSubsection("review-priority-strip", "Top Boards To Review", `
         <div class="priority-card-grid">
@@ -3461,7 +3526,7 @@
                     ${item.reasons.slice(0, 3).map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
                     ${renderConfidenceChip(item.diagnosis.confidence)}
                   </div>
-                  ${renderLossAdvice(item.diagnosis.explanation)}
+                  ${renderLossAdvice(item.diagnosis.explanation, { avatar: index === 0 })}
                   <div class="priority-mini-stats">
                     <span><b>${escapeHtml(mpText)}</b> MP</span>
                     <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> field</span>
@@ -3472,35 +3537,7 @@
             `;
           }).join("")}
         </div>
-    `);
-  }
-
-  function renderDecisionTypeSummary(report) {
-    const decisionTypes = report.decisionTypes || [];
-    if (!decisionTypes.length) return "";
-    const totalLoss = report.lossLedger ? report.lossLedger.totalLoss : sum(decisionTypes.map((type) => type.totalLoss));
-    return renderReportSubsection("decision-summary", "Decision Type Summary", `
-        <div class="decision-type-grid">
-          ${decisionTypes.map((type) => {
-            const width = totalLoss ? (type.totalLoss / totalLoss) * 100 : 0;
-            const barText = `${type.label}: ${formatMp(type.totalLoss)} lost MP, ${width.toFixed(1)}% of total lost MP.`;
-            return `
-              <article class="decision-type-card ${escapeHtml(type.tone || "")}">
-                <div class="decision-type-head">
-                  <div>
-                    <strong>${term(type.label)}</strong>
-                    <span>${escapeHtml(type.categoryLabels.join(", "))}</span>
-                  </div>
-                  <b>${escapeHtml(formatMp(type.totalLoss))} MP</b>
-                </div>
-                <div class="loss-bar term-tip"${tooltipAttrs(barText)} role="img" aria-label="${escapeHtml(barText)}"><span style="width:${width.toFixed(1)}%"></span></div>
-                <div class="cell-note">${escapeHtml(plural(type.boardCount, "board"))}; examples: ${renderBoardJumpList(type.boards.slice(0, 6), 6)}</div>
-                ${renderLossAdvice(type.advice)}
-              </article>
-            `;
-          }).join("")}
-        </div>
-    `);
+    `, "", { id: "rs-boards" });
   }
 
   function renderConfidenceChip(confidence) {
@@ -3524,15 +3561,17 @@
     if (!items.length) return "";
     return renderReportSubsection("swing-review", "Board Swing Explanation", `
         <div class="swing-card-list">
-          ${items.map(renderSwingCard).join("")}
+          ${items.map((item, index) => renderSwingCard(item, index)).join("")}
         </div>
-    `);
+    `, "", { open: false });
   }
 
-  function renderSwingCard(item) {
+  function renderSwingCard(item, index) {
     const row = item.row;
     const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
     const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
+    const bestPeer = item.peerComparison ? item.peerComparison.rows.find((entry) => !entry.isTarget) : null;
+    const peerCount = item.peerComparison ? item.peerComparison.peerCount : 0;
     return `
       <article class="swing-card">
         <div class="swing-card-head">
@@ -3548,104 +3587,27 @@
           <div class="review-stat"><span>Diagnosis</span><strong>${escapeHtml(item.diagnosis.categoryLabel)}</strong></div>
           <div class="review-stat"><span>Lost MP</span><strong>${escapeHtml(formatMp(item.mpLoss))}</strong></div>
         </div>
-        ${renderLossAdvice(item.diagnosis.explanation)}
-        ${renderPeerComparisonTable(item.peerComparison)}
+        ${bestPeer ? `
+        <div class="swing-diff">
+          <div class="swing-diff-row"><span>You</span><span class="contract">${contractGlyphHtml(rowContractText(row))}</span><b>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</b></div>
+          <div class="swing-diff-row"><span>Best peer</span><span class="contract">${contractGlyphHtml(bestPeer.contract)}</span><b>${escapeHtml(formatSigned(bestPeer.score))}</b><i>${escapeHtml(peerDisplayName(bestPeer.pairNo, bestPeer.players))}</i></div>
+        </div>` : ""}
+        ${renderLossAdvice(item.diagnosis.explanation, { avatar: index === 0 })}
+        <div class="swing-actions">${renderBoardJump(row.boardNo, `Open board ${row.boardNo} traveler (${peerCount} peer${peerCount === 1 ? "" : "s"})`)}</div>
       </article>
     `;
   }
 
-  function renderPeerComparisonTable(peerComparison) {
-    if (!peerComparison || !peerComparison.rows.length) return "";
+
+
+
+  function renderLossAdvice(advice, options = {}) {
+    const avatar = options.avatar !== false;
     return `
-      <div class="peer-table-head">
-        <strong>${term("Same-direction Peer Comparison")}</strong>
-        <span>${escapeHtml(peerComparison.side)} peers${peerComparison.targetRank == null ? "" : `; selected pair ranks ${peerComparison.targetRank} of ${peerComparison.rows.length} by score`}</span>
-      </div>
-      <div class="preview-wrap peer-comparison-wrap">
-        <table class="peer-comparison-table">
-          <thead>
-            <tr>
-              ${th("Pair")}
-              ${th("Contract")}
-              ${th("Score", "numeric", "Score from the selected pair's direction on this board; positive means points won by that direction.")}
-              ${th("MP", "numeric")}
-              ${th("Pct", "numeric")}
-              ${th("Score Delta", "numeric", "Score difference from the selected pair's result, from the selected pair's direction.")}
-              ${th("MP Delta", "numeric", "Matchpoint difference from the selected pair on this board.")}
-            </tr>
-          </thead>
-          <tbody>
-            ${peerComparison.rows.map((entry) => `
-              <tr class="${entry.isTarget ? "selected-peer-row" : ""}">
-                <td>
-                  <strong>${escapeHtml(entry.isTarget ? "Selected Pair" : `Pair ${entry.pairNo || ""}`.trim())}</strong>
-                  ${entry.players ? `<span class="cell-note">${escapeHtml(entry.players)}</span>` : ""}
-                </td>
-                <td class="contract">${contractGlyphHtml(entry.contract)}</td>
-                <td class="numeric">${escapeHtml(formatSigned(entry.score))}</td>
-                <td class="numeric">${escapeHtml(entry.matchpoints == null ? "n/a" : formatMp(entry.matchpoints))}</td>
-                <td class="numeric">${escapeHtml(formatResultPercent(entry.percent))}</td>
-                <td class="numeric">${escapeHtml(entry.scoreDelta == null ? "n/a" : formatSigned(entry.scoreDelta))}</td>
-                <td class="numeric">${escapeHtml(formatSignedMp(entry.mpDelta))}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function renderLossLedger(report) {
-    const ledger = report.lossLedger;
-    const barExplanation = "Bars show each category's share of total lost MP in this report.";
-    if (!ledger || !ledger.categories.length) {
-      return renderReportSubsection("loss-ledger", "Matchpoint Loss Ledger", `
-        <div class="empty-state">No same-direction matchpoint losses found for this pair.</div>
-      `);
-    }
-
-    const totalLoss = ledger.totalLoss || sum(ledger.categories.map((category) => category.totalLoss));
-    const summary = `
-      <p>
-        <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
-        <span class="ledger-bar-note term-tip"${tooltipAttrs(barExplanation)}>Bars show each theme's share of total lost MP.</span>
-      </p>
-    `;
-    return renderReportSubsection("loss-ledger", "Matchpoint Loss Ledger", `
-        <div class="loss-category-list">
-          ${ledger.categories.map((category) => renderLossCategory(category, totalLoss)).join("")}
-        </div>
-    `, summary);
-  }
-
-  function renderLossCategory(category, totalLoss) {
-    const width = totalLoss ? (category.totalLoss / totalLoss) * 100 : 0;
-    const barExplanation = `${category.label}: ${formatMp(category.totalLoss)} lost MP, ${width.toFixed(1)}% of total lost MP in this report (${formatMp(totalLoss)} MP). This is not a board or session percentage.`;
-    const tone = category.tone ? ` ${category.tone}` : "";
-    return `
-      <article class="loss-category-card${escapeHtml(tone)}">
-        <div class="loss-category-head">
-          <div>
-            <strong>${term(category.label)}</strong>
-            <span>${escapeHtml(plural(category.boardCount, "board"))} / ${escapeHtml(plural(category.comparisonCount, "comparison"))}</span>
-          </div>
-          <strong class="loss-mp">${escapeHtml(formatMp(category.totalLoss))} MP</strong>
-        </div>
-        <div class="loss-bar term-tip"${tooltipAttrs(barExplanation)} role="img" aria-label="${escapeHtml(barExplanation)}"><span style="width:${width.toFixed(1)}%"></span></div>
-        ${renderLossAdvice(category.advice)}
-        <ul class="loss-example-list">
-          ${category.examples.slice(0, 3).map(renderLossExample).join("")}
-        </ul>
-      </article>
-    `;
-  }
-
-  function renderLossAdvice(advice) {
-    return `
-      <div class="loss-advice">
-        <span class="collie-head" aria-hidden="true">
+      <div class="loss-advice${avatar ? "" : " no-avatar"}">
+        ${avatar ? `<span class="collie-head" aria-hidden="true">
           <img src="${escapeHtml(assetUrl("assets/bc-avatar.png"))}" alt="" loading="lazy" decoding="async">
-        </span>
+        </span>` : ""}
         <p>${escapeHtml(advice)}</p>
       </div>
     `;
@@ -3673,13 +3635,13 @@
     if (!items.length) {
       return renderReportSubsection("priority-review", "Other Notable Boards", `
         <div class="empty-state">No additional notable boards found for this pair.</div>
-      `);
+      `, "", { open: false });
     }
     return renderReportSubsection("priority-review", "Other Notable Boards", `
         <div class="review-list">
           ${items.map(renderReviewItem).join("")}
         </div>
-    `);
+    `, "", { open: false });
   }
 
   function renderReviewItem(item) {
