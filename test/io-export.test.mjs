@@ -1,10 +1,8 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadApp } from "./helpers/load-app.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadApp } = require("./helpers/load-app.js");
-
-const app = loadApp();
+const app = await loadApp();
 const { csvCell, decodeTextBuffer, parseResultsCsv } = app.PBNAnalyzer;
 
 test("csvCell neutralizes spreadsheet formula injection without mangling bridge data", () => {

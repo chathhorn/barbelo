@@ -38,19 +38,29 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Prepare static site
         run: |
           set -euo pipefail
-          mkdir -p _site
+          mkdir -p _site/assets
           cp index.html _site/index.html
-          cp -R assets _site/assets
+          cp assets/*.css assets/*.png assets/*.jpg _site/assets/
+          npx --yes esbuild@0.25.5 src/main.js --bundle --format=iife --outfile=_site/assets/barbelo.js
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
+          sed -i "s|<script type=\"module\" src=\"src/main.js?v=${short_sha}\"></script>|<script defer src=\"assets/barbelo.js?v=${short_sha}\"></script>|" _site/index.html
           grep -q "data-version=\"${short_sha}\"" _site/index.html
           grep -q "assets/barbelo.css?v=${short_sha}" _site/index.html
-          grep -q "assets/pbn-parser.js?v=${short_sha}" _site/index.html
-          grep -q "assets/bws-parser.js?v=${short_sha}" _site/index.html
           grep -q "assets/barbelo.js?v=${short_sha}" _site/index.html
+          if grep -q "src/main.js" _site/index.html; then
+            echo "Module script tag survived static-site preparation." >&2
+            exit 1
+          fi
+          test -s _site/assets/barbelo.js
           if grep -q "__BARBELO_VERSION__" _site/index.html; then
             echo "Version placeholder survived static-site preparation." >&2
             exit 1

@@ -1,6 +1,3 @@
-(function (root) {
-  "use strict";
-
   const SEATS = ["N", "E", "S", "W"];
   const DOUBLE_DUMMY_SEATS = ["N", "S", "E", "W"];
   const DOUBLE_DUMMY_DENOMS = ["N", "S", "H", "D", "C"];
@@ -348,13 +345,12 @@
     return rows;
   }
 
-  root.BarbeloPbnParser = {
-    parsePbn,
-    parseDeal,
-    parseOptimumScore,
-    parseParContracts,
-    parseOptimumRows,
-    parseDoubleDummyTricks,
-    classifyContract
-  };
-}(typeof window !== "undefined" ? window : globalThis));
+export {
+  parsePbn,
+  parseDeal,
+  parseOptimumScore,
+  parseParContracts,
+  parseOptimumRows,
+  parseDoubleDummyTricks,
+  classifyContract
+};

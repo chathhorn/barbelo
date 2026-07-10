@@ -7,8 +7,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { snapshotSession, SESSIONS, FIXTURES_DIR } = require("../test/helpers/golden.js");
 
+(async () => {
 for (const session of SESSIONS) {
-  const snapshot = snapshotSession(session);
+  const snapshot = await snapshotSession(session);
   if (!snapshot) {
     console.log(`skip ${session.name}: samples not present`);
     continue;
@@ -18,3 +19,4 @@ for (const session of SESSIONS) {
   fs.writeFileSync(file, JSON.stringify(snapshot, null, 1) + "\n");
   console.log(`wrote ${file}`);
 }
+})();

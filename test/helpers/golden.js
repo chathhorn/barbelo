@@ -15,9 +15,9 @@ const SESSIONS = [
 // A compact, deterministic snapshot of everything the analysis pipeline
 // computes for a session: standings, per-row matchpoints, and the
 // improvement report's conclusions for three representative pairs.
-function snapshotSession(session) {
+async function snapshotSession(session) {
   if (!hasSample(session.bws) || !hasSample(session.pbn)) return null;
-  const app = loadApp();
+  const app = await loadApp();
   const { parsePbn, buildAnalysis, parseBwsBuffer, buildResultsAnalysis, buildPairImprovementReport } = app.PBNAnalyzer;
 
   const analysis = buildAnalysis(parsePbn(String(readSample(session.pbn)), session.pbn));

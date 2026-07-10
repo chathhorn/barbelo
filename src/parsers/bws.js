@@ -1,6 +1,3 @@
-(function (root) {
-  "use strict";
-
   const SEATS = ["N", "E", "S", "W"];
   const JET3_ROW_OFFSET_MASK = 0x1fff;
   const JET3_ROW_DELETED_FLAG = 0x4000;
@@ -593,12 +590,11 @@
     return `${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}/${pad(date.getUTCFullYear() % 100)}`;
   }
 
-  root.BarbeloBwsParser = {
-    parseBwsBuffer,
-    parseResultsCsv,
-    parseBwsPlayerNumberRow,
-    parseBwsPlayerNumberRowDetailed,
-    parseBwsReceivedRow,
-    parseBwsReceivedRowDetailed
-  };
-}(typeof window !== "undefined" ? window : globalThis));
+export {
+  parseBwsBuffer,
+  parseResultsCsv,
+  parseBwsPlayerNumberRow,
+  parseBwsPlayerNumberRowDetailed,
+  parseBwsReceivedRow,
+  parseBwsReceivedRowDetailed
+};

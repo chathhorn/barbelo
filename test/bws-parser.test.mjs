@@ -1,16 +1,14 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import fixture from "./helpers/bws-fixture.js";
+import * as parser from "../src/parsers/bws.js";
 
-const fixture = require("./helpers/bws-fixture.js");
-require("../assets/bws-parser.js");
-const parser = globalThis.BarbeloBwsParser;
-
-const SAMPLE_PATH = path.join(__dirname, "..", "samples", "01.BWS");
-const SNAPSHOT_PATH = path.join(__dirname, "fixtures", "01-receiveddata.json");
+const SAMPLE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "samples", "01.BWS");
+const SNAPSHOT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "01-receiveddata.json");
 
 function parseFixtureFile(options) {
   return parser.parseBwsBuffer(fixture.buildBwsFile(options), "fixture.BWS");

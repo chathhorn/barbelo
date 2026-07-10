@@ -1,10 +1,8 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadApp, hasSample, readSample } from "./helpers/load-app.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadApp, hasSample, readSample } = require("./helpers/load-app.js");
-
-const app = loadApp();
+const app = await loadApp();
 const { parsePbn, parseDeal, buildAnalysis } = app.PBNAnalyzer;
 
 const DEAL_1 = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";

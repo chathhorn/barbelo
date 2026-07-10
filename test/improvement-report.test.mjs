@@ -1,10 +1,8 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadApp, csvFrom } from "./helpers/load-app.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadApp, csvFrom } = require("./helpers/load-app.js");
-
-const app = loadApp();
+const app = await loadApp();
 const { parseResultsCsv, buildResultsAnalysis, buildPairImprovementReport, parsePbn, buildAnalysis } = app.PBNAnalyzer;
 
 function analyzeCsv(rows, analysis) {

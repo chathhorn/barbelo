@@ -1,11 +1,9 @@
-"use strict";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadApp } from "./helpers/load-app.js";
+import { referenceScore } from "./helpers/reference-scorer.js";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadApp } = require("./helpers/load-app.js");
-const { referenceScore } = require("./helpers/reference-scorer.js");
-
-const app = loadApp();
+const app = await loadApp();
 const { scoreDuplicateContract } = app.PBNAnalyzer;
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7];

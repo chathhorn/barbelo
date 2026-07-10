@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const vm = require("node:vm");
+const { pathToFileURL } = require("node:url");
 
 const ROOT = path.join(__dirname, "..", "..");
 const SAMPLES_DIR = path.join(ROOT, "samples");
@@ -15,6 +15,7 @@ function makeStubElement() {
     checked: false,
     disabled: false,
     className: "",
+    inert: false,
     style: {},
     dataset: {},
     classList: {
@@ -39,7 +40,8 @@ function makeStubElement() {
   };
 }
 
-function loadApp() {
+function installDomStubs() {
+  if (globalThis.window && globalThis.window.__barbeloTestStub) return globalThis.window;
   const elements = new Map();
   const documentStub = {
     getElementById(id) {
@@ -55,6 +57,7 @@ function loadApp() {
     documentElement: makeStubElement()
   };
   const windowStub = {
+    __barbeloTestStub: true,
     document: documentStub,
     addEventListener() {},
     removeEventListener() {},
@@ -65,31 +68,18 @@ function loadApp() {
     matchMedia() { return { matches: false, addEventListener() {}, removeEventListener() {} }; }
   };
   windowStub.window = windowStub;
+  globalThis.window = windowStub;
+  globalThis.document = documentStub;
+  return windowStub;
+}
 
-  const context = vm.createContext({
-    window: windowStub,
-    document: documentStub,
-    navigator: windowStub.navigator,
-    location: windowStub.location,
-    setTimeout,
-    clearTimeout,
-    setInterval,
-    clearInterval,
-    console,
-    URL,
-    TextDecoder,
-    TextEncoder,
-    DataView,
-    Uint8Array,
-    ArrayBuffer,
-    FileReader: function FileReader() {}
-  });
-
-  ["assets/pbn-parser.js", "assets/bws-parser.js", "assets/barbelo.js"].forEach((file) => {
-    const code = fs.readFileSync(path.join(ROOT, file), "utf8");
-    vm.runInContext(code, context, { filename: file });
-  });
-
+// Imports the real application entry (src/main.js) with DOM stubs in place
+// and returns the window stub carrying the PBNAnalyzer public API. Modules
+// are cached per process; node --test runs each test file in its own
+// process, so every test file gets a fresh app.
+async function loadApp() {
+  const windowStub = installDomStubs();
+  await import(pathToFileURL(path.join(ROOT, "src", "main.js")).href);
   return windowStub;
 }
 
@@ -112,4 +102,4 @@ function csvFrom(rows) {
   }).join(",")).join("\n");
 }
 
-module.exports = { loadApp, ROOT, SAMPLES_DIR, samplePath, hasSample, readSample, csvFrom };
+module.exports = { loadApp, installDomStubs, ROOT, SAMPLES_DIR, samplePath, hasSample, readSample, csvFrom };

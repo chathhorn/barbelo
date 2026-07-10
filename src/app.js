@@ -1,5 +1,16 @@
-(function () {
-  "use strict";
+import {
+  parsePbn,
+  parseDeal,
+  parseOptimumScore,
+  parseParContracts,
+  parseOptimumRows,
+  parseDoubleDummyTricks,
+  classifyContract
+} from "./parsers/pbn.js";
+import {
+  parseBwsBuffer,
+  parseResultsCsv
+} from "./parsers/bws.js";
 
   // Static bridge vocabulary, glossary content, and app-wide state.
   const SEATS = ["N", "E", "S", "W"];
@@ -19,22 +30,6 @@
   ];
   const RANK_ORDER = "AKQJT98765432";
   const HCP_VALUE = { A: 4, K: 3, Q: 2, J: 1 };
-  const PARSER_ROOT = typeof window !== "undefined" ? window : globalThis;
-  const PBN_PARSER = PARSER_ROOT.BarbeloPbnParser || {};
-  const BWS_PARSER = PARSER_ROOT.BarbeloBwsParser || {};
-  const {
-    parsePbn,
-    parseDeal,
-    parseOptimumScore,
-    parseParContracts,
-    parseOptimumRows,
-    parseDoubleDummyTricks,
-    classifyContract
-  } = PBN_PARSER;
-  const {
-    parseBwsBuffer,
-    parseResultsCsv
-  } = BWS_PARSER;
   const LOSS_CATEGORY_INFO = {
     declarerTricks: {
       label: "Declarer Tricks",
@@ -5125,4 +5120,3 @@
     };
     window.addEventListener("DOMContentLoaded", init);
   }
-}());
