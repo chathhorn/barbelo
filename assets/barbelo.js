@@ -2631,7 +2631,7 @@
     showToast.timer = window.setTimeout(() => {
       toast.classList.add("hidden");
       drainToastQueue();
-    }, next.type === "error" ? 5200 : 1800);
+    }, next.type === "error" ? 5200 : 1500);
   }
 
   function setElementHidden(id, hidden) {
