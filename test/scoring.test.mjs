@@ -1,9 +1,11 @@
 import test from "node:test";
+import { buildAnalysis } from "../src/core/boards.js";
+import { buildResultsAnalysis } from "../src/core/results.js";
+import { scoreDuplicateContract } from "../src/core/scoring.js";
+import { parseResultsCsv } from "../src/parsers/csv.js";
+import { parsePbn } from "../src/parsers/pbn.js";
 import assert from "node:assert/strict";
-import { loadApp, csvFrom } from "./helpers/load-app.js";
-
-const app = await loadApp();
-const { scoreDuplicateContract, parseResultsCsv, buildResultsAnalysis, buildAnalysis, parsePbn } = app.PBNAnalyzer;
+import { csvFrom } from "./helpers/load-app.js";
 
 function score(contract, result, declarer, vulnerable) {
   return scoreDuplicateContract(contract, result, declarer, vulnerable);

@@ -1,0 +1,127 @@
+"use strict";
+const path = require("node:path");
+const fs = require("node:fs");
+const http = require("node:http");
+
+const REPO = path.resolve(__dirname, "..", "..");
+if (!fs.existsSync(path.join(REPO, "samples", "20260627.BWS"))) {
+  console.log("SKIP: samples/ not present");
+  process.exit(0);
+}
+let chromium;
+try {
+  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
+} catch (error) {
+  console.log("SKIP: playwright not installed (npm install playwright)");
+  process.exit(0);
+}
+const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
+function serve() {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      const f = path.join(REPO, p === "/" ? "index.html" : p);
+      if (!f.startsWith(REPO) || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { "Content-Type": MIME[path.extname(f)] || "application/octet-stream" });
+      res.end(fs.readFileSync(f));
+    });
+    server.listen(0, "127.0.0.1", () => resolve(server));
+  });
+}
+const problems = [];
+const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`); if (!ok) problems.push(label); };
+(async () => {
+  const server = await serve();
+  const port = server.address().port;
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
+  await page.waitForTimeout(400);
+  await page.setInputFiles("#pbnFile", path.join(REPO, "samples", "20260627.pbn"));
+  await page.waitForTimeout(2200);
+
+  // toast live region
+  const toastAttrs = await page.evaluate(() => {
+    const toast = document.getElementById("toast");
+    return { live: toast.getAttribute("aria-live"), role: toast.getAttribute("role") };
+  });
+  check(toastAttrs.live === "polite" && toastAttrs.role === "status", `toast live region (${JSON.stringify(toastAttrs)})`);
+
+  // overlay inert + focus containment
+  await page.click('[data-task-view="overview"]');
+  await page.waitForTimeout(300);
+  await page.locator("[data-board-jump]:visible").first().click();
+  await page.waitForTimeout(400);
+  const inertOn = await page.evaluate(() => document.querySelector(".app-shell").inert === true);
+  check(inertOn, "app shell inert while overlay open");
+  let escaped = false;
+  for (let i = 0; i < 30; i += 1) {
+    await page.keyboard.press("Tab");
+    const inOverlay = await page.evaluate(() => document.getElementById("boardOverlay").contains(document.activeElement) || document.activeElement === document.body);
+    if (!inOverlay) { escaped = true; break; }
+  }
+  check(!escaped, "tab stays inside overlay");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  const inertOff = await page.evaluate(() => document.querySelector(".app-shell").inert === false);
+  check(inertOff, "inert removed after close");
+
+  // file label focus indicator
+  await page.evaluate(() => document.getElementById("pbnFile").focus());
+  const labelOutline = await page.evaluate(() => {
+    const label = document.querySelector('label[for="pbnFile"]');
+    return getComputedStyle(label).outlineStyle;
+  });
+  check(labelOutline !== "none", `file label shows focus outline (${labelOutline})`);
+
+  // chart mark keyboard activation
+  const markCount = await page.evaluate(() => document.querySelectorAll('.chart-board-mark[tabindex="0"], .chart-board-label[tabindex="0"]').length);
+  check(markCount > 50, `chart marks focusable (${markCount})`);
+  await page.evaluate(() => document.querySelector('#scoreChart .chart-board-mark[tabindex="0"], .chart-board-mark[tabindex="0"]').focus());
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(400);
+  const overlayOpen = await page.evaluate(() => !document.getElementById("boardOverlay").classList.contains("hidden"));
+  check(overlayOpen, "Enter on chart mark opens board overlay");
+  await page.keyboard.press("Escape");
+
+  // header controls live outside <summary> and are visible
+  const controls = await page.evaluate(() => {
+    const select = document.getElementById("reportPairSelect");
+    const button = document.getElementById("downloadCsvButton");
+    return {
+      selectInSummary: !!select.closest("summary"),
+      buttonInSummary: !!button.closest("summary"),
+      selectVisible: select.getBoundingClientRect().height > 0
+    };
+  });
+  check(!controls.selectInSummary && !controls.buttonInSummary, "controls moved out of <summary>");
+  await page.click('[data-task-view="improve"]');
+  await page.waitForTimeout(200);
+  const selVisible = await page.evaluate(() => document.getElementById("reportPairSelect").getBoundingClientRect().height > 0);
+  check(selVisible, "pair select still visible in header");
+
+  // tooltip escape dismissal
+  await page.evaluate(() => {
+    const tip = document.querySelector("[data-tooltip]");
+    tip.focus();
+  });
+  await page.waitForTimeout(200);
+  const tipShown = await page.evaluate(() => !document.getElementById("termTooltip").classList.contains("hidden"));
+  await page.keyboard.press("Escape");
+  const tipHidden = await page.evaluate(() => document.getElementById("termTooltip").classList.contains("hidden"));
+  check(tipShown && tipHidden, `tooltip shows on focus and hides on Escape (${tipShown}/${tipHidden})`);
+
+  // th scope coverage
+  const scopes = await page.evaluate(() => {
+    const all = document.querySelectorAll("th").length;
+    const scoped = document.querySelectorAll("th[scope]").length;
+    return { all, scoped };
+  });
+  check(scopes.scoped / scopes.all > 0.8, `th scope coverage ${scopes.scoped}/${scopes.all}`);
+
+  await browser.close();
+  server.close();
+  console.log(problems.length ? `\nA11Y CHECK FAILED (${problems.length})` : "\nA11Y CHECK PASSED");
+  process.exit(problems.length ? 1 : 0);
+})().catch((e) => { console.error("CRASH:", e); process.exit(2); });

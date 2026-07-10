@@ -1,9 +1,8 @@
 import test from "node:test";
+import { buildResultsAnalysis } from "../src/core/results.js";
+import { parseResultsCsv } from "../src/parsers/csv.js";
 import assert from "node:assert/strict";
-import { loadApp, csvFrom } from "./helpers/load-app.js";
-
-const app = await loadApp();
-const { parseResultsCsv, buildResultsAnalysis } = app.PBNAnalyzer;
+import { csvFrom } from "./helpers/load-app.js";
 
 function analyzeCsv(rows) {
   const csv = csvFrom(rows);

@@ -1,9 +1,11 @@
 import test from "node:test";
+import { buildAnalysis } from "../src/core/boards.js";
+import { buildPairImprovementReport } from "../src/core/report.js";
+import { buildResultsAnalysis } from "../src/core/results.js";
+import { parseResultsCsv } from "../src/parsers/csv.js";
+import { parsePbn } from "../src/parsers/pbn.js";
 import assert from "node:assert/strict";
-import { loadApp, csvFrom } from "./helpers/load-app.js";
-
-const app = await loadApp();
-const { parseResultsCsv, buildResultsAnalysis, buildPairImprovementReport, parsePbn, buildAnalysis } = app.PBNAnalyzer;
+import { csvFrom } from "./helpers/load-app.js";
 
 function analyzeCsv(rows, analysis) {
   const csv = csvFrom(rows);

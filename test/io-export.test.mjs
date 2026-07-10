@@ -1,9 +1,8 @@
 import test from "node:test";
+import { csvCell, contractGlyphHtml } from "../src/core/format.js";
+import { parseResultsCsv } from "../src/parsers/csv.js";
+import { decodeTextBuffer } from "../src/ui/io.js";
 import assert from "node:assert/strict";
-import { loadApp } from "./helpers/load-app.js";
-
-const app = await loadApp();
-const { csvCell, decodeTextBuffer, parseResultsCsv } = app.PBNAnalyzer;
 
 test("csvCell neutralizes spreadsheet formula injection without mangling bridge data", () => {
   assert.equal(csvCell("=cmd|' /C calc'!A0"), "'=cmd|' /C calc'!A0");
@@ -40,7 +39,6 @@ test("csvCell leaves hand displays with void suits intact but still guards formu
 });
 
 test("contractGlyphHtml renders suit glyphs and doubling marks safely", () => {
-  const { contractGlyphHtml } = app.PBNAnalyzer;
   assert.equal(contractGlyphHtml("4 D X"), "4<span class=\"suit-glyph diamond\">&diams;</span><span class=\"dbl\">&times;</span>");
   assert.equal(contractGlyphHtml("7NT XX"), "7NT<span class=\"dbl\">&times;&times;</span>");
   assert.equal(contractGlyphHtml("NS 4DX-1"), "NS 4<span class=\"suit-glyph diamond\">&diams;</span><span class=\"dbl\">&times;</span>-1");
@@ -51,7 +49,6 @@ test("contractGlyphHtml renders suit glyphs and doubling marks safely", () => {
 });
 
 test("contractGlyphHtml treats bare N after a level as notrump", () => {
-  const { contractGlyphHtml } = app.PBNAnalyzer;
   assert.equal(contractGlyphHtml("6N="), "6NT=");
   assert.equal(contractGlyphHtml("2NX-1"), "2NT<span class=\"dbl\">&times;</span>-1");
   assert.equal(contractGlyphHtml("Pair 1 North"), "Pair 1 North");

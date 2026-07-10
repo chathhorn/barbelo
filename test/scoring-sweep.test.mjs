@@ -1,10 +1,7 @@
 import test from "node:test";
+import { scoreDuplicateContract } from "../src/core/scoring.js";
 import assert from "node:assert/strict";
-import { loadApp } from "./helpers/load-app.js";
 import { referenceScore } from "./helpers/reference-scorer.js";
-
-const app = await loadApp();
-const { scoreDuplicateContract } = app.PBNAnalyzer;
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7];
 const STRAINS = ["C", "D", "H", "S", "NT"];

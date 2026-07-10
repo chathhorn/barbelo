@@ -1,10 +1,14 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parsePbn } from "../../src/parsers/pbn.js";
+import { parseBwsBuffer } from "../../src/parsers/bws.js";
+import { buildAnalysis } from "../../src/core/boards.js";
+import { buildResultsAnalysis } from "../../src/core/results.js";
+import { buildPairImprovementReport } from "../../src/core/report.js";
+import { samplePath, hasSample, readSample } from "./load-app.js";
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { loadApp, samplePath, hasSample, readSample } = require("./load-app.js");
-
-const FIXTURES_DIR = path.join(__dirname, "..", "golden", "fixtures");
+const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "golden", "fixtures");
 
 const SESSIONS = [
   { name: "01", bws: "01.BWS", pbn: "01.pbn" },
@@ -15,11 +19,8 @@ const SESSIONS = [
 // A compact, deterministic snapshot of everything the analysis pipeline
 // computes for a session: standings, per-row matchpoints, and the
 // improvement report's conclusions for three representative pairs.
-async function snapshotSession(session) {
+function snapshotSession(session) {
   if (!hasSample(session.bws) || !hasSample(session.pbn)) return null;
-  const app = await loadApp();
-  const { parsePbn, buildAnalysis, parseBwsBuffer, buildResultsAnalysis, buildPairImprovementReport } = app.PBNAnalyzer;
-
   const analysis = buildAnalysis(parsePbn(String(readSample(session.pbn)), session.pbn));
   const raw = parseBwsBuffer(new Uint8Array(readSample(session.bws)), session.bws);
   const results = buildResultsAnalysis(raw, analysis);
@@ -81,4 +82,4 @@ function loadFixture(name) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-module.exports = { SESSIONS, FIXTURES_DIR, snapshotSession, loadFixture, samplePath };
+export { SESSIONS, FIXTURES_DIR, snapshotSession, loadFixture, samplePath };

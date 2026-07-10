@@ -1,9 +1,8 @@
 import test from "node:test";
+import { buildAnalysis } from "../src/core/boards.js";
+import { parsePbn, parseDeal } from "../src/parsers/pbn.js";
 import assert from "node:assert/strict";
-import { loadApp, hasSample, readSample } from "./helpers/load-app.js";
-
-const app = await loadApp();
-const { parsePbn, parseDeal, buildAnalysis } = app.PBNAnalyzer;
+import { hasSample, readSample } from "./helpers/load-app.js";
 
 const DEAL_1 = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
 const DEAL_2 = "N:T987.J87.J87.J87 AKQJ.AKQ.AKQ.AKQ 654.654.654.T965 32.T932.T932.432";

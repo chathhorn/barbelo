@@ -1,15 +1,11 @@
-"use strict";
-
 // Regenerates test/golden/fixtures/*.json from the sample sessions.
-// Run after an INTENTIONAL behavior change: node tools/generate-golden-fixtures.js
+// Run after an INTENTIONAL behavior change: node tools/generate-golden-fixtures.mjs
+import fs from "node:fs";
+import path from "node:path";
+import { snapshotSession, SESSIONS, FIXTURES_DIR } from "../test/helpers/golden.mjs";
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { snapshotSession, SESSIONS, FIXTURES_DIR } = require("../test/helpers/golden.js");
-
-(async () => {
 for (const session of SESSIONS) {
-  const snapshot = await snapshotSession(session);
+  const snapshot = snapshotSession(session);
   if (!snapshot) {
     console.log(`skip ${session.name}: samples not present`);
     continue;
@@ -19,4 +15,3 @@ for (const session of SESSIONS) {
   fs.writeFileSync(file, JSON.stringify(snapshot, null, 1) + "\n");
   console.log(`wrote ${file}`);
 }
-})();
