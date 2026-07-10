@@ -20,7 +20,7 @@ import {
   updateDropZone,
   updateFileStatus,
 } from "./dashboard.js";
-import { setElementHidden, showToast } from "./dom.js";
+import { flipBrandMark, setElementHidden, showToast } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
 import { STATE, defaultFilters, ensureActiveView } from "./state.js";
 import { annotateTermTooltips } from "./terms.js";
@@ -56,6 +56,7 @@ function clearLoadedData() {
   STATE.selectedColumns = new Set();
   STATE.filters = defaultFilters();
   document.getElementById("fileSubtitle").textContent = "Open a Portable Bridge Notation hand record.";
+  flipBrandMark();
   renderAll();
   showToast(hadData ? "Cleared loaded files." : "No loaded files to clear.");
 }

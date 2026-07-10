@@ -205,9 +205,10 @@ label,
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 14px 16px;
   border: 1px solid rgba(217, 224, 231, 0.82);
   border-radius: var(--radius);
@@ -277,14 +278,13 @@ main {
 }
 
 .drop-zone {
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  padding: 22px;
+  flex-basis: 100%;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 22px;
   align-items: stretch;
 }
 
@@ -295,10 +295,7 @@ body:not(.has-loaded-data) .topbar {
   flex-direction: column;
   text-align: center;
   gap: 8px;
-  padding: 36px 24px 14px;
-  border-bottom: 0;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  padding: 36px 24px 22px;
 }
 
 body:not(.has-loaded-data) .brand {
@@ -340,16 +337,10 @@ body:not(.has-loaded-data) #clearAppButton {
   display: none;
 }
 
-body:not(.has-loaded-data) main {
-  margin-top: 0;
-}
-
 body:not(.has-loaded-data) .drop-zone {
-  border: 1px solid rgba(217, 224, 231, 0.82);
-  border-top: 0;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  padding: 4px 24px 26px;
+  border: 0;
+  padding: 10px 0 0;
+  width: 100%;
 }
 
 body:not(.has-loaded-data) .drop-copy {
@@ -392,7 +383,6 @@ body:not(.has-loaded-data) .file-status-strip {
   display: grid;
   align-content: center;
   gap: 14px;
-  min-height: 220px;
 }
 
 .drop-copy h2 {
@@ -408,26 +398,31 @@ body:not(.has-loaded-data) .file-status-strip {
   font-size: 15px;
 }
 
+.has-loaded-data .topbar {
+  padding: 10px 16px 11px;
+  gap: 9px 16px;
+}
+
 .has-loaded-data .drop-zone {
-  padding: 12px 16px;
-  box-shadow: none;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 6px 12px;
 }
 
 .has-loaded-data .drop-copy {
   min-height: 0;
-  gap: 3px;
+  gap: 0;
 }
 
 .has-loaded-data .drop-copy h2 {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--muted);
+  letter-spacing: 0.01em;
   max-width: none;
-  font-size: 16px;
-  line-height: 1.25;
 }
 
-.has-loaded-data .drop-copy p {
-  max-width: none;
-  font-size: 13px;
+.drop-copy p:empty {
+  display: none;
 }
 
 .file-status-strip {
@@ -1226,7 +1221,7 @@ details.panel-disclosure {
   border-radius: var(--radius);
   background: var(--panel);
   overflow: hidden;
-  scroll-margin-top: 92px;
+  scroll-margin-top: 126px;
 }
 
 .board-card:focus {
@@ -1637,7 +1632,7 @@ details.board-details summary {
 
 .report-nav {
   position: sticky;
-  top: 66px;
+  top: 117px;
   z-index: 6;
   display: flex;
   flex-wrap: wrap;
@@ -1728,7 +1723,7 @@ details.board-details summary {
 
 .report-subsection,
 #rs-summary {
-  scroll-margin-top: 122px;
+  scroll-margin-top: 170px;
 }
 
 .practice-card-grid,
@@ -2586,6 +2581,19 @@ body.modal-open {
     position: static;
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .report-nav {
+    top: 0;
+  }
+
+  .report-subsection,
+  #rs-summary {
+    scroll-margin-top: 56px;
+  }
+
+  .board-card {
+    scroll-margin-top: 12px;
   }
 
   .top-actions {

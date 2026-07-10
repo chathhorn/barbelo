@@ -20,8 +20,8 @@ function updateDropZone(analysis, results) {
   const copy = document.querySelector("#dropZone .drop-copy p");
   if (!heading || !copy) return;
   if (hasLoadedData) {
-    heading.textContent = "Drop another PBN, BWS, or CSV file here.";
-    copy.textContent = "Loaded files stay active until you replace them or clear the session.";
+    heading.textContent = "Drop another PBN, BWS, or CSV file here - loaded files stay active until you replace them or clear the session.";
+    copy.textContent = "";
   } else {
     heading.textContent = "Turn bridge deals and travelers into a readable session report.";
     copy.textContent = "Drop or open a PBN hand record, BWS database, or CSV results file - in any order.";

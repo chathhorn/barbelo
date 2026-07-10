@@ -13,10 +13,10 @@ import { getColumnDefs, getCsvContexts } from "./ui/csvExport.js";
 import { decodeTextBuffer, setupEvents } from "./ui/io.js";
 import { setupTooltips, annotateTermTooltips } from "./ui/terms.js";
 import { renderAll } from "./ui/controller.js";
-import { initAppVersion } from "./ui/dom.js";
+import { flipBrandMark, initAppVersion } from "./ui/dom.js";
 
 function init() {
-  if (Math.random() < 0.5) document.body.classList.add("mark-ouro");
+  flipBrandMark();
   initAppVersion();
   setupTooltips();
   setupEvents();

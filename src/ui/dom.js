@@ -58,6 +58,10 @@ function renderBoardJumpList(boardNos, limit = 8) {
   return `${visible}${more}`;
 }
 
+function flipBrandMark() {
+  document.body.classList.toggle("mark-ouro", Math.random() < 0.5);
+}
+
 function initAppVersion() {
   const element = document.getElementById("appVersion");
   if (!element) return;
@@ -76,5 +80,6 @@ export {
   setElementHidden,
   renderBoardJump,
   renderBoardJumpList,
+  flipBrandMark,
   initAppVersion,
 };
