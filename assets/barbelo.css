@@ -237,62 +237,6 @@ label,
   height: 100%;
 }
 
-.mark-ring {
-  fill: #fff;
-  stroke: #6f8192;
-  stroke-width: 1.3;
-}
-
-.mark-orbit {
-  fill: none;
-  stroke: rgba(15, 123, 108, 0.44);
-  stroke-width: 1;
-}
-
-.mark-orbit-alt {
-  transform: rotate(90deg);
-  transform-origin: 24px 24px;
-  stroke: rgba(36, 87, 166, 0.38);
-}
-
-.mark-ray {
-  fill: none;
-  stroke: #b9c5d0;
-  stroke-linecap: round;
-  stroke-width: 1;
-}
-
-.mark-suit {
-  dominant-baseline: central;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 14px;
-  font-weight: 700;
-  text-rendering: geometricPrecision;
-}
-
-.mark-name-letter {
-  dominant-baseline: central;
-  fill: #17212b;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 3.8px;
-  font-weight: 700;
-  paint-order: stroke;
-  stroke: #fff;
-  stroke-linejoin: round;
-  stroke-width: 0.35px;
-  text-rendering: geometricPrecision;
-}
-
-.mark-spade,
-.mark-club {
-  fill: var(--spade);
-}
-
-.mark-heart,
-.mark-diamond {
-  fill: var(--red);
-}
-
 .brand-title {
   display: flex;
   align-items: baseline;
@@ -342,6 +286,94 @@ main {
   grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   align-items: stretch;
+}
+
+/* Empty-state hero: before any file loads, the topbar grows and fuses
+   with the drop zone into a single welcome card. */
+body:not(.has-loaded-data) .topbar {
+  position: static;
+  flex-direction: column;
+  text-align: center;
+  gap: 8px;
+  padding: 36px 24px 14px;
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+body:not(.has-loaded-data) .brand {
+  flex-direction: column;
+  gap: 16px;
+}
+
+body:not(.has-loaded-data) .brand-mark {
+  width: 138px;
+  height: 138px;
+}
+
+body:not(.has-loaded-data) .brand-title {
+  justify-content: center;
+}
+
+body:not(.has-loaded-data) .brand h1 {
+  font-size: 36px;
+}
+
+body:not(.has-loaded-data) .subtitle {
+  font-size: 15px;
+  white-space: normal;
+  max-width: 60ch;
+}
+
+body:not(.has-loaded-data) .top-actions {
+  justify-content: center;
+}
+
+body:not(.has-loaded-data) #clearAppButton {
+  display: none;
+}
+
+body:not(.has-loaded-data) main {
+  margin-top: 0;
+}
+
+body:not(.has-loaded-data) .drop-zone {
+  border: 1px solid rgba(217, 224, 231, 0.82);
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  padding: 4px 24px 26px;
+}
+
+body:not(.has-loaded-data) .drop-copy {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 10px;
+  padding: 26px;
+  min-height: 150px;
+  justify-items: center;
+  text-align: center;
+}
+
+body:not(.has-loaded-data) .drop-copy h2 {
+  font-size: clamp(21px, 2.4vw, 28px);
+  max-width: 640px;
+}
+
+body:not(.has-loaded-data) .file-status-strip {
+  display: none;
+}
+
+.board-overlay-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.overlay-emblem svg {
+  display: block;
+  width: 30px;
+  height: 30px;
 }
 
 .drop-zone.dragging {

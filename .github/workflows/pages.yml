@@ -54,7 +54,7 @@ jobs:
           set -euo pipefail
           mkdir -p _site/assets
           cp index.html _site/index.html
-          cp assets/*.css assets/*.png assets/*.jpg _site/assets/
+          cp assets/*.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
           npx --yes esbuild@0.25.5 src/main.js --bundle --format=iife --outfile=_site/assets/barbelo.js
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
