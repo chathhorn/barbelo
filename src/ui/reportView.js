@@ -302,11 +302,22 @@ function renderSwingCard(item, index) {
   `;
 }
 
+const COLLIE_VARIANTS = 10;
+
+// Deterministic per-advice pick: the coach's pose varies across cards but
+// never flickers between renders of the same advice.
+function collieVariant(seed) {
+  const text = String(seed || "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  return String((hash % COLLIE_VARIANTS) + 1).padStart(2, "0");
+}
+
 function renderLossAdvice(advice) {
   return `
     <div class="loss-advice">
       <span class="collie-head" aria-hidden="true">
-        <img src="${escapeHtml(assetUrl("assets/bc-avatar.png"))}" alt="" loading="lazy" decoding="async">
+        <img src="${escapeHtml(assetUrl(`assets/collie-${collieVariant(advice)}.svg`))}" alt="" loading="lazy" decoding="async">
       </span>
       <p>${escapeHtml(advice)}</p>
     </div>
@@ -375,6 +386,7 @@ function renderReviewItem(item) {
 }
 
 export {
+  collieVariant,
   renderPairImprovementReport,
   renderReportSubsection,
   renderPracticeCards,

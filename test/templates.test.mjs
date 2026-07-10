@@ -156,3 +156,24 @@ test("swing cards keep the contract inline in the title and have no redundant op
   assert.doesNotMatch(html, /Open board/);
   assert.doesNotMatch(html, /swing-actions/);
 });
+
+test("the coach avatar varies deterministically across advice texts", async () => {
+  const { collieVariant, renderLossAdvice } = await import("../src/ui/reportView.js");
+  assert.equal(collieVariant("stay low on part scores"), collieVariant("stay low on part scores"));
+  const adviceTexts = [
+    "Review doubles, redoubles, sacrifices, and penalty passes as separate decisions.",
+    "Use these boards for auction review: level, strain, invitation, signoff.",
+    "Review opening lead, count signals, suit preference, shifts, and cash-out timing.",
+    "Replay the contract card by card before checking double-dummy.",
+    "Focus on vulnerability, total-tricks judgment, balancing, selling out.",
+    "Tied comparisons point to thin overtricks and partscore details."
+  ];
+  const variants = new Set(adviceTexts.map(collieVariant));
+  assert.ok(variants.size >= 3, `expected pose variety, got ${[...variants].join(",")}`);
+  for (const variant of variants) {
+    assert.match(variant, /^(0[1-9]|10)$/);
+  }
+  const html = renderLossAdvice(adviceTexts[0]);
+  assert.match(html, /assets\/collie-(0[1-9]|10)\.svg/);
+  assert.doesNotMatch(html, /bc-avatar/);
+});
