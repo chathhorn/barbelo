@@ -1,3 +1,7 @@
+import { safeNumber } from "../core/format.js";
+import { normalizePlayedContractText } from "../core/contracts.js";
+import { parseResultsCsv } from "./csv.js";
+
   const SEATS = ["N", "E", "S", "W"];
   const JET3_ROW_OFFSET_MASK = 0x1fff;
   const JET3_ROW_DELETED_FLAG = 0x4000;
@@ -12,122 +16,11 @@
     0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x009d, 0x017e, 0x0178
   ];
 
-  function safeNumber(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
 
-  function normalizeText(text) {
-    return String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-  }
 
-  function pickField(row, keys) {
-    for (const key of keys) {
-      if (Object.prototype.hasOwnProperty.call(row, key) && row[key] != null && row[key] !== "") return row[key];
-    }
-    return "";
-  }
 
-  function normalizePlayedContractText(value) {
-    const text = String(value || "").trim().toUpperCase().replace(/\s+/g, " ");
-    if (!text) return "";
-    if (/^(PASS|AP|ALL PASS|PASSED OUT)$/.test(text)) return "PASS";
-    const match = text.match(/^([1-7])\s*(NT|N|[SHDC])(?:\s*(XX|X))?$/i);
-    if (!match) return text;
-    const denomination = match[2].toUpperCase() === "N" || match[2].toUpperCase() === "NT" ? "NT" : match[2].toUpperCase();
-    const doubled = match[3] ? ` ${match[3].toUpperCase()}` : "";
-    return `${match[1]} ${denomination}${doubled}`;
-  }
 
-  function parseResultsCsv(text, fileName, fileSize) {
-    const rows = parseCsvRows(text);
-    const warnings = [];
-    if (!rows.length) {
-      return {
-        fileName: fileName || "results.csv",
-        sourceType: "CSV",
-        receivedData: [],
-        playerNumbers: [],
-        metadata: {
-          diagnostics: {
-            sourceType: "CSV",
-            fileSize: fileSize == null ? text.length : fileSize,
-            csvRows: 0,
-            dataRows: 0,
-            recognizedRows: 0,
-            headers: []
-          }
-        },
-        warnings: ["No CSV rows were found."]
-      };
-    }
 
-    const headers = rows[0].map((header) => String(header || "").replace(/^\uFEFF/, "").trim());
-    const receivedData = rows.slice(1)
-      .filter((row) => row.some((field) => String(field || "").trim()))
-      .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] == null ? "" : row[index]])))
-      .filter((row) => pickField(row, ["Board", "board", "Board Number", "board_number"]) || pickField(row, ["Contract", "contract"]));
-
-    if (!receivedData.length) warnings.push("The CSV did not contain recognizable result rows.");
-    return {
-      fileName: fileName || "results.csv",
-      sourceType: "CSV",
-      receivedData,
-      playerNumbers: [],
-      metadata: {
-        diagnostics: {
-          sourceType: "CSV",
-          fileSize: fileSize == null ? text.length : fileSize,
-          csvRows: rows.length,
-          dataRows: Math.max(0, rows.length - 1),
-          recognizedRows: receivedData.length,
-          headers
-        }
-      },
-      warnings
-    };
-  }
-
-  function parseCsvRows(text) {
-    const source = normalizeText(text);
-    const rows = [];
-    let row = [];
-    let field = "";
-    let inQuotes = false;
-
-    for (let index = 0; index < source.length; index += 1) {
-      const char = source[index];
-      const next = source[index + 1];
-      if (inQuotes) {
-        if (char === "\"" && next === "\"") {
-          field += "\"";
-          index += 1;
-        } else if (char === "\"") {
-          inQuotes = false;
-        } else {
-          field += char;
-        }
-      } else if (char === "\"") {
-        inQuotes = true;
-      } else if (char === ",") {
-        row.push(field);
-        field = "";
-      } else if (char === "\n") {
-        row.push(field);
-        rows.push(row);
-        row = [];
-        field = "";
-      } else {
-        field += char;
-      }
-    }
-
-    if (field || row.length) {
-      row.push(field);
-      rows.push(row);
-    }
-    return rows;
-  }
 
   function parseBwsBuffer(buffer, fileName) {
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);

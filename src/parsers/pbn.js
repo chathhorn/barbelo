@@ -1,3 +1,5 @@
+import { classifyContract } from "../core/contracts.js";
+
   const SEATS = ["N", "E", "S", "W"];
   const DOUBLE_DUMMY_SEATS = ["N", "S", "E", "W"];
   const DOUBLE_DUMMY_DENOMS = ["N", "S", "H", "D", "C"];
@@ -295,14 +297,6 @@
       .filter(Boolean);
   }
 
-  function classifyContract(level, strain) {
-    if (!level || !strain) return "Unknown";
-    if (level >= 6) return "Slam-level";
-    if (strain === "N" && level >= 3) return "Game-level";
-    if ((strain === "S" || strain === "H") && level >= 4) return "Game-level";
-    if ((strain === "D" || strain === "C") && level >= 5) return "Game-level";
-    return "Partscore";
-  }
 
   function parseOptimumRows(lines) {
     return (lines || [])
