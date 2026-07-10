@@ -282,7 +282,7 @@ function renderSwingCard(item, index) {
       <div class="swing-card-head">
         <div>
           <h4>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></h4>
-          <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} ${escapeHtml(item.side)} / ${escapeHtml(formatResultPercent(item.percent))}</span>
+          <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} ${escapeHtml(item.side)} / ${escapeHtml(formatResultPercent(item.percent))}${peerCount ? ` &middot; vs ${escapeHtml(peerCount)} peer${peerCount === 1 ? "" : "s"}` : ""}</span>
         </div>
         ${renderConfidenceChip(item.diagnosis.confidence)}
       </div>
@@ -298,7 +298,6 @@ function renderSwingCard(item, index) {
         <div class="swing-diff-row"><span>Best peer</span><span class="contract">${contractGlyphHtml(bestPeer.contract)}</span><b>${escapeHtml(formatSigned(bestPeer.score))}</b><i>${escapeHtml(peerDisplayName(bestPeer.pairNo, bestPeer.players))}</i></div>
       </div>` : ""}
       ${renderLossAdvice(item.diagnosis.explanation)}
-      <div class="swing-actions">${renderBoardJump(row.boardNo, `Open board ${row.boardNo} traveler (${peerCount} peer${peerCount === 1 ? "" : "s"})`)}</div>
     </article>
   `;
 }

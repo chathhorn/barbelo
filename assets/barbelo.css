@@ -1763,7 +1763,7 @@ details.board-details summary {
 
 .practice-card-head span,
 .decision-type-head span,
-.swing-card-head span {
+.swing-card-head > div > span {
   display: block;
   margin-top: 2px;
   color: var(--muted);
@@ -2055,11 +2055,6 @@ details.board-details summary {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-.swing-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .loss-advice {

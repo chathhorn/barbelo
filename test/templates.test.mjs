@@ -12,7 +12,9 @@ import {
   renderDoubleDummyTable
 } from "../src/ui/boardsView.js";
 import { renderReportSubsection } from "../src/ui/reportView.js";
-import { csvFrom } from "./helpers/load-app.js";
+import { csvFrom, installDomStubs } from "./helpers/load-app.js";
+
+installDomStubs();
 
 // Template functions return HTML strings and read only their arguments
 // plus STATE, so they are testable without a DOM.
@@ -135,4 +137,22 @@ test("report subsections honor open and id options", () => {
   const closed = renderReportSubsection("x", "Title", "<p>body</p>", "", { open: false, id: "rs-x" });
   assert.match(open, /<details class="report-subsection x" open>/);
   assert.match(closed, /<details class="report-subsection x" id="rs-x">/);
+});
+
+test("swing cards keep the contract inline in the title and have no redundant open link", async () => {
+  const { buildPairImprovementReport } = await import("../src/core/report.js");
+  const { renderSwingReview } = await import("../src/ui/reportView.js");
+  const swingCsv = csvFrom([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "-2"],
+    ["1", "3", "4", "N", "3 NT", "="],
+    ["1", "5", "6", "N", "3 NT", "="]
+  ]);
+  const swingResults = buildResultsAnalysis(parseResultsCsv(swingCsv, "t.csv", swingCsv.length), null);
+  const report = buildPairImprovementReport(swingResults, "1");
+  const html = renderSwingReview(report);
+  assert.match(html, /<h4><button [^>]*data-board-jump="1"[^>]*>Board 1<\/button> - <span class="contract">/);
+  assert.match(html, /vs 2 peers/);
+  assert.doesNotMatch(html, /Open board/);
+  assert.doesNotMatch(html, /swing-actions/);
 });
