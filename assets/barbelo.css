@@ -1190,7 +1190,7 @@ svg {
 .corner-sw { grid-area: sw; justify-self: start; align-self: end; }
 .corner-se { grid-area: se; justify-self: end; align-self: end; text-align: right; }
 
-.hcp-bar {
+.hcp-split-bar {
   display: flex;
   height: 7px;
   border-radius: 4px;
@@ -1200,8 +1200,8 @@ svg {
   margin-left: auto;
 }
 
-.hcp-bar .ns { background: var(--blue); }
-.hcp-bar .ew { background: var(--line-strong); }
+.hcp-split-bar .ns { background: var(--blue); }
+.hcp-split-bar .ew { background: var(--line-strong); }
 
 .hand-block {
   min-width: 168px;

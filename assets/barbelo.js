@@ -4340,7 +4340,7 @@
         ${makeableCorner}
         <div class="deal-corner corner-ne">
           <b>HCP</b> <span class="num">NS ${escapeHtml(board.hcpNS)} &middot; EW ${escapeHtml(board.hcpEW)}</span>
-          <div class="hcp-bar" role="img" aria-label="High-card points: NS ${escapeHtml(board.hcpNS)}, EW ${escapeHtml(board.hcpEW)}"><span class="ns" style="width:${((board.hcpNS / hcpTotal) * 100).toFixed(1)}%"></span><span class="ew" style="width:${((board.hcpEW / hcpTotal) * 100).toFixed(1)}%"></span></div>
+          <div class="hcp-split-bar" role="img" aria-label="High-card points: NS ${escapeHtml(board.hcpNS)}, EW ${escapeHtml(board.hcpEW)}"><span class="ns" style="width:${((board.hcpNS / hcpTotal) * 100).toFixed(1)}%"></span><span class="ew" style="width:${((board.hcpEW / hcpTotal) * 100).toFixed(1)}%"></span></div>
         </div>
         ${renderHandBlock(board, "N")}
         ${renderHandBlock(board, "W")}
