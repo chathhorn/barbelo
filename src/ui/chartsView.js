@@ -2,7 +2,6 @@
 // views.
 import { DENOMS, SEATS } from "../core/constants.js";
 import { average, escapeHtml, formatSigned, sum } from "../core/format.js";
-import { col } from "./csvExport.js";
 import { renderBoardJump } from "./dom.js";
 import { STATE } from "./state.js";
 import {

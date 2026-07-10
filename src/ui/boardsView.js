@@ -10,7 +10,6 @@ import {
   formatSigned,
   plural,
 } from "../core/format.js";
-import { col } from "./csvExport.js";
 import { applyActiveView, renderTaskNav } from "./dashboard.js";
 import { setElementHidden, showToast } from "./dom.js";
 import { STATE } from "./state.js";

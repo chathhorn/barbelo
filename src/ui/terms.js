@@ -1,7 +1,6 @@
 // The glossary: term definitions, tooltip attributes, table-header and
 // term markup helpers, and the tooltip runtime.
 import { average, escapeHtml } from "../core/format.js";
-import { col } from "./csvExport.js";
 
 const TERM_DEFINITIONS = {
   "accepted results": "Traveler result rows that the BWS scanner recognized as usable played-board records.",
