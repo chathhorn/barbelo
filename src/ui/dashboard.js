@@ -20,7 +20,7 @@ function updateDropZone(analysis, results) {
   const copy = document.querySelector("#dropZone .drop-copy p");
   if (!heading || !copy) return;
   if (hasLoadedData) {
-    heading.textContent = "Drop another PBN, BWS, or CSV file here - loaded files stay active until you replace them or clear the session.";
+    heading.textContent = "Drop a file to add or replace";
     copy.textContent = "";
   } else {
     heading.textContent = "Turn bridge deals and travelers into a readable session report.";
@@ -40,7 +40,7 @@ function appSubtitle(analysis, results) {
   const date = String(details.date || "").replace(/\s+/g, " ").trim();
   if (event) pieces.push(event);
   if (date) pieces.push(date);
-  pieces.push(`${analysis.parsed.fileName} - ${plural(analysis.summary.boardCount, "board")}${results ? `, ${plural(results.summary.resultCount, "result")}` : ""}`);
+  pieces.push(`${plural(analysis.summary.boardCount, "board")}${results ? `, ${plural(results.summary.resultCount, "result")}` : ""}`);
   return pieces.join(" | ");
 }
 
@@ -76,6 +76,10 @@ function updateFileStatus() {
     resultsTitle.textContent = "No results uploaded";
     resultsDetail.textContent = "Open a BWS or CSV traveler file at any time.";
   }
+
+  // The compact header chips hide the detail line; keep it reachable.
+  pbnCard.title = pbnDetail.textContent;
+  resultsCard.title = resultsDetail.textContent;
 }
 
 function renderTaskNav(analysis, results) {
