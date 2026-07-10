@@ -16,6 +16,7 @@ import { renderAll } from "./ui/controller.js";
 import { initAppVersion } from "./ui/dom.js";
 
 function init() {
+  if (Math.random() < 0.5) document.body.classList.add("mark-ouro");
   initAppVersion();
   setupTooltips();
   setupEvents();

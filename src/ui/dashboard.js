@@ -24,7 +24,7 @@ function updateDropZone(analysis, results) {
     copy.textContent = "Loaded files stay active until you replace them or clear the session.";
   } else {
     heading.textContent = "Turn bridge deals and travelers into a readable session report.";
-    copy.textContent = "Drop a PBN hand record, BWS database, or CSV results file here. Results can be opened before or after the PBN.";
+    copy.textContent = "Drop or open a PBN hand record, BWS database, or CSV results file - in any order.";
   }
 }
 

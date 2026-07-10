@@ -320,9 +320,16 @@ body:not(.has-loaded-data) .brand h1 {
 }
 
 body:not(.has-loaded-data) .subtitle {
-  font-size: 15px;
-  white-space: normal;
-  max-width: 60ch;
+  display: none;
+}
+
+.brand-mark svg.mark-option {
+  display: none;
+}
+
+body:not(.mark-ouro) .brand-mark svg.mark-opt-pleroma,
+body.mark-ouro .brand-mark svg.mark-opt-ouro {
+  display: block;
 }
 
 body:not(.has-loaded-data) .top-actions {
