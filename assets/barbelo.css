@@ -1127,7 +1127,7 @@ details.panel-disclosure {
 }
 
 .board-list-table {
-  min-width: 640px;
+  width: 100%;
   font-size: 12px;
 }
 
@@ -1143,6 +1143,15 @@ details.panel-disclosure {
 
 .board-list-table td {
   white-space: nowrap;
+}
+
+.board-list-table th,
+.board-list-table td {
+  padding: 6px 7px;
+}
+
+.board-list-table td.board-par {
+  white-space: normal;
 }
 
 .board-row-button {

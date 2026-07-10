@@ -95,7 +95,7 @@ function renderBoardListRow(board, selected) {
     <tr class="${selectedClass}">
       <td><button type="button" class="board-row-button" data-board-select="${escapeHtml(board.boardNo)}">Board ${escapeHtml(board.boardNo)}</button></td>
       <td class="board-dv">${escapeHtml(board.dealer || "?")} &middot; <span class="${vul.ns || vul.ew ? "vul-text" : ""}">${escapeHtml(vulShort)}</span></td>
-      <td class="contract">${contractGlyphHtml((board.tags.ParContract || "No par").replace(/\b(NS|EW|[NSEW])\s+(?=[1-7])/gi, ""))}</td>
+      <td class="board-par">${contractGlyphHtml((board.tags.ParContract || "No par").replace(/\b(NS|EW|[NSEW])\s+(?=[1-7])/gi, ""))}</td>
       <td class="numeric">${escapeHtml(board.optimum.nsPerspective == null ? "" : formatSigned(board.optimum.nsPerspective))}</td>
       <td class="numeric">${escapeHtml(resultSummary ? resultSummary.resultCount : "")}</td>
       <td class="numeric">${escapeHtml(resultSummary && resultSummary.averageNsScore != null ? formatSigned(Math.round(resultSummary.averageNsScore)) : "")}</td>
