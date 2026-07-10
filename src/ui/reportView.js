@@ -326,7 +326,7 @@ function renderLossExample(example) {
   return `
     <li>
       <strong>${renderBoardJump(example.boardNo)}</strong>
-      <span>Selected <span class="contract">${contractGlyphHtml(example.targetContract)}</span> (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: <span class="contract">${contractGlyphHtml(peerSummaries.join("; "))}</span>${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
+      <span>Selected <span class="contract">${contractGlyphHtml(example.targetContract)}</span> (${escapeHtml(formatSigned(example.targetScore))}${escapeHtml(percent)}). Peers: ${contractGlyphHtml(peerSummaries.join("; "))}${escapeHtml(extra)}. Loss ${escapeHtml(formatMp(example.loss))} MP.</span>
     </li>
   `;
 }
