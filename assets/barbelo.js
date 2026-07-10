@@ -3379,7 +3379,7 @@
                   <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
                 </div>
                 ${priority.boards && priority.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 6)}</div>` : ""}
-                ${renderLossAdvice(priority.advice, { avatar: index === 0 })}
+                ${renderLossAdvice(priority.advice)}
               </div>
             </article>
           `).join("")}
@@ -3425,7 +3425,7 @@
                 </div>
                 <div class="loss-bar" role="img" aria-label="${escapeHtml(basis)}"><span style="width:${width.toFixed(1)}%"></span></div>
                 ${type.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(type.boards, 8)}</div>` : ""}
-                ${renderLossAdvice(type.advice, { avatar: index === 0 })}
+                ${renderLossAdvice(type.advice)}
                 ${categories.length ? `
                 <details class="theme-detail">
                   <summary>${escapeHtml(plural(categories.length, "contributing pattern"))} with examples</summary>
@@ -3526,7 +3526,7 @@
                     ${item.reasons.slice(0, 3).map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
                     ${renderConfidenceChip(item.diagnosis.confidence)}
                   </div>
-                  ${renderLossAdvice(item.diagnosis.explanation, { avatar: index === 0 })}
+                  ${renderLossAdvice(item.diagnosis.explanation)}
                   <div class="priority-mini-stats">
                     <span><b>${escapeHtml(mpText)}</b> MP</span>
                     <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> field</span>
@@ -3592,7 +3592,7 @@
           <div class="swing-diff-row"><span>You</span><span class="contract">${contractGlyphHtml(rowContractText(row))}</span><b>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</b></div>
           <div class="swing-diff-row"><span>Best peer</span><span class="contract">${contractGlyphHtml(bestPeer.contract)}</span><b>${escapeHtml(formatSigned(bestPeer.score))}</b><i>${escapeHtml(peerDisplayName(bestPeer.pairNo, bestPeer.players))}</i></div>
         </div>` : ""}
-        ${renderLossAdvice(item.diagnosis.explanation, { avatar: index === 0 })}
+        ${renderLossAdvice(item.diagnosis.explanation)}
         <div class="swing-actions">${renderBoardJump(row.boardNo, `Open board ${row.boardNo} traveler (${peerCount} peer${peerCount === 1 ? "" : "s"})`)}</div>
       </article>
     `;
@@ -3601,13 +3601,12 @@
 
 
 
-  function renderLossAdvice(advice, options = {}) {
-    const avatar = options.avatar !== false;
+  function renderLossAdvice(advice) {
     return `
-      <div class="loss-advice${avatar ? "" : " no-avatar"}">
-        ${avatar ? `<span class="collie-head" aria-hidden="true">
+      <div class="loss-advice">
+        <span class="collie-head" aria-hidden="true">
           <img src="${escapeHtml(assetUrl("assets/bc-avatar.png"))}" alt="" loading="lazy" decoding="async">
-        </span>` : ""}
+        </span>
         <p>${escapeHtml(advice)}</p>
       </div>
     `;

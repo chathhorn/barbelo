@@ -2168,10 +2168,6 @@ details.board-details summary {
   justify-content: flex-end;
 }
 
-.loss-advice.no-avatar {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .loss-advice {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
