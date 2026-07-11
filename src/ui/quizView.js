@@ -209,53 +209,9 @@ function navigateQuiz(delta) {
   renderQuizStage();
 }
 
-function renderQuizPrintSheet(cards, report) {
-  const pairName = report.summary.players || `Pair ${report.pairNo}`;
-  const front = cards.map((card, index) => `
-    <section class="quiz-print-card">
-      <h3>${escapeHtml(index + 1)}. ${escapeHtml(card.title)}${card.maskBoard && card.dealLabel ? ` - ${escapeHtml(card.dealLabel)}` : card.boardNo != null ? ` - Board ${escapeHtml(card.boardNo)}` : ""}</h3>
-      <p>${contractGlyphHtml(card.prompt.lead)}</p>
-      ${card.hands ? `<div class="quiz-hands">${card.hands.seats.map((seat) => renderHandBlock(card.hands.board, seat)).join("")}</div>` : ""}
-      ${renderFitStrip(card.prompt.fit)}
-      ${card.prompt.column ? `<p class="quiz-print-column">Other results: ${card.prompt.column.map(escapeHtml).join(" &middot; ")}</p>` : ""}
-      <p><strong>${contractGlyphHtml(card.prompt.question)}</strong></p>
-      <ul class="quiz-print-options">
-        ${card.options.map((option) => `<li><span class="print-box"></span>${escapeHtml(option.label)}</li>`).join("")}
-      </ul>
-      <p class="quiz-print-talk">Talk it over with partner before checking the back page.</p>
-    </section>
-  `).join("");
-  const answers = cards.map((card, index) => {
-    const label = card.neutral || !card.answerKey
-      ? "Judgment call - the room split too; see the evidence."
-      : (card.options.find((option) => option.key === card.answerKey) || {}).label || card.answerKey;
-    return `
-      <section class="quiz-print-answer">
-        <h4>${escapeHtml(index + 1)}. ${escapeHtml(card.title)}: ${escapeHtml(label)}</h4>
-        ${card.reveal.room ? `<p>The room: ${contractGlyphHtml(card.reveal.room)}</p>` : ""}
-        ${card.reveal.dd ? `<p>The computer: ${contractGlyphHtml(card.reveal.dd)}</p>` : ""}
-        <p>Your table: ${contractGlyphHtml(card.reveal.yours)}${card.boardNo != null ? ` (board ${escapeHtml(card.boardNo)})` : ""}</p>
-      </section>
-    `;
-  }).join("");
-  return `
-    <div class="quiz-print-sheet" aria-hidden="true">
-      <header class="quiz-print-head">
-        <h2>Table Time - ${escapeHtml(pairName)}</h2>
-        <p>${escapeHtml(`${cards.length} questions from your own boards. Answers are on the back page - fold it away until you have talked each one over.`)}</p>
-      </header>
-      ${front}
-      <div class="quiz-print-answers">
-        <h2>Answers &amp; evidence</h2>
-        ${answers}
-      </div>
-    </div>
-  `;
-}
-
 /**
  * Delegated click handler for the quiz launch button, overlay chrome,
- * navigation, options, and printing. Returns true when handled.
+ * navigation, and options. Returns true when handled.
  */
 function handleQuizClick(event) {
   if (event.target.closest("[data-quiz-open]")) {
@@ -269,17 +225,6 @@ function handleQuizClick(event) {
   const navButton = event.target.closest("[data-quiz-nav]");
   if (navButton) {
     navigateQuiz(Number(navButton.getAttribute("data-quiz-nav")));
-    return true;
-  }
-  const printButton = event.target.closest("[data-quiz-print]");
-  if (printButton) {
-    const mount = document.getElementById("quizPrintMount");
-    if (!quizState || !mount) return true;
-    mount.innerHTML = renderQuizPrintSheet(quizState.cards, quizState.report);
-    document.body.classList.add("printing-quiz");
-    window.addEventListener("afterprint", () => document.body.classList.remove("printing-quiz"), { once: true });
-    setTimeout(() => document.body.classList.remove("printing-quiz"), 2000);
-    window.print();
     return true;
   }
   const button = event.target.closest("[data-quiz-option]");
@@ -331,7 +276,6 @@ export {
   prepareQuiz,
   renderQuizLaunch,
   renderQuizCard,
-  renderQuizPrintSheet,
   openQuizOverlay,
   closeQuizOverlay,
   navigateQuiz,
