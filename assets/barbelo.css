@@ -2257,6 +2257,42 @@ details.board-details summary {
   background: #fff8e8;
 }
 
+.reason-chip.green {
+  border-color: rgba(15, 123, 108, 0.4);
+  color: var(--green-dark);
+  background: #eefaf6;
+}
+
+.scorecard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin-bottom: 12px;
+}
+
+.scorecard-table {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: auto;
+  max-height: 420px;
+}
+
+.scorecard-table table {
+  min-width: 620px;
+}
+
+.overtrick-meter {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.overtrick-meter p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 8px;
+}
+
 .review-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));

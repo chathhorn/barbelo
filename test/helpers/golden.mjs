@@ -53,7 +53,28 @@ function snapshotSession(session) {
       declaredBoards: report.summary.declaredBoards,
       categories: report.lossLedger.categories.map((category) => [category.key, category.totalLoss, category.boardCount]),
       decisionTypes: report.decisionTypes.map((type) => [type.key, type.totalLoss, type.boardCount]),
-      reviewBoards: report.reviewItems.map((item) => item.row.boardNo)
+      reviewBoards: report.reviewItems.map((item) => item.row.boardNo),
+      bidding: [
+        report.biddingScorecard.gamesAvailable,
+        report.biddingScorecard.bidMade,
+        report.biddingScorecard.bidFailed,
+        report.biddingScorecard.missed,
+        report.biddingScorecard.stayedLow,
+        round4(report.biddingScorecard.netMp)
+      ],
+      declared: [
+        report.declaredScorecard.declares,
+        report.declaredScorecard.madeCount,
+        report.declaredScorecard.beat,
+        report.declaredScorecard.matched,
+        report.declaredScorecard.trailed
+      ],
+      defended: [
+        report.defendedScorecard.defends,
+        round4(report.defendedScorecard.netTricks),
+        report.defendedScorecard.flaggedCount
+      ],
+      overtricks: [report.overtrickMeter.boards.length, round4(report.overtrickMeter.pushWorth)]
     };
   });
 

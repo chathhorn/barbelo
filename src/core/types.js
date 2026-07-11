@@ -365,6 +365,14 @@
  * @property {Array<Object<string, *>>} practicePriorities
  * @property {Object<string, *>} profile Strengths, weaknesses, role and
  *   contract-class stats, and a focus sentence.
+ * @property {Object<string, *>} biddingScorecard Game/slam decisions on
+ *   boards where double-dummy gives the pair's side a game.
+ * @property {Object<string, *>} declaredScorecard Same-contract cohort
+ *   verdicts for declared boards, with failure triage.
+ * @property {Object<string, *>} defendedScorecard Tricks conceded vs
+ *   the room on defended boards.
+ * @property {Object<string, *>} overtrickMeter Matchpoint price of one
+ *   trick more or fewer on made contracts.
  * @property {Object<string, *>} summary Report-level totals (boards,
  *   percent, mpVsAverage, mpConceded, lowBoards, declaredBoards, ...).
  */

@@ -8,6 +8,12 @@ import { classifyContract, contractClassRank, contractTarget, samePlayedContract
 import { numericPairSort } from "./format.js";
 import { isVulnerable } from "./scoring.js";
 import {
+  buildBiddingScorecard,
+  buildDeclaredScorecard,
+  buildDefendedScorecard,
+  buildOvertrickMeter,
+} from "./cohorts.js";
+import {
   rowContractText,
   sideScore,
   sideMatchpoints,
@@ -972,6 +978,10 @@ function buildPairImprovementReport(results, participantKey) {
     decisionTypes,
     practicePriorities,
     profile,
+    biddingScorecard: buildBiddingScorecard(results, views),
+    declaredScorecard: buildDeclaredScorecard(results, views),
+    defendedScorecard: buildDefendedScorecard(results, views),
+    overtrickMeter: buildOvertrickMeter(results, views),
     summary: {
       boards: views.length,
       players: standing ? standing.players : views[0].players,

@@ -55,6 +55,9 @@ function renderPairImprovementReport(results) {
     <nav class="report-nav" aria-label="Report sections">
       <a href="#rs-summary">Summary</a>
       <a href="#rs-profile">Profile</a>
+      <a href="#rs-bidding">Bidding</a>
+      <a href="#rs-declared">Declaring</a>
+      <a href="#rs-defended">Defending</a>
       <a href="#rs-themes">Loss Themes</a>
       <a href="#rs-boards">Boards To Review</a>
     </nav>
@@ -68,6 +71,9 @@ function renderPairImprovementReport(results) {
       <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Boards where this pair's trick result was at least one full trick below the field's own double-dummy-relative norm on that board.")}>${escapeHtml(summary.trickLossBoards)}</strong><span>Tricks Vs Field</span></div>
     </div>
     ${renderPairProfile(report)}
+    ${renderBiddingScorecard(report)}
+    ${renderDeclaredScorecard(report)}
+    ${renderDefendedScorecard(report)}
     ${renderLossThemes(report)}
     ${renderTopReviewPriorities(report)}
     ${renderSwingReview(report)}
@@ -248,6 +254,199 @@ function renderTopReviewPriorities(report) {
   `, "", { id: "rs-boards" });
 }
 
+const GAME_BUCKET_INFO = {
+  bidMade: { label: "bid & made", tone: "green" },
+  bidFailed: { label: "bid, went down", tone: "gold" },
+  missed: { label: "missed game", tone: "red" },
+  stayedLow: { label: "stayed low with the field", tone: "" },
+  competitive: { label: "competitive board", tone: "" }
+};
+
+function roundTenth(value) {
+  return value == null ? null : Math.round(value * 10) / 10;
+}
+
+function renderBiddingScorecard(report) {
+  const card = report.biddingScorecard;
+  if (!card || !card.gamesAvailable) {
+    return renderReportSubsection("bidding-scorecard", "Bidding Scorecard", `
+      <div class="empty-state">Double-dummy found no makeable game for this pair's side on the boards they played${card ? "" : ", or no hand record is loaded"}.</div>
+    `, "", { id: "rs-bidding", open: false });
+  }
+  const stats = `
+    <div class="scorecard-stats">
+      <div class="review-stat"><span>Games Available</span><strong>${escapeHtml(card.gamesAvailable)}</strong></div>
+      <div class="review-stat"><span>Bid &amp; Made</span><strong>${escapeHtml(card.bidMade)}</strong></div>
+      <div class="review-stat"><span>Bid, Went Down</span><strong>${escapeHtml(card.bidFailed)}</strong></div>
+      <div class="review-stat"><span>Missed</span><strong>${escapeHtml(card.missed)}</strong></div>
+      <div class="review-stat"><span>Stayed Low</span><strong>${escapeHtml(card.stayedLow)}</strong></div>
+      <div class="review-stat"><span>Net MP On These</span><strong>${escapeHtml(formatSignedMp(card.netMp))}</strong></div>
+    </div>
+  `;
+  const rows = card.gameBoards.map((board) => {
+    const bucket = GAME_BUCKET_INFO[board.bucket] || GAME_BUCKET_INFO.stayedLow;
+    const fieldText = board.peersInGame
+      ? `${board.peersMadeGame} of ${board.peersInGame} in game made it`
+      : board.sidePeers ? "nobody else bid game" : "no other tables";
+    return `
+      <tr>
+        <td>${renderBoardJump(board.boardNo)}</td>
+        <td>${escapeHtml(board.vulnerable ? "Vul" : "Not vul")}</td>
+        <td class="contract">${contractGlyphHtml(board.bestText || "")}</td>
+        <td class="contract">${contractGlyphHtml(board.contractText)}</td>
+        <td>${escapeHtml(fieldText)}</td>
+        <td><span class="reason-chip ${escapeHtml(bucket.tone)}">${escapeHtml(bucket.label)}</span></td>
+        <td class="numeric">${escapeHtml(formatSignedMp(board.mpVsAverage))}</td>
+      </tr>
+    `;
+  }).join("");
+  const slamNote = card.slams.length ? `
+    <div class="cell-note">Slam-strength boards: ${card.slams.map((slam) =>
+      `${renderBoardJump(slam.boardNo)} (<span class="contract">${contractGlyphHtml(slam.bestText)}</span> makes) - ${escapeHtml(slam.bidSlam ? (slam.made === false ? "bid, went down" : "bid and made") : "stopped short")}`).join("; ")}.</div>
+  ` : "";
+  const missedNote = card.missed
+    ? `<p class="cell-note">"Missed" only counts boards where another same-direction table bid the game and made it.</p>`
+    : "";
+  return renderReportSubsection("bidding-scorecard", "Bidding Scorecard", `
+      ${stats}
+      <div class="scorecard-table">
+        <table>
+          <thead><tr><th scope="col">Board</th><th scope="col">Vul</th><th scope="col">Makeable</th><th scope="col">Your Table</th><th scope="col">Same-Direction Field</th><th scope="col">Verdict</th><th scope="col" class="numeric">MP Vs Avg</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${missedNote}
+      ${slamNote}
+  `, "", { id: "rs-bidding" });
+}
+
+function renderDeclaredScorecard(report) {
+  const card = report.declaredScorecard;
+  if (!card || !card.declares) {
+    return renderReportSubsection("declared-scorecard", "When You Declared", `
+      <div class="empty-state">This pair never declared a board in this session.</div>
+    `, "", { id: "rs-declared", open: false });
+  }
+  const stats = `
+    <div class="scorecard-stats">
+      <div class="review-stat"><span>Declared</span><strong>${escapeHtml(card.declares)}</strong></div>
+      <div class="review-stat"><span>Made</span><strong>${escapeHtml(card.madeCount)} / ${escapeHtml(card.madeCount + card.failedCount)}</strong></div>
+      <div class="review-stat term-tip"${tooltipAttrs("Trick results against other tables that declared the identical contract - the fairest benchmark, same cards and real defenders.")}><span>Vs Same Contract</span><strong>${escapeHtml(card.beat)} up / ${escapeHtml(card.matched)} even / ${escapeHtml(card.trailed)} down</strong></div>
+      <div class="review-stat"><span>Benchmarked</span><strong>${escapeHtml(card.cohortCovered)} of ${escapeHtml(card.declares)}</strong></div>
+    </div>
+  `;
+  const rows = card.boards.map((board) => {
+    const verdict = board.verdict == null ? "" : board.verdict === "beat"
+      ? `<span class="reason-chip green">took more tricks</span>`
+      : board.verdict === "trailed"
+        ? `<span class="reason-chip gold">took fewer tricks</span>`
+        : `<span class="reason-chip">matched</span>`;
+    const basisNote = board.basis === "dd" ? " vs double-dummy" : "";
+    const cohortText = board.cohortSize
+      ? `${plural(board.cohortSize, "table")}, median ${roundTenth(board.cohortMedian)}`
+      : board.basis === "dd" ? "none - DD benchmark" : "none";
+    const triage = board.triage
+      ? `<span class="reason-chip ${escapeHtml(board.triage.tone)} term-tip"${tooltipAttrs(board.triage.detail)}>${escapeHtml(board.triage.label)}</span>`
+      : "";
+    return `
+      <tr>
+        <td>${renderBoardJump(board.boardNo)}</td>
+        <td class="contract">${contractGlyphHtml(board.contractText)}</td>
+        <td class="numeric">${escapeHtml(board.tricks == null ? "n/a" : `${board.tricks}${board.target == null ? "" : ` / ${board.target}`}`)}</td>
+        <td>${escapeHtml(cohortText)}</td>
+        <td>${verdict}${escapeHtml(verdict ? basisNote : "")}</td>
+        <td>${triage}</td>
+      </tr>
+    `;
+  }).join("");
+  return renderReportSubsection("declared-scorecard", "When You Declared", `
+      ${stats}
+      <div class="scorecard-table">
+        <table>
+          <thead><tr><th scope="col">Board</th><th scope="col">Contract</th><th scope="col" class="numeric">Tricks / Needed</th><th scope="col">Same Contract Elsewhere</th><th scope="col">Verdict</th><th scope="col">If It Failed</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${renderOvertrickMeter(report)}
+  `, "", { id: "rs-declared" });
+}
+
+function renderOvertrickMeter(report) {
+  const meter = report.overtrickMeter;
+  if (!meter || !meter.boards.length) return "";
+  const flagged = meter.flaggedBoards;
+  const flaggedList = flagged.length ? `
+    <ul class="loss-example-list">
+      ${flagged.map((board) => `
+        <li><strong>${renderBoardJump(board.boardNo)}</strong>
+        <span>In <span class="contract">${contractGlyphHtml(board.contractText)}</span>, one more trick was worth ${escapeHtml(formatSignedMp(board.mpIfUp))} MP - a same-contract table took it.</span></li>
+      `).join("")}
+    </ul>
+  ` : "";
+  const headline = flagged.length
+    ? `Overtricks left on the table were worth ${formatSignedMp(meter.pushWorth)} MP this session.`
+    : "No matchpoints were left on the table in made contracts.";
+  const safetyNote = meter.freeSafetyCount
+    ? ` On ${plural(meter.freeSafetyCount, "board")} a safety play was free: even one fewer trick would have cost nothing.`
+    : "";
+  return `
+    <div class="overtrick-meter">
+      <strong class="term-tip"${tooltipAttrs("For every made contract: the score is recomputed with one trick more and one trick fewer, then re-ranked against the board's actual results to price the trick in matchpoints.")}>Overtrick meter</strong>
+      <p>${escapeHtml(headline)}${escapeHtml(safetyNote)}</p>
+      ${flaggedList}
+    </div>
+  `;
+}
+
+function renderDefendedScorecard(report) {
+  const card = report.defendedScorecard;
+  if (!card || !card.defends) {
+    return renderReportSubsection("defended-scorecard", "When You Defended", `
+      <div class="empty-state">This pair declared every board in this session.</div>
+    `, "", { id: "rs-defended", open: false });
+  }
+  const netText = card.netTricks == null ? "n/a" : `${formatSigned(roundTenth(card.netTricks))} tricks`;
+  const stats = `
+    <div class="scorecard-stats">
+      <div class="review-stat"><span>Defended</span><strong>${escapeHtml(card.defends)}</strong></div>
+      <div class="review-stat term-tip"${tooltipAttrs("Tricks conceded compared with other tables defending the identical contract (or, without one, with the field's double-dummy-relative norm). Positive means the room conceded more than this pair.")}><span>Net Tricks Vs Room</span><strong>${escapeHtml(netText)}</strong></div>
+      <div class="review-stat"><span>Benchmarked</span><strong>${escapeHtml(card.cohortCovered)} of ${escapeHtml(card.defends)} same contract</strong></div>
+      <div class="review-stat"><span>Flagged</span><strong>${escapeHtml(card.flaggedCount)}</strong></div>
+    </div>
+  `;
+  const rows = card.boards.map((board) => {
+    const edge = roundTenth(board.edge);
+    const chip = edge == null ? "" : edge >= 1
+      ? `<span class="reason-chip green">${escapeHtml(formatSigned(edge))}</span>`
+      : edge <= -2
+        ? `<span class="reason-chip red">${escapeHtml(formatSigned(edge))}</span>`
+        : edge <= -1
+          ? `<span class="reason-chip gold">${escapeHtml(formatSigned(edge))}</span>`
+          : `<span class="reason-chip">${escapeHtml(formatSigned(edge))}</span>`;
+    const basisText = board.basis === "cohort"
+      ? `${plural(board.cohortSize, "table")}, median ${roundTenth(board.cohortMedian)}`
+      : board.basis === "field-dd" ? "field DD norm" : "no benchmark";
+    return `
+      <tr>
+        <td>${renderBoardJump(board.boardNo)}</td>
+        <td class="contract">${contractGlyphHtml(board.contractText)}</td>
+        <td class="numeric">${escapeHtml(board.conceded == null ? "n/a" : board.conceded)}</td>
+        <td>${escapeHtml(basisText)}</td>
+        <td>${chip}</td>
+      </tr>
+    `;
+  }).join("");
+  return renderReportSubsection("defended-scorecard", "When You Defended", `
+      ${stats}
+      <div class="scorecard-table">
+        <table>
+          <thead><tr><th scope="col">Board</th><th scope="col">Opponents' Contract</th><th scope="col" class="numeric">Tricks Conceded</th><th scope="col">Benchmark</th><th scope="col">Trick Edge</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+  `, "", { id: "rs-defended" });
+}
+
 function renderConfidenceChip(confidence) {
   if (!confidence) return "";
   return `<span class="confidence-chip ${escapeHtml(confidence.level)} term-tip"${tooltipAttrs(confidence.detail)}>${escapeHtml(confidence.label)}</span>`;
@@ -397,6 +596,10 @@ export {
   renderLossThemes,
   renderProfileMetric,
   renderPairProfile,
+  renderBiddingScorecard,
+  renderDeclaredScorecard,
+  renderDefendedScorecard,
+  renderOvertrickMeter,
   renderTopReviewPriorities,
   renderConfidenceChip,
   formatResultPercent,
