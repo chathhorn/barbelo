@@ -77,6 +77,7 @@ function buildDeclaredScorecard(results, views) {
     }
     return {
       boardNo: row.boardNo,
+      rowIndex: row.index,
       contractText: rowContractText(row),
       tricks: row.tricks,
       target,
@@ -255,6 +256,7 @@ function buildBiddingScorecard(results, views) {
     const vulnerable = isVulnerable(row.board ? row.board.vulnerable : "None", view.side);
     gameBoards.push({
       boardNo: row.boardNo,
+      rowIndex: row.index,
       vulnerable,
       bucket,
       contractText: rowContractText(row) || "Defended",

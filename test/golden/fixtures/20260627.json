@@ -1610,13 +1610,18 @@
      "bottom"
     ],
     [
-     "scoring",
-     3,
-     "correct"
+     "bid",
+     11,
+     "game"
+    ],
+    [
+     "room",
+     27,
+     "half"
     ],
     [
      "scoring",
-     27,
+     3,
      "correct"
     ]
    ]
@@ -1744,13 +1749,18 @@
      "bottom"
     ],
     [
-     "scoring",
-     1,
-     "correct"
+     "bid",
+     16,
+     "game"
+    ],
+    [
+     "target",
+     26,
+     "9"
     ],
     [
      "scoring",
-     27,
+     1,
      "correct"
     ]
    ]
@@ -1868,13 +1878,18 @@
      "bottom"
     ],
     [
-     "scoring",
-     4,
-     "correct"
+     "bid",
+     6,
+     ""
+    ],
+    [
+     "target",
+     18,
+     "10"
     ],
     [
      "scoring",
-     17,
+     4,
      "correct"
     ]
    ]

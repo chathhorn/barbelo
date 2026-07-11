@@ -1442,6 +1442,11 @@
      "top"
     ],
     [
+     "target",
+     5,
+     "8"
+    ],
+    [
      "scoring",
      22,
      "correct"
@@ -1577,6 +1582,11 @@
      "ladder",
      19,
      "top"
+    ],
+    [
+     "target",
+     4,
+     "9"
     ],
     [
      "scoring",
@@ -1718,13 +1728,18 @@
      "bottom"
     ],
     [
-     "scoring",
-     6,
-     "correct"
+     "bid",
+     2,
+     "game"
+    ],
+    [
+     "room",
+     13,
+     "most"
     ],
     [
      "scoring",
-     3,
+     6,
      "correct"
     ]
    ]

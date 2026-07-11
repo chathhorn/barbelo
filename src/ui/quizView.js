@@ -6,6 +6,7 @@
 import { contractGlyphHtml, escapeHtml } from "../core/format.js";
 import { buildPairExercises } from "../core/exercises.js";
 import { renderBoardJump } from "./dom.js";
+import { renderHandBlock } from "./boardsView.js";
 import { renderLossAdvice, renderReportSubsection } from "./reportView.js";
 
 const BISCUIT_SVG = `<svg viewBox="0 0 24 14" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><path d="M 5 3 A 2.6 2.6 0 0 1 8.4 5.2 L 15.6 5.2 A 2.6 2.6 0 1 1 19 8.8 A 2.6 2.6 0 1 1 15.6 8.8 L 8.4 8.8 A 2.6 2.6 0 1 1 5 5.2 A 2.6 2.6 0 0 1 5 3 Z" transform="translate(0 1)"/></svg>`;
@@ -18,13 +19,19 @@ function renderQuizCard(card) {
     </ul>
   ` : "";
   const notes = card.optionNotes || {};
+  const handsHtml = card.hands ? `
+    <div class="quiz-hands">
+      ${card.hands.seats.map((seat) => renderHandBlock(card.hands.board, seat)).join("")}
+    </div>
+  ` : "";
   return `
-    <article class="quiz-card" data-quiz-card="${escapeHtml(card.id)}" data-quiz-answer="${escapeHtml(card.answerKey)}">
+    <article class="quiz-card${card.hands ? " has-hands" : ""}" data-quiz-card="${escapeHtml(card.id)}" data-quiz-answer="${escapeHtml(card.answerKey)}"${card.neutral ? ` data-quiz-neutral="1"` : ""}>
       <header class="quiz-card-head">
         <strong>${escapeHtml(card.title)}</strong>
         <span>${escapeHtml(heading)}</span>
       </header>
       <p class="quiz-lead">${contractGlyphHtml(card.prompt.lead)}</p>
+      ${handsHtml}
       ${columnHtml}
       <p class="quiz-question">${escapeHtml(card.prompt.question)}</p>
       <div class="quiz-options" role="group" aria-label="${escapeHtml(card.prompt.question)}">
@@ -82,22 +89,28 @@ function handleQuizClick(event) {
   cardEl.classList.add("answered");
   const chosen = button.getAttribute("data-quiz-option");
   const answer = cardEl.getAttribute("data-quiz-answer");
-  const correct = chosen === answer;
+  // Neutral cards are genuine judgment calls: no answer is wrong.
+  const neutral = cardEl.getAttribute("data-quiz-neutral") === "1";
+  const correct = !neutral && chosen === answer;
   cardEl.querySelectorAll("[data-quiz-option]").forEach((option) => {
     const key = option.getAttribute("data-quiz-option");
     option.disabled = true;
     option.setAttribute("aria-pressed", String(option === button));
-    if (key === answer) option.classList.add("is-answer");
-    if (option === button && !correct) option.classList.add("is-missed");
+    if (neutral) {
+      if (option === button) option.classList.add("is-chosen");
+    } else {
+      if (key === answer) option.classList.add("is-answer");
+      if (option === button && !correct) option.classList.add("is-missed");
+    }
     const note = option.querySelector(".quiz-option-note");
     if (note) note.classList.remove("hidden");
   });
   const reveal = cardEl.querySelector(".quiz-reveal");
   reveal.classList.remove("hidden");
   const verdict = reveal.querySelector("[data-quiz-verdict]");
-  verdict.textContent = correct ? "Right!" : "Not quite -";
-  verdict.classList.add(correct ? "right" : "missed");
-  reveal.querySelector(correct ? ".quiz-coach-right" : ".quiz-coach-wrong").classList.remove("hidden");
+  verdict.textContent = neutral ? "Judgment call -" : correct ? "Right!" : "Not quite -";
+  verdict.classList.add(neutral ? "neutral" : correct ? "right" : "missed");
+  reveal.querySelector(neutral || correct ? ".quiz-coach-right" : ".quiz-coach-wrong").classList.remove("hidden");
   // Fill the next biscuit: completion is the reward, right or wrong.
   const section = cardEl.closest(".table-time");
   if (section) {

@@ -2455,6 +2455,29 @@ button.quiz-option.is-missed {
 
 .quiz-verdict.right { color: var(--green-dark); }
 .quiz-verdict.missed { color: var(--gold); }
+.quiz-verdict.neutral { color: var(--blue); }
+
+button.quiz-option.is-chosen {
+  opacity: 1;
+  border-color: rgba(36, 87, 166, 0.5);
+  background: #f0f5fc;
+  color: var(--blue);
+}
+
+.quiz-hands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quiz-hands .hand-block {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.quiz-card.has-hands {
+  grid-column: 1 / -1;
+}
 
 .quiz-rung-label {
   display: block;

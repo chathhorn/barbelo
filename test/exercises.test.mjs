@@ -5,15 +5,47 @@ import { buildResultsAnalysis } from "../src/core/results.js";
 import { buildPairImprovementReport } from "../src/core/report.js";
 import {
   buildPairExercises,
+  buildBidItAgainCard,
+  buildTrickTargetCard,
+  buildReadRoomCard,
   overtrickBandFor,
   ladderBandFor,
 } from "../src/core/exercises.js";
+import { buildAnalysis } from "../src/core/boards.js";
+import { parsePbn } from "../src/parsers/pbn.js";
 import { csvFrom } from "./helpers/load-app.js";
 
-function analyzeCsv(rows) {
+function analyzeCsv(rows, analysis) {
   const csv = csvFrom(rows);
-  return buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
+  return buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), analysis || null);
 }
+
+// NS make 10 tricks in spades (a DD game); EW make nothing.
+const DD_PBN = [
+  "[Board \"1\"]",
+  "[Deal \"N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432\"]",
+  "[OptimumResultTable \"Declarer;Denomination\\2R;Result\\2R\"]",
+  "N S 10",
+  "N NT 9",
+  "N H 8",
+  "N D 8",
+  "N C 8",
+  "S S 10",
+  "S NT 9",
+  "S H 8",
+  "S D 8",
+  "S C 8",
+  "E S 3",
+  "E NT 4",
+  "E H 5",
+  "E D 5",
+  "E C 5",
+  "W S 3",
+  "W NT 4",
+  "W H 5",
+  "W D 5",
+  "W C 5"
+].join("\n");
 
 const HEADER = ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"];
 
@@ -134,6 +166,99 @@ test("tiny sessions degrade gracefully instead of inventing cards", () => {
   // scoring drill can still run on their own contract.
   assert.ok(!quiz.cards.some((card) => card.type === "overtrick"), "overtrick card needs peers");
   assert.ok(!quiz.cards.some((card) => card.type === "ladder"), "ladder card needs a column");
+});
+
+test("bid-it-again grades only on field consensus and prices from real results", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  // 4 of 5 same-direction peers bid game: consensus "game".
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="],
+    ["1", "7", "8", "N", "4 S", "="],
+    ["1", "9", "10", "N", "4 S", "-1"],
+    ["1", "11", "12", "N", "2 S", "+2"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildBidItAgainCard(results, report, new Set());
+  assert.ok(card, "card missing");
+  assert.equal(card.neutral, false);
+  assert.equal(card.answerKey, "game");
+  assert.match(card.reveal.room, /4 of 5 same-direction tables bid game; 3 made it/);
+  assert.match(card.reveal.room, /Game bidders averaged/);
+  assert.match(card.reveal.dd, /one layout/);
+  assert.ok(card.hands && card.hands.seats.join("") === "NS");
+});
+
+test("a split room is a judgment call: neutral card, no wrong answer", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  // 2 of 4 peers bid game: no consensus.
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="],
+    ["1", "7", "8", "N", "3 S", "+1"],
+    ["1", "9", "10", "N", "2 S", "+2"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildBidItAgainCard(results, report, new Set());
+  assert.ok(card, "card missing");
+  assert.equal(card.neutral, true);
+  assert.equal(card.answerKey, "");
+  assert.match(card.reveal.coachRight, /judgment call/i);
+  assert.equal(card.reveal.coachRight, card.reveal.coachWrong, "a split room must coach identically either way");
+});
+
+test("trick target uses DD as the key and prefers human-corroborated boards", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildTrickTargetCard(results, report, new Set());
+  assert.ok(card, "card missing");
+  assert.equal(card.answerKey, "10");
+  assert.ok(card.options.some((option) => option.key === "10"), "DD answer must be among the options");
+  assert.match(card.reveal.room, /the computer's number was human/);
+  assert.match(card.reveal.yours, /one layout/);
+});
+
+test("read the room counts same-direction game bidders with exact buttons in small fields", () => {
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="],
+    ["1", "7", "8", "N", "3 S", "+1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildReadRoomCard(results, report, new Set());
+  assert.ok(card, "card missing (should work without a PBN)");
+  assert.equal(card.answerKey, "2");
+  assert.deepEqual(card.options.map((option) => option.key), ["0", "1", "2", "3"], "exact counts expected in a small field");
+  assert.match(card.reveal.room, /2 of 3 bid game; 2 made it/);
+});
+
+test("no quiz card repeats another card's board", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="],
+    ["1", "7", "8", "N", "4 S", "="],
+    ["1", "9", "10", "N", "4 S", "-1"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const quiz = buildPairExercises(results, report);
+  const boardCards = quiz.cards.filter((card) => card.type !== "scoring");
+  const boards = boardCards.map((card) => String(card.boardNo));
+  assert.equal(new Set(boards).size, boards.length, `duplicate boards across cards: ${boards.join(",")}`);
 });
 
 test("passed-out rows never become scoring flashcards", () => {

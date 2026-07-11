@@ -1118,9 +1118,14 @@
      "top"
     ],
     [
-     "scoring",
-     21,
-     "correct"
+     "bid",
+     14,
+     "game"
+    ],
+    [
+     "room",
+     20,
+     "half"
     ],
     [
      "scoring",
@@ -1262,13 +1267,18 @@
      "bottom"
     ],
     [
-     "scoring",
-     15,
-     "correct"
+     "bid",
+     20,
+     ""
+    ],
+    [
+     "target",
+     1,
+     "8"
     ],
     [
      "scoring",
-     21,
+     15,
      "correct"
     ]
    ]
@@ -1396,13 +1406,18 @@
      "top"
     ],
     [
-     "scoring",
-     24,
-     "correct"
+     "bid",
+     13,
+     "game"
+    ],
+    [
+     "room",
+     4,
+     "half"
     ],
     [
      "scoring",
-     21,
+     24,
      "correct"
     ]
    ]

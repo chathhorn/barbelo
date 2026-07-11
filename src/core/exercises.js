@@ -6,9 +6,22 @@
 // always labeled; (3) generation is deterministic - same files, same
 // quiz - with variety coming from the pair's own data.
 
-import { formatSigned, formatMp, plural } from "./format.js";
+import { formatSigned, formatMp, plural, average } from "./format.js";
+import { seatName } from "./constants.js";
+import { contractClassRank } from "./contracts.js";
 import { scoreDuplicateContract, isVulnerable } from "./scoring.js";
-import { sideScore, sideParticipantKey, rowContractText } from "./results.js";
+import { sideScore, sidePercent, sideParticipantKey, rowContractText } from "./results.js";
+
+const PARTNER_SEAT = { N: "S", S: "N", E: "W", W: "E" };
+const STRAIN_WORD = { S: "spades", H: "hearts", D: "diamonds", C: "clubs", N: "notrump" };
+
+function vulnerabilityText(vulnerable) {
+  const value = String(vulnerable || "None");
+  if (value === "All" || value === "Both") return "Both sides vulnerable";
+  if (value === "NS") return "NS vulnerable";
+  if (value === "EW") return "EW vulnerable";
+  return "Neither side vulnerable";
+}
 
 // Percent-point bands for "one more trick was worth..." answers.
 const OVERTRICK_BANDS = [
@@ -32,6 +45,36 @@ function pickVariant(seed, count) {
 }
 
 const COACH_LINES = {
+  bid: {
+    right: [
+      "With the room. Sound game bidding is mostly showing up, hand after hand.",
+      "Right call. When the values are there, the field bids it - and so did you."
+    ],
+    wrong: [
+      "The room saw it differently - worth asking what they counted that you didn't.",
+      "No shame in it: compare the two hands with partner and find the trigger you would want next time."
+    ]
+  },
+  target: {
+    right: [
+      "Well counted. Planning the trick total before playing to trick one is the whole craft.",
+      "Right. Counting winners before touching a card is what the best declarers do."
+    ],
+    wrong: [
+      "Recount together: top winners first, then the extra tricks that need developing.",
+      "Close - replay it with partner and find where the extra trick hides."
+    ]
+  },
+  room: {
+    right: [
+      "Good field sense. Knowing what the room will do is half of matchpoint judgment.",
+      "Right read. Playing the field, not just the cards, is the matchpoint edge."
+    ],
+    wrong: [
+      "The field is a habit to learn: before scoring up, guess what the room did, then check.",
+      "A miss here is cheap practice - guessing the room sharpens every close decision."
+    ]
+  },
   overtrick: {
     right: [
       "Exactly. At matchpoints an overtrick is not decoration - it is the whole board.",
@@ -83,11 +126,12 @@ function ladderBandFor(percent) {
  * "The Price of One Trick": the overtrick meter as a one-tap quiz.
  * Pure arithmetic against the board's real score column.
  */
-function buildOvertrickCard(report) {
+function buildOvertrickCard(report, used = new Set()) {
   const meter = report.overtrickMeter;
   if (!meter || !meter.boards.length) return null;
   const candidates = meter.boards
-    .filter((board) => board.boardTop != null && board.boardTop > 0 && board.percent != null)
+    .filter((board) => board.boardTop != null && board.boardTop > 0 && board.percent != null &&
+      !used.has(String(board.boardNo)))
     .sort((a, b) => (b.flagged - a.flagged) || (b.mpIfUp - a.mpIfUp) || a.boardNo - b.boardNo);
   const board = candidates[0];
   if (!board) return null;
@@ -132,10 +176,11 @@ function buildOvertrickCard(report) {
  * Prefers counter-intuitive rows (plus scores that scored badly, minus
  * scores that scored well); needs an unambiguous band.
  */
-function buildLadderCard(results, report) {
+function buildLadderCard(results, report, used = new Set()) {
   const views = report.rows.filter((view) =>
     view.percent != null && view.pairScore != null &&
-    view.row.boardTop != null && view.row.boardTop >= 3);
+    view.row.boardTop != null && view.row.boardTop >= 3 &&
+    !used.has(String(view.row.boardNo)));
   if (!views.length) return null;
   const surprising = (view) =>
     (view.pairScore > 0 && view.percent <= 30) ||
@@ -310,6 +355,224 @@ function buildScoringCards(results, report, maxCards) {
 }
 
 /**
+ * "Bid It Again": the pair's two hands and one question - game or not.
+ * Verdicts only on field consensus (70%+ of 4+ same-direction tables);
+ * split rooms are judgment calls with no wrong answer. DD is labeled
+ * evidence, never the grader.
+ */
+function buildBidItAgainCard(results, report, used) {
+  const scorecard = report.biddingScorecard;
+  if (!scorecard || !scorecard.hasDd) return null;
+  const viewsByIndex = new Map(report.rows.map((view) => [view.row.index, view]));
+  const pick = scorecard.gameBoards
+    .filter((entry) => ["missed", "stayedLow", "bidFailed", "beatGame"].includes(entry.bucket) &&
+      !used.has(String(entry.boardNo)))
+    .map((entry) => ({ entry, view: viewsByIndex.get(entry.rowIndex) }))
+    .filter(({ view }) => view && view.bestMakeable.rank === 2 &&
+      view.row.hasPbnBoard && view.row.board && view.row.board.hands &&
+      view.percent != null && view.pairScore != null)
+    .sort((a, b) => ((a.entry.mpVsAverage ?? 0) - (b.entry.mpVsAverage ?? 0)) || (a.entry.boardNo - b.entry.boardNo))[0];
+  if (!pick) return null;
+  const { entry, view } = pick;
+  const row = view.row;
+  const share = entry.sidePeers ? entry.peersInGame / entry.sidePeers : 0;
+  const consensus = entry.sidePeers >= 4 ? (share >= 0.7 ? "game" : share <= 0.3 ? "stop" : null) : null;
+
+  // Price both roads with the night's real results, never DD.
+  const boardRows = results.rowsByField.get(row.fieldKey) || [];
+  const peers = boardRows.filter((peer) =>
+    peer !== row && String(sideParticipantKey(peer, view.side)) !== String(view.participantKey));
+  const inGamePercents = [];
+  const outPercents = [];
+  peers.forEach((peer) => {
+    const percent = sidePercent(peer, view.side);
+    if (percent == null) return;
+    if (peer.declarerPair === view.side && contractClassRank(peer.contractClass) >= 2) inGamePercents.push(percent);
+    else outPercents.push(percent);
+  });
+  const pricing = inGamePercents.length && outPercents.length
+    ? ` Game bidders averaged ${average(inGamePercents).toFixed(0)}% on this board; the others ${average(outPercents).toFixed(0)}%.`
+    : "";
+
+  const id = `bid-${row.index}`;
+  const splitLine = `The room split ${entry.peersInGame}-${entry.sidePeers - entry.peersInGame}: a genuine judgment call. Worth a conversation with partner.`;
+  return {
+    id,
+    type: "bid",
+    title: "Bid It Again",
+    boardNo: row.boardNo,
+    maskBoard: true,
+    neutral: consensus == null,
+    hands: { board: row.board, seats: view.side === "NS" ? ["N", "S"] : ["W", "E"] },
+    prompt: {
+      lead: `${vulnerabilityText(row.board.vulnerable)}, dealer ${seatName(row.board.dealer) || "unknown"}. Your side held:`,
+      question: "Where do you want to be?"
+    },
+    options: [
+      { key: "game", label: "Bid game" },
+      { key: "stop", label: "Stop low" },
+      { key: "close", label: "Too close to call" }
+    ],
+    answerKey: consensus == null ? "" : consensus,
+    reveal: {
+      room: `${entry.peersInGame} of ${plural(entry.sidePeers, "same-direction table")} bid game; ${entry.peersMadeGame} made it.${pricing}`,
+      dd: `Double-dummy says ${view.bestMakeable.text} makes - with all 52 cards visible, one layout.`,
+      yours: `You played ${rowContractText(row)} for ${formatSigned(view.pairScore)} - ${view.percent.toFixed(0)}% that night.`,
+      coachRight: consensus == null ? splitLine : coachLine("bid", id, true),
+      coachWrong: consensus == null
+        ? splitLine
+        : `The room was fairly sure here: ${entry.peersInGame} of ${entry.sidePeers} ${consensus === "game" ? "bid the game" : "stayed low"}. ${coachLine("bid", id, false)}`
+    }
+  };
+}
+
+/**
+ * "Trick Target": count declarer's best-play tricks - the one honest
+ * use of DD as an answer key, preferring boards where a human declarer
+ * actually matched the computer's number.
+ */
+function buildTrickTargetCard(results, report, used) {
+  const boards = report.declaredScorecard ? report.declaredScorecard.boards : [];
+  const viewsByIndex = new Map(report.rows.map((view) => [view.row.index, view]));
+  const corroboration = (view) => {
+    const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
+    const sameStrain = boardRows.filter((peer) =>
+      peer.declarerPair === view.row.declarerPair &&
+      peer.parsedContract && peer.parsedContract.strain === view.row.parsedContract.strain &&
+      peer.tricks != null);
+    const best = sameStrain.length ? Math.max(...sameStrain.map((peer) => peer.tricks)) : null;
+    return { best, matched: best != null && view.row.ddTricks != null && best >= view.row.ddTricks };
+  };
+  const candidates = boards
+    .filter((board) => !used.has(String(board.boardNo)) &&
+      (board.verdict === "trailed" || (board.triage && (board.triage.key === "play" || board.triage.key === "play-dd"))))
+    .map((board) => viewsByIndex.get(board.rowIndex))
+    .filter((view) => view && view.row.ddTricks != null && view.row.tricks != null &&
+      view.row.board && view.row.board.hands && view.row.declarerSide && view.percent != null)
+    .map((view) => ({ view, corroboration: corroboration(view) }))
+    .sort((a, b) => (Number(b.corroboration.matched) - Number(a.corroboration.matched)) ||
+      (a.view.percent - b.view.percent) || (a.view.row.boardNo - b.view.row.boardNo));
+  const pick = candidates[0];
+  if (!pick) return null;
+  const view = pick.view;
+  const row = view.row;
+  const dd = row.ddTricks;
+  const base = Math.max(0, Math.min(dd - 2, 10));
+  const strain = STRAIN_WORD[row.parsedContract.strain] || "this strain";
+  const id = `target-${row.index}`;
+  const roomText = pick.corroboration.best == null
+    ? "No other table declared in this strain that night."
+    : `The most any declarer took in ${strain} that night was ${pick.corroboration.best}${pick.corroboration.matched ? " - the computer's number was human." : "."}`;
+  return {
+    id,
+    type: "target",
+    title: "Trick Target",
+    boardNo: row.boardNo,
+    maskBoard: true,
+    hands: { board: row.board, seats: [row.declarerSide, PARTNER_SEAT[row.declarerSide]].filter(Boolean) },
+    prompt: {
+      lead: `You declared ${rowContractText(row)}. Declarer and dummy:`,
+      question: `With best play by everyone - all 52 cards visible - how many tricks can declarer take in ${strain}?`
+    },
+    options: [0, 1, 2, 3].map((offset) => ({ key: String(base + offset), label: String(base + offset) })),
+    answerKey: String(dd),
+    reveal: {
+      room: roomText,
+      dd: null,
+      yours: `Double-dummy says ${dd} - one layout, all cards visible. Your table took ${row.tricks} for ${formatSigned(view.pairScore)} - ${view.percent.toFixed(0)}%.`,
+      coachRight: coachLine("target", id, true),
+      coachWrong: coachLine("target", id, false)
+    }
+  };
+}
+
+/**
+ * "Read the Room": predict how many same-direction tables bid game.
+ * The answer is a counted fact, so it grades honestly, and it works
+ * without a PBN. Exact-count buttons in small fields, bands above.
+ */
+function buildReadRoomCard(results, report, used) {
+  const candidates = report.rows
+    .map((view) => {
+      if (view.percent == null || used.has(String(view.row.boardNo))) return null;
+      const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
+      const peers = boardRows.filter((peer) =>
+        peer !== view.row && String(sideParticipantKey(peer, view.side)) !== String(view.participantKey));
+      if (peers.length < 3) return null;
+      const inGame = peers.filter((peer) =>
+        peer.declarerPair === view.side && contractClassRank(peer.contractClass) >= 2);
+      if (!inGame.length || inGame.length === peers.length) return null;
+      const made = inGame.filter((peer) => {
+        const made = contractMadeTricks(peer);
+        return made === true;
+      });
+      const pairBidGame = view.declared && contractClassRank(view.row.contractClass) >= 2;
+      const majorityGame = inGame.length * 2 >= peers.length;
+      return {
+        view,
+        count: inGame.length,
+        total: peers.length,
+        made: made.length,
+        pairBidGame,
+        diverged: pairBidGame !== majorityGame
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (Number(b.diverged) - Number(a.diverged)) ||
+      ((a.view.percent ?? 50) - (b.view.percent ?? 50)) || (a.view.row.boardNo - b.view.row.boardNo));
+  const pick = candidates[0];
+  if (!pick) return null;
+  const view = pick.view;
+  const row = view.row;
+  const exact = pick.total <= 4;
+  const bandFor = (count, total) => {
+    if (count <= 1) return "few";
+    if (count < total * 0.7) return "half";
+    return count < total ? "most" : "all";
+  };
+  const options = exact
+    ? Array.from({ length: pick.total + 1 }, (_, index) => ({ key: String(index), label: String(index) }))
+    : [
+      { key: "few", label: "One or none" },
+      { key: "half", label: "About half" },
+      { key: "most", label: "Most" },
+      { key: "all", label: "All of them" }
+    ];
+  const hasHands = row.hasPbnBoard && row.board && row.board.hands;
+  const id = `room-${row.index}`;
+  return {
+    id,
+    type: "room",
+    title: "Read the Room",
+    boardNo: row.boardNo,
+    maskBoard: true,
+    hands: hasHands ? { board: row.board, seats: view.side === "NS" ? ["N", "S"] : ["W", "E"] } : null,
+    prompt: {
+      lead: hasHands
+        ? `${vulnerabilityText(row.board.vulnerable)}. Your side held:`
+        : `On one board your side played ${rowContractText(row)}.`,
+      question: `Of the ${pick.total} other tables holding your side's cards, how many bid game?`
+    },
+    options,
+    answerKey: exact ? String(pick.count) : bandFor(pick.count, pick.total),
+    reveal: {
+      room: `${pick.count} of ${pick.total} bid game; ${pick.made} made it.`,
+      dd: null,
+      yours: `Your table: ${rowContractText(row)} for ${formatSigned(view.pairScore)} - ${view.percent.toFixed(0)}%.`,
+      coachRight: coachLine("room", id, true),
+      coachWrong: coachLine("room", id, false)
+    }
+  };
+}
+
+function contractMadeTricks(row) {
+  if (!row.parsedContract || row.tricks == null) return null;
+  const level = Number(row.parsedContract.level);
+  if (!level) return null;
+  return row.tricks >= level + 6;
+}
+
+/**
  * Builds the Table Time quiz for one pair: at most a handful of cards,
  * deterministic, honest, and finishable. Works without a PBN (all
  * phase-1 types are score-column arithmetic).
@@ -320,12 +583,31 @@ function buildScoringCards(results, report, maxCards) {
  */
 function buildPairExercises(results, report) {
   if (!results || !report) return { cards: [] };
+  /** @type {Array<Object<string, *>>} */
   const cards = [];
-  const overtrick = buildOvertrickCard(report);
-  if (overtrick) cards.push(overtrick);
-  const ladder = buildLadderCard(results, report);
-  if (ladder) cards.push(ladder);
-  cards.push(...buildScoringCards(results, report, 2));
+  const used = new Set();
+  const add = (card) => {
+    if (!card) return;
+    cards.push(card);
+    if (card.boardNo != null && card.type !== "scoring") used.add(String(card.boardNo));
+  };
+
+  add(buildOvertrickCard(report, used));
+  add(buildLadderCard(results, report, used));
+  add(buildBidItAgainCard(results, report, used));
+  // The fourth slot mirrors the pair's diagnosis: play-heavy profiles
+  // count tricks, bidding-heavy profiles read the field.
+  const topTypes = (report.decisionTypes || []).slice(0, 2).map((type) => type.key);
+  const prefersPlay = topTypes.includes("declarerPlay") || topTypes.includes("defense");
+  const primary = prefersPlay
+    ? buildTrickTargetCard(results, report, used)
+    : buildReadRoomCard(results, report, used);
+  add(primary || (prefersPlay
+    ? buildReadRoomCard(results, report, used)
+    : buildTrickTargetCard(results, report, used)));
+  const scoringCount = Math.min(2, Math.max(1, 5 - cards.length));
+  cards.push(...buildScoringCards(results, report, scoringCount));
+
   // Mask labels are assigned in display order: Deal A, Deal B, ...
   let dealIndex = 0;
   cards.forEach((card) => {
@@ -339,6 +621,9 @@ export {
   buildOvertrickCard,
   buildLadderCard,
   buildScoringCards,
+  buildBidItAgainCard,
+  buildTrickTargetCard,
+  buildReadRoomCard,
   overtrickBandFor,
   ladderBandFor,
   coachLine,
