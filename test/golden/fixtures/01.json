@@ -1352,14 +1352,14 @@
    "declaredBoards": 10,
    "categories": [
     [
+     "competitiveAuction",
+     22,
+     9
+    ],
+    [
      "tieSplit",
      20.5,
      17
-    ],
-    [
-     "competitiveAuction",
-     17,
-     8
     ],
     [
      "declarerTricks",
@@ -1377,11 +1377,6 @@
      3
     ],
     [
-     "penaltyDouble",
-     5,
-     2
-    ],
-    [
      "defensiveTricks",
      3,
      1
@@ -1390,8 +1385,8 @@
    "decisionTypes": [
     [
      "competitiveAuction",
-     26,
-     12
+     31,
+     13
     ],
     [
      "smallEdges",
@@ -1409,11 +1404,6 @@
      3
     ],
     [
-     "penaltyDouble",
-     5,
-     2
-    ],
-    [
      "defense",
      3,
      1
@@ -1421,8 +1411,8 @@
    ],
    "reviewBoards": [
     16,
-    25,
     5,
+    25,
     6,
     15,
     3,
@@ -1445,8 +1435,8 @@
     ],
     [
      "competitiveAuction",
-     12,
-     6
+     14,
+     7
     ],
     [
      "defensiveTricks",
@@ -1460,8 +1450,8 @@
     ],
     [
      "partscoreBattle",
-     7,
-     6
+     6,
+     5
     ],
     [
      "declarerTricks",
@@ -1474,20 +1464,20 @@
      1
     ],
     [
-     "penaltyDouble",
-     2,
-     2
-    ],
-    [
      "wrongStrain",
      2,
+     1
+    ],
+    [
+     "penaltyDouble",
+     1,
      1
     ]
    ],
    "decisionTypes": [
     [
      "competitiveAuction",
-     19,
+     20,
      11
     ],
     [
@@ -1512,8 +1502,8 @@
     ],
     [
      "penaltyDouble",
-     2,
-     2
+     1,
+     1
     ]
    ],
    "reviewBoards": [
@@ -1523,8 +1513,8 @@
     13,
     22,
     12,
-    10,
     24,
+    10,
     1,
     2
    ]
@@ -1537,8 +1527,8 @@
    "categories": [
     [
      "overreach",
-     19,
-     5
+     21,
+     6
     ],
     [
      "tieSplit",
@@ -1557,18 +1547,13 @@
     ],
     [
      "competitiveAuction",
-     8,
-     4
+     10,
+     5
     ],
     [
      "wrongStrain",
      7,
      4
-    ],
-    [
-     "penaltyDouble",
-     6,
-     5
     ],
     [
      "partscoreBattle",
@@ -1579,13 +1564,18 @@
      "defensiveTricks",
      3,
      3
+    ],
+    [
+     "penaltyDouble",
+     2,
+     1
     ]
    ],
    "decisionTypes": [
     [
      "biddingJudgment",
-     38,
-     12
+     40,
+     13
     ],
     [
      "smallEdges",
@@ -1594,8 +1584,8 @@
     ],
     [
      "competitiveAuction",
-     13,
-     9
+     15,
+     10
     ],
     [
      "declarerPlay",
@@ -1603,14 +1593,14 @@
      6
     ],
     [
-     "penaltyDouble",
-     6,
-     5
-    ],
-    [
      "defense",
      3,
      3
+    ],
+    [
+     "penaltyDouble",
+     2,
+     1
     ]
    ],
    "reviewBoards": [

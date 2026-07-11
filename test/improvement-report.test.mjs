@@ -136,6 +136,95 @@ test("swing items report total board MP loss, with the category loss kept on the
   assert.equal(item.diagnosis.lostMp, 3);
 });
 
+test("a missed slam dominates the swing diagnosis even when ties carry equal loss", () => {
+  // 4 ties (2.0 MP) vs 2 slam bidders (2.0 MP): the old comparison-count
+  // tiebreak picked tieSplit and advised "small overtrick details".
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "5 D", "+1"],
+    ["1", "3", "4", "N", "5 D", "+1"],
+    ["1", "5", "6", "N", "5 D", "+1"],
+    ["1", "7", "8", "N", "5 D", "+1"],
+    ["1", "9", "10", "N", "5 D", "+1"],
+    ["1", "11", "12", "N", "6 D", "="],
+    ["1", "13", "14", "N", "6 D", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const item = report.reviewItems.find((entry) => String(entry.row.boardNo) === "1");
+  assert.ok(item, "board 1 missing from review queue");
+  assert.equal(item.diagnosis.categoryKey, "missedGameSlam");
+});
+
+test("a doubled peer table does not hijack a missed game into penalty/double", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S X", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const categories = report.lossLedger.categories.map((category) => category.key);
+  assert.ok(!categories.includes("penaltyDouble"), "peer-only double misclassified as penaltyDouble");
+  const missed = report.lossLedger.categories.find((category) => category.key === "missedGameSlam");
+  assert.ok(missed, "expected missedGameSlam");
+  assert.equal(missed.comparisonCount, 2, "both game comparisons should count as missed game");
+});
+
+test("a double at the pair's own table still classifies as penalty/double", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 H X", "-2"],
+    ["1", "3", "4", "N", "2 S", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const categories = report.lossLedger.categories.map((category) => category.key);
+  assert.ok(categories.includes("penaltyDouble"), `expected penaltyDouble, got ${categories.join(",")}`);
+});
+
+test("field average excludes the pair's own score", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["1", "3", "4", "N", "3 NT", "+2"],
+    ["1", "5", "6", "N", "3 NT", "+2"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const view = report.rows.find((entry) => String(entry.row.boardNo) === "1");
+  assert.equal(view.fieldAverage, 460, "field average should be the peer average, not include self");
+  assert.equal(view.fieldDelta, -60);
+});
+
+test("big-swing partscore comparisons are not filed as partscore battles", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "1 S", "+1"],
+    ["1", "3", "4", "N", "2 S", "+4"],
+    ["2", "1", "2", "N", "1 S", "+1"],
+    ["2", "3", "4", "N", "2 S", "+1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const byBoard = new Map();
+  report.lossLedger.boardItems.forEach((item) => byBoard.set(String(item.boardNo), item));
+  assert.equal(byBoard.get("1").comparisons[0].categoryKey, "contractSelection", "230-point swing should not be a partscore battle");
+  assert.equal(byBoard.get("2").comparisons[0].categoryKey, "partscoreBattle", "small partscore swing should stay a partscore battle");
+});
+
+test("a replayed board keeps two distinct plays apart", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "="],
+    ["1", "1", "6", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "4 S", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const failing = report.reviewItems.find((item) => item.pairScore === -50);
+  assert.ok(failing, "failing replay missing from review queue");
+  assert.equal(failing.boardLossItem.targetScore, -50, "diagnosis attached to the wrong play of the replayed board");
+  assert.equal(failing.diagnosis.categoryKey, "declarerTricks");
+  const peerPairs = failing.peerComparison.rows.filter((row) => !row.isTarget).map((row) => String(row.pairNo));
+  assert.ok(!peerPairs.includes("1"), "the pair's own replay row appeared as a peer");
+});
+
 test("director-adjusted boards never appear in the review queue", () => {
   const results = analyzeCsv([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],

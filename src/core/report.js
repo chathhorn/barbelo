@@ -179,7 +179,10 @@ function pairResultView(results, row, participantKey) {
   const side = isNS ? "NS" : "EW";
   const boardRows = results.rowsByField.get(row.fieldKey) || [];
   const pairScore = row.scoreNS == null ? null : isNS ? row.scoreNS : -row.scoreNS;
+  // Peers only: including the pair's own row would shrink fieldDelta by
+  // (n-1)/n and systematically under-trip the fixed flag thresholds.
   const fieldScores = boardRows
+    .filter((entry) => String(sideParticipantKey(entry, side)) !== pairKey)
     .map((entry) => entry.scoreNS == null ? null : isNS ? entry.scoreNS : -entry.scoreNS)
     .filter((value) => value != null);
   const fieldAverage = fieldScores.length ? average(fieldScores) : null;
@@ -317,15 +320,23 @@ function dominantBoardLoss(boardItem) {
         key: comparison.categoryKey,
         label: info.label,
         loss: 0,
+        maxDelta: 0,
         comparisons: []
       });
     }
     const entry = map.get(comparison.categoryKey);
     entry.loss += comparison.loss;
+    entry.maxDelta = Math.max(entry.maxDelta, comparison.scoreDelta || 0);
     entry.comparisons.push(comparison);
   });
-  return Array.from(map.values())
-    .sort((a, b) => b.loss - a.loss || b.comparisons.length - a.comparisons.length)[0] || null;
+  // Ties never carry the narrative: at equal loss they always have more
+  // (0.5-MP) comparisons, so a count tiebreak buries the real lesson
+  // (e.g. a missed slam diagnosed as "small overtrick details").
+  const entries = Array.from(map.values());
+  const substantive = entries.filter((entry) => entry.key !== "tieSplit");
+  const candidates = substantive.length ? substantive : entries;
+  return candidates
+    .sort((a, b) => b.loss - a.loss || b.maxDelta - a.maxDelta || b.comparisons.length - a.comparisons.length)[0] || null;
 }
 
 function comparisonSameContract(comparison) {
@@ -446,6 +457,8 @@ function buildSwingDiagnosis(item, boardItem) {
 function buildSameDirectionPeerComparison(results, view) {
   const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
   const rows = boardRows
+    // A replay by the same pair is not a peer table.
+    .filter((row) => row === view.row || String(sideParticipantKey(row, view.side)) !== String(view.participantKey))
     .map((row) => {
       const score = sideScore(row, view.side);
       if (score == null) return null;
@@ -507,7 +520,9 @@ function classifyLossComparison(view, peerRow, peerScore, scoreDelta, loss) {
     return { key: "declarerTricks" };
   }
   if (sameContract && !targetDeclared && !peerDeclared) return { key: "defensiveTricks" };
-  if (targetContract.doubled || peerContract.doubled) return { key: "penaltyDouble" };
+  // Only a double at the pair's own table is a double decision the pair
+  // faced; a doubled peer table falls through to the real cause.
+  if (targetContract.doubled) return { key: "penaltyDouble" };
   if (targetFailed && (scoreDelta >= 200 || peerMade || !peerDeclared)) return { key: "overreach" };
   if (peerDeclared && peerRank >= 2 && peerRank > targetRank && peerMade !== false) return { key: "missedGameSlam" };
 
@@ -516,7 +531,10 @@ function classifyLossComparison(view, peerRow, peerScore, scoreDelta, loss) {
     if (levelGap <= 1) return { key: "wrongStrain" };
   }
 
-  if ((smallScoreContext || partscoreContext) && targetContractRank <= 1 && peerContractRank <= 1) {
+  // Partscore battles are small-stakes trench warfare; a big swing in a
+  // partscore context (going for a number) deserves the sharper
+  // contract-selection / competitive-auction labels below.
+  if (smallScoreContext && partscoreContext) {
     return { key: "partscoreBattle" };
   }
   if (targetDeclared && peerDeclared && !sameContract) return { key: "contractSelection" };
@@ -577,7 +595,11 @@ function buildBoardLossItem(results, view) {
 function buildLossExamples(comparisons) {
   const examplesByBoard = new Map();
   comparisons.forEach((comparison) => {
-    const key = String(comparison.boardNo);
+    // Key by the pair's own row, not the board number: a replayed board
+    // is two distinct plays and must not merge into one example.
+    const key = comparison.targetRow && comparison.targetRow.index != null
+      ? `row:${comparison.targetRow.index}`
+      : String(comparison.boardNo);
     if (!examplesByBoard.has(key)) {
       examplesByBoard.set(key, {
         boardNo: comparison.boardNo,
@@ -868,9 +890,11 @@ function buildPairImprovementReport(results, participantKey) {
   if (!views.length) return null;
 
   const lossLedger = buildPairLossLedger(results, views);
-  const boardLossItemsByNo = new Map(lossLedger.boardItems.map((item) => [String(item.boardNo), item]));
+  // Keyed by row identity, not board number: a replayed board number
+  // would otherwise attach one play's diagnosis to both review items.
+  const boardLossItemsByRow = new Map(lossLedger.boardItems.map((item) => [item.row.index, item]));
   const analyzed = views.map(analyzeReviewItem).map((item) => {
-    const boardLossItem = boardLossItemsByNo.get(String(item.row.boardNo)) || null;
+    const boardLossItem = boardLossItemsByRow.get(item.row.index) || null;
     return {
       ...item,
       boardLossItem,

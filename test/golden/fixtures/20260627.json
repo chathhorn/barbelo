@@ -1485,13 +1485,13 @@
    "categories": [
     [
      "competitiveAuction",
-     28,
-     11
+     29,
+     12
     ],
     [
      "penaltyDouble",
-     26,
-     6
+     24,
+     4
     ],
     [
      "partscoreBattle",
@@ -1504,14 +1504,14 @@
      14
     ],
     [
+     "overreach",
+     8,
+     2
+    ],
+    [
      "defensiveTricks",
      8,
      4
-    ],
-    [
-     "overreach",
-     7,
-     2
     ],
     [
      "wrongStrain",
@@ -1537,17 +1537,17 @@
    "decisionTypes": [
     [
      "competitiveAuction",
-     45,
-     14
+     46,
+     15
     ],
     [
      "penaltyDouble",
-     26,
-     6
+     24,
+     4
     ],
     [
      "biddingJudgment",
-     16,
+     17,
      6
     ],
     [
@@ -1576,7 +1576,7 @@
     11,
     19,
     15,
-    23
+    21
    ]
   },
   "5:EW": {
@@ -1587,8 +1587,8 @@
    "categories": [
     [
      "competitiveAuction",
-     21,
-     8
+     24,
+     11
     ],
     [
      "overreach",
@@ -1629,11 +1629,6 @@
      "partscoreBattle",
      4,
      3
-    ],
-    [
-     "penaltyDouble",
-     3,
-     3
     ]
    ],
    "decisionTypes": [
@@ -1644,8 +1639,8 @@
     ],
     [
      "competitiveAuction",
-     25,
-     11
+     28,
+     14
     ],
     [
      "declarerPlay",
@@ -1661,11 +1656,6 @@
      "defense",
      12,
      7
-    ],
-    [
-     "penaltyDouble",
-     3,
-     3
     ]
    ],
    "reviewBoards": [
@@ -1689,8 +1679,8 @@
    "categories": [
     [
      "competitiveAuction",
-     21,
-     8
+     25,
+     10
     ],
     [
      "overreach",
@@ -1704,8 +1694,8 @@
     ],
     [
      "partscoreBattle",
-     12,
-     6
+     11,
+     5
     ],
     [
      "defensiveTricks",
@@ -1713,9 +1703,9 @@
      3
     ],
     [
-     "penaltyDouble",
-     5,
-     5
+     "wrongStrain",
+     6,
+     2
     ],
     [
      "declarerTricks",
@@ -1723,21 +1713,21 @@
      4
     ],
     [
-     "wrongStrain",
-     5,
-     2
+     "missedGameSlam",
+     1,
+     1
     ]
    ],
    "decisionTypes": [
     [
      "competitiveAuction",
-     33,
-     10
+     36,
+     11
     ],
     [
      "biddingJudgment",
-     23,
-     6
+     25,
+     7
     ],
     [
      "smallEdges",
@@ -1753,11 +1743,6 @@
      "declarerPlay",
      5,
      4
-    ],
-    [
-     "penaltyDouble",
-     5,
-     5
     ]
    ],
    "reviewBoards": [
