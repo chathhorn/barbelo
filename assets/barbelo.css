@@ -2497,6 +2497,105 @@ button.quiz-option.is-chosen {
   margin: 0;
 }
 
+.quiz-intro-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.quiz-fit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 7px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The printable partner sheet: hidden on screen. The print button
+   copies it into the body-level #quizPrintMount, and print media shows
+   only the mount - no dependence on the panel nesting. */
+.quiz-print-sheet,
+#quizPrintMount {
+  display: none;
+}
+
+@media print {
+  body.printing-quiz .app-shell,
+  body.printing-quiz .board-overlay,
+  body.printing-quiz .toast,
+  body.printing-quiz .tooltip-popup {
+    display: none !important;
+  }
+
+  body.printing-quiz #quizPrintMount {
+    display: block;
+  }
+
+  body.printing-quiz #quizPrintMount .quiz-print-sheet {
+    display: block;
+    width: 100%;
+    font-size: 15px;
+    color: #000;
+  }
+
+  .quiz-print-head {
+    margin-bottom: 18px;
+  }
+
+  .quiz-print-card {
+    page-break-inside: avoid;
+    border-bottom: 1px solid #999;
+    padding: 14px 0;
+  }
+
+  .quiz-print-card .quiz-hands {
+    display: flex;
+    gap: 24px;
+  }
+
+  .quiz-print-options {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+  }
+
+  .quiz-print-options li {
+    margin: 8px 0;
+    font-size: 16px;
+  }
+
+  .print-box {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #000;
+    border-radius: 3px;
+    margin-right: 10px;
+    vertical-align: -2px;
+  }
+
+  .quiz-print-talk {
+    font-style: italic;
+    color: #333;
+  }
+
+  .quiz-print-answers {
+    page-break-before: always;
+    padding-top: 10px;
+  }
+
+  .quiz-print-answer {
+    page-break-inside: avoid;
+    margin-bottom: 12px;
+  }
+}
+
 .this-week-card {
   border: 1px solid rgba(15, 123, 108, 0.32);
   background: #f7fcfa;

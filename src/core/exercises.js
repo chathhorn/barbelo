@@ -573,6 +573,166 @@ function contractMadeTricks(row) {
 }
 
 /**
+ * "Strain Check": which strain is the fit? Verdict only when the field
+ * really played two or more strains and one clearly outscored; a
+ * one-strain field is a judgment card with labeled DD evidence.
+ */
+function buildStrainCheckCard(results, report, used) {
+  const category = (report.lossLedger.categories || []).find((entry) => entry.key === "wrongStrain");
+  if (!category || !category.comparisons.length) return null;
+  const viewsByIndex = new Map(report.rows.map((view) => [view.row.index, view]));
+  const comp = [...category.comparisons]
+    .filter((entry) => !used.has(String(entry.boardNo)) &&
+      entry.targetRow && entry.targetRow.board && entry.targetRow.board.hands)
+    .sort((a, b) => (b.loss - a.loss) || (b.scoreDelta - a.scoreDelta) || (a.boardNo - b.boardNo))[0];
+  if (!comp) return null;
+  const view = viewsByIndex.get(comp.targetRow.index);
+  if (!view || view.percent == null) return null;
+  const row = view.row;
+  const seats = view.side === "NS" ? ["N", "S"] : ["W", "E"];
+  const fit = ["S", "H", "D", "C"].map((suit) => ({
+    suit,
+    lengths: seats.map((seat) => (row.board.hands[seat].cards[suit] || "").length)
+  }));
+
+  // What the same-direction field actually did, per strain.
+  const boardRows = results.rowsByField.get(row.fieldKey) || [];
+  const byStrain = new Map();
+  boardRows.forEach((peer) => {
+    if (peer.declarerPair !== view.side || !peer.parsedContract || !peer.parsedContract.strain) return;
+    const percent = sidePercent(peer, view.side);
+    if (percent == null) return;
+    if (!byStrain.has(peer.parsedContract.strain)) byStrain.set(peer.parsedContract.strain, []);
+    byStrain.get(peer.parsedContract.strain).push(percent);
+  });
+  const played = Array.from(byStrain.entries())
+    .map(([strain, percents]) => ({ strain, count: percents.length, avg: average(percents) }))
+    .sort((a, b) => b.avg - a.avg);
+  const decisive = played.length >= 2 && (played[0].avg - played[1].avg) >= 15;
+  const id = `strain-${row.index}`;
+  const roomText = played.length
+    ? played.map((entry) => `${STRAIN_WORD[entry.strain]} tables averaged ${entry.avg.toFixed(0)}% (${plural(entry.count, "table")})`).join("; ") + "."
+    : "Only your table declared from your side that night.";
+  const splitLine = "The field's evidence is thin here - compare the two hands with partner and pick your agreement.";
+  return {
+    id,
+    type: "strain",
+    title: "Strain Check",
+    boardNo: row.boardNo,
+    maskBoard: true,
+    neutral: !decisive,
+    hands: { board: row.board, seats },
+    prompt: {
+      lead: `${vulnerabilityText(row.board.vulnerable)}. Your side held:`,
+      fit,
+      question: "Which strain would you choose?"
+    },
+    options: [
+      { key: "S", label: "Spades" },
+      { key: "H", label: "Hearts" },
+      { key: "D", label: "Diamonds" },
+      { key: "C", label: "Clubs" },
+      { key: "N", label: "Notrump" }
+    ],
+    answerKey: decisive ? played[0].strain : "",
+    reveal: {
+      room: roomText,
+      dd: view.bestMakeable.rank > 0 && view.bestMakeable.text
+        ? `Double-dummy's best spot for your side: ${view.bestMakeable.text} - with all 52 cards visible, one layout.`
+        : null,
+      yours: `You played ${rowContractText(row)} for ${formatSigned(view.pairScore)} - ${view.percent.toFixed(0)}%.`,
+      coachRight: decisive ? `With the room: the ${STRAIN_WORD[played[0].strain]} tables cashed in.` : splitLine,
+      coachWrong: decisive ? `The room's money was on ${STRAIN_WORD[played[0].strain]}. Worth finding the auction that gets there.` : splitLine
+    }
+  };
+}
+
+/**
+ * "Price the Save": break-even sacrifice arithmetic against a game the
+ * opponents' side actually made - engine-scored, so the answer is a
+ * fact. Only offered to competitive-auction-themed pairs.
+ */
+function buildPriceTheSaveCard(results, report, used) {
+  const topTypes = (report.decisionTypes || []).slice(0, 2).map((type) => type.key);
+  if (!topTypes.includes("competitiveAuction") && !topTypes.includes("penaltyDouble")) return null;
+  const candidates = report.rows
+    .map((view) => {
+      if (view.percent == null || view.percent >= 50 || used.has(String(view.row.boardNo))) return null;
+      const oppSide = view.side === "NS" ? "EW" : "NS";
+      const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
+      const madeGames = boardRows.filter((peer) =>
+        peer.declarerPair === oppSide && contractClassRank(peer.contractClass) >= 2 &&
+        contractMadeTricks(peer) === true && sideScore(peer, view.side) != null);
+      if (!madeGames.length) return null;
+      // The most common made-game score, from the pair's perspective.
+      const counts = new Map();
+      madeGames.forEach((peer) => {
+        const score = sideScore(peer, view.side);
+        counts.set(score, (counts.get(score) || 0) + 1);
+      });
+      const oppScore = Array.from(counts.entries())
+        .sort((a, b) => (b[1] - a[1]) || (b[0] - a[0]))[0][0];
+      return { view, oppScore, gameText: rowContractText(madeGames[0]) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.view.percent - b.view.percent) || (a.view.row.boardNo - b.view.row.boardNo));
+  const pick = candidates[0];
+  if (!pick) return null;
+  const view = pick.view;
+  const row = view.row;
+  const declarerSeat = view.side === "NS" ? "N" : "E";
+  const vulnerable = row.board ? row.board.vulnerable : "None";
+  // Engine-scored doubled undertricks at the pair's colors.
+  const penaltyAt = (down) => {
+    const scored = scoreDuplicateContract("5 C X", `-${down}`, declarerSeat, vulnerable, "");
+    return scored.scoreDeclarer == null ? null : scored.scoreDeclarer;
+  };
+  let breakEven = 0;
+  for (let down = 1; down <= 7; down += 1) {
+    const sac = penaltyAt(down);
+    if (sac == null) break;
+    if (sac > pick.oppScore) breakEven = down;
+    else break;
+  }
+  if (breakEven < 1 || breakEven > 6) return null;
+  const base = Math.max(1, breakEven - 1);
+  const ladder = [];
+  for (let down = 1; down <= Math.min(7, breakEven + 1); down += 1) {
+    ladder.push(`down ${down} = ${formatSigned(penaltyAt(down))}`);
+  }
+  const vulSide = isVulnerable(vulnerable, view.side);
+  const sacRows = (results.rowsByField.get(row.fieldKey) || []).filter((peer) =>
+    peer.declarerPair === view.side && peer.parsedContract && peer.parsedContract.doubled &&
+    sideScore(peer, view.side) != null);
+  const id = `save-${row.index}`;
+  return {
+    id,
+    type: "save",
+    title: "Price the Save",
+    boardNo: row.boardNo,
+    maskBoard: true,
+    hands: row.hasPbnBoard && row.board && row.board.hands
+      ? { board: row.board, seats: view.side === "NS" ? ["N", "S"] : ["W", "E"] }
+      : null,
+    prompt: {
+      lead: `Their side makes ${pick.gameText} (${formatSigned(pick.oppScore)} to you). You are ${vulSide ? "vulnerable" : "not vulnerable"}.`,
+      question: "Doubled at your colors, how many down is still cheaper than letting them make it?"
+    },
+    options: [0, 1, 2, 3].map((offset) => ({ key: String(base + offset), label: `Down ${base + offset}` })),
+    answerKey: String(breakEven),
+    reveal: {
+      room: sacRows.length
+        ? `${plural(sacRows.length, "table")} on your side played doubled that night: ${sacRows.map((peer) => formatSigned(sideScore(peer, view.side))).join(", ")}.`
+        : "Nobody saved that night.",
+      dd: null,
+      yours: `The ladder at your colors: ${ladder.join(", ")} - the save breaks even at down ${breakEven}. Your table: ${rowContractText(row) || "defended"} for ${formatSigned(view.pairScore)} - ${view.percent.toFixed(0)}%.`,
+      coachRight: coachLine("room", id, true),
+      coachWrong: `Sacrifice math is pure arithmetic - the ladder in the reveal is worth memorizing at both colors.`
+    }
+  };
+}
+
+/**
  * Builds the Table Time quiz for one pair: at most a handful of cards,
  * deterministic, honest, and finishable. Works without a PBN (all
  * phase-1 types are score-column arithmetic).
@@ -605,7 +765,10 @@ function buildPairExercises(results, report) {
   add(primary || (prefersPlay
     ? buildReadRoomCard(results, report, used)
     : buildTrickTargetCard(results, report, used)));
-  const scoringCount = Math.min(2, Math.max(1, 5 - cards.length));
+  // One themed extra at most: wrong-strain boards get Strain Check,
+  // competitive profiles get the sacrifice ladder.
+  add(buildStrainCheckCard(results, report, used) || buildPriceTheSaveCard(results, report, used));
+  const scoringCount = Math.min(2, Math.max(1, 6 - cards.length));
   cards.push(...buildScoringCards(results, report, scoringCount));
 
   // Mask labels are assigned in display order: Deal A, Deal B, ...
@@ -624,6 +787,8 @@ export {
   buildBidItAgainCard,
   buildTrickTargetCard,
   buildReadRoomCard,
+  buildStrainCheckCard,
+  buildPriceTheSaveCard,
   overtrickBandFor,
   ladderBandFor,
   coachLine,

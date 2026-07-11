@@ -182,6 +182,27 @@ test("quiz cards commit before revealing: options live, evidence hidden", async 
   assert.doesNotMatch(preReveal, /your own row/i);
 });
 
+test("the partner sheet prints questions up front and answers behind a page break", async () => {
+  const { buildPairImprovementReport } = await import("../src/core/report.js");
+  const { renderTableTime } = await import("../src/ui/quizView.js");
+  const csv = csvFrom([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["1", "3", "4", "N", "3 NT", "+1"],
+    ["1", "5", "6", "N", "3 NT", "+1"],
+    ["1", "7", "8", "N", "3 NT", "-1"]
+  ]);
+  const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
+  const report = buildPairImprovementReport(results, "1");
+  const html = renderTableTime(results, report);
+  assert.match(html, /data-quiz-print/);
+  assert.match(html, /quiz-print-sheet/);
+  assert.match(html, /quiz-print-answers/);
+  const front = html.split("quiz-print-answers")[0].split("quiz-print-sheet")[1];
+  assert.doesNotMatch(front, /Your table:/, "answers must stay on the back page");
+  assert.match(front, /print-box/, "pen-friendly checkboxes expected");
+});
+
 test("this-week card leads with the focus advice and top priorities", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
   const { renderThisWeek } = await import("../src/ui/reportView.js");

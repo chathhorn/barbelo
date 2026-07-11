@@ -8,6 +8,8 @@ import {
   buildBidItAgainCard,
   buildTrickTargetCard,
   buildReadRoomCard,
+  buildStrainCheckCard,
+  buildPriceTheSaveCard,
   overtrickBandFor,
   ladderBandFor,
 } from "../src/core/exercises.js";
@@ -259,6 +261,67 @@ test("no quiz card repeats another card's board", () => {
   const boardCards = quiz.cards.filter((card) => card.type !== "scoring");
   const boards = boardCards.map((card) => String(card.boardNo));
   assert.equal(new Set(boards).size, boards.length, `duplicate boards across cards: ${boards.join(",")}`);
+});
+
+test("strain check verdicts need a two-strain field with a clear winner", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  // Pair 1 in hearts (wrong strain) vs peers split across strains:
+  // spade tables clearly outscore.
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 H", "="],
+    ["1", "3", "4", "N", "2 S", "+2"],
+    ["1", "5", "6", "N", "2 S", "+2"],
+    ["1", "7", "8", "N", "2 H", "+1"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildStrainCheckCard(results, report, new Set());
+  assert.ok(card, "card missing");
+  assert.equal(card.neutral, false);
+  assert.equal(card.answerKey, "S");
+  assert.match(card.reveal.room, /spades tables averaged/);
+  assert.ok(card.prompt.fit.length === 4, "combined-holdings strip missing");
+  assert.match(card.reveal.dd, /one layout/);
+});
+
+test("price the save computes the engine-scored break-even ladder", () => {
+  // Board 1, nobody vul: opponents make 4S (-420 to the pair) while a
+  // peer's save went for -300. Doubled undertricks run 100/300/500:
+  // the save breaks even at down 2.
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "E", "4 S", "="],
+    ["1", "3", "4", "E", "4 S", "="],
+    ["1", "5", "6", "N", "5 H X", "-2"],
+    ["3", "1", "2", "N", "3 H X", "-1"],
+    ["3", "3", "4", "N", "2 S", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const card = buildPriceTheSaveCard(results, report, new Set());
+  assert.ok(card, "card missing (competitive theme should qualify)");
+  assert.equal(card.boardNo, 1);
+  assert.equal(card.answerKey, "2");
+  assert.match(card.reveal.yours, /breaks even at down 2/);
+  assert.match(card.reveal.room, /played doubled/);
+});
+
+test("the themed extra slot never pushes the quiz past six cards", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "2 H", "="],
+    ["1", "3", "4", "N", "2 S", "+2"],
+    ["1", "5", "6", "N", "2 S", "+2"],
+    ["1", "7", "8", "N", "2 H", "+1"],
+    ["2", "1", "2", "N", "3 NT", "="],
+    ["2", "3", "4", "N", "3 NT", "+1"],
+    ["2", "5", "6", "N", "3 NT", "+1"],
+    ["2", "7", "8", "N", "3 NT", "-1"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const quiz = buildPairExercises(results, report);
+  assert.ok(quiz.cards.length <= 6, `quiz too long: ${quiz.cards.length} cards`);
+  assert.ok(quiz.cards.some((card) => card.type === "scoring"), "scoring drill should always survive");
 });
 
 test("passed-out rows never become scoring flashcards", () => {

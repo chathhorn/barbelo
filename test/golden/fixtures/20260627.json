@@ -1620,6 +1620,11 @@
      "half"
     ],
     [
+     "strain",
+     13,
+     "N"
+    ],
+    [
      "scoring",
      3,
      "correct"
@@ -1759,6 +1764,11 @@
      "9"
     ],
     [
+     "strain",
+     24,
+     ""
+    ],
+    [
      "scoring",
      1,
      "correct"
@@ -1886,6 +1896,11 @@
      "target",
      18,
      "10"
+    ],
+    [
+     "strain",
+     4,
+     "H"
     ],
     [
      "scoring",
