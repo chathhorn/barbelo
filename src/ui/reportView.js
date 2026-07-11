@@ -9,8 +9,9 @@ import {
   plural,
   sum,
 } from "../core/format.js";
-import { buildPairImprovementReport, decisionTypeInfoForCategory, peerDisplayName } from "../core/report.js";
+import { buildPairImprovementReport, decisionTypeInfoForCategory, dominantBoardLoss, peerDisplayName } from "../core/report.js";
 import { defaultReportPair, rowContractText } from "../core/results.js";
+import { SUITS } from "../core/constants.js";
 import { assetUrl, renderBoardJump, renderBoardJumpList } from "./dom.js";
 import { STATE } from "./state.js";
 import { annotateTermTooltips, term, tooltipAttrs } from "./terms.js";
@@ -50,7 +51,7 @@ function renderPairImprovementReport(results) {
   }
 
   const summary = report.summary;
-  caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed.`;
+  caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed. ${sessionToneSentence(summary, report.reviewItems.length)}`;
   body.innerHTML = `
     <nav class="report-nav" aria-label="Report sections">
       <a href="#rs-summary">Summary</a>
@@ -59,16 +60,16 @@ function renderPairImprovementReport(results) {
       <a href="#rs-declared">Declaring</a>
       <a href="#rs-defended">Defending</a>
       <a href="#rs-themes">Loss Themes</a>
-      <a href="#rs-boards">Boards To Review</a>
+      <a href="#rs-boards">Top Boards</a>
+      <a href="#rs-more">More Boards</a>
+      <a href="#rs-field">Field</a>
     </nav>
+    ${renderThisWeek(report)}
     <div class="report-summary-grid" id="rs-summary">
       <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
-      <div class="result-summary-card"><strong>${escapeHtml(summary.averageBoardPercent == null ? "n/a" : `${summary.averageBoardPercent.toFixed(1)}%`)}</strong><span>Avg Board</span></div>
       <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
-      <div class="result-summary-card"><strong>${escapeHtml(summary.lossCategories)}</strong><span>Loss Themes</span></div>
-      <div class="result-summary-card"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></div>
-      <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
-      <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Boards where this pair's trick result was at least one full trick below the field's own double-dummy-relative norm on that board.")}>${escapeHtml(summary.trickLossBoards)}</strong><span>Tricks Vs Field</span></div>
+      <a class="result-summary-card" href="#rs-boards"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></a>
+      <a class="result-summary-card" href="#rs-themes"><strong>${escapeHtml(summary.lossCategories)}</strong><span>Loss Themes</span></a>
     </div>
     ${renderPairProfile(report)}
     ${renderBiddingScorecard(report)}
@@ -76,11 +77,60 @@ function renderPairImprovementReport(results) {
     ${renderDefendedScorecard(report)}
     ${renderLossThemes(report)}
     ${renderTopReviewPriorities(report)}
-    ${renderSwingReview(report)}
     ${renderReviewQueue(report)}
+    ${renderFieldContext(report)}
   `;
   panel.classList.remove("hidden");
   annotateTermTooltips(panel);
+}
+
+function sessionToneSentence(summary, reviewCount) {
+  if (summary.percent == null) return "";
+  const pct = summary.percent;
+  const tone = pct >= 60
+    ? "A strong session"
+    : pct >= 55
+      ? "An above-average session"
+      : pct >= 45
+        ? "A middle-of-the-field session"
+        : "A tough session";
+  const flagged = reviewCount
+    ? ` ${plural(reviewCount, "board")} flagged for review.`
+    : " No boards needed flagging.";
+  return `${tone}.${flagged}`;
+}
+
+function renderThisWeek(report) {
+  const priorities = (report.practicePriorities || []).slice(0, 3);
+  const focus = report.profile ? report.profile.focus : "";
+  if (!focus && !priorities.length) return "";
+  const list = priorities.length ? `
+    <ol class="this-week-list">
+      ${priorities.map((priority) => `
+        <li>
+          <strong>${term(priority.title)}</strong>
+          <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
+          ${priority.boards && priority.boards.length ? `<span class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 4)}</span>` : ""}
+        </li>
+      `).join("")}
+    </ol>
+  ` : "";
+  return `
+    <section class="this-week-card" aria-label="This week's focus">
+      <div class="this-week-head"><strong>This Week</strong><span>What to look at before the next session.</span></div>
+      ${renderLossAdvice(focus)}
+      ${list}
+    </section>
+  `;
+}
+
+function formatLeadHtml(leadCard) {
+  const raw = String(leadCard || "").trim();
+  if (!raw) return "";
+  const match = /^([SHDC])\s*(10|[AKQJT98765432])$/i.exec(raw);
+  if (!match) return escapeHtml(raw);
+  const suit = SUITS.find((entry) => entry.key === match[1].toUpperCase());
+  return `<span class="suit-glyph ${escapeHtml(suit.className)}">${suit.html}</span>${escapeHtml(match[2].toUpperCase())}`;
 }
 
 function renderReportSubsection(className, title, bodyHtml, summaryExtra = "", options = {}) {
@@ -136,6 +186,13 @@ function renderLossThemes(report) {
   const tieNote = ledger.tieCount
     ? ` ${plural(ledger.tieCount, "tied comparison")} counted as shared results, not losses.`
     : "";
+  // One home per board: a board lists under the theme that carried its
+  // biggest loss; other themes only count it as shared.
+  const dominantByBoard = new Map();
+  (ledger.boardItems || []).forEach((item) => {
+    const dominant = dominantBoardLoss(item);
+    if (dominant) dominantByBoard.set(String(item.boardNo), dominant.key);
+  });
   const summary = `
     <p>
       <span>${escapeHtml(formatMp(conceded))} MP conceded to same-direction tables that beat this pair, across ${escapeHtml(plural(ledger.boardCount, "board"))}.${escapeHtml(tieNote)}</span>
@@ -147,17 +204,25 @@ function renderLossThemes(report) {
           const width = conceded ? (type.totalLoss / conceded) * 100 : 0;
           const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(conceded)} MP conceded in this report (${width.toFixed(0)}%). One MP for each same-direction table that beat this pair.`;
           const categories = categoriesByType.get(type.key) || [];
+          const categoryKeys = new Set(categories.map((category) => category.key));
+          const homeBoards = type.boards.filter((boardNo) => categoryKeys.has(dominantByBoard.get(String(boardNo))));
+          const sharedCount = type.boards.length - homeBoards.length;
+          const boardsLine = homeBoards.length
+            ? `<div class="cell-note">Boards: ${renderBoardJumpList(homeBoards, 8)}${sharedCount ? `<span class="muted-note"> +${escapeHtml(plural(sharedCount, "board"))} shared with other themes</span>` : ""}</div>`
+            : sharedCount
+              ? `<div class="cell-note"><span class="muted-note">No board has this as its main story; ${escapeHtml(plural(sharedCount, "shared board"))} contributed.</span></div>`
+              : "";
           return `
             <article class="decision-type-card ${escapeHtml(type.tone || "")}">
               <div class="decision-type-head">
                 <div>
                   <strong>${term(type.label)}</strong>
-                  <span>${escapeHtml(plural(type.boardCount, "board"))} / ${escapeHtml(plural(type.comparisonCount, "comparison"))}</span>
+                  <span>${escapeHtml(plural(type.boardCount, "board"))}, vs ${escapeHtml(plural(type.comparisonCount, "other table"))}</span>
                 </div>
                 <b class="term-tip"${tooltipAttrs(basis)}>${escapeHtml(formatMp(type.totalLoss))} MP</b>
               </div>
               <div class="loss-bar" role="img" aria-label="${escapeHtml(basis)}"><span style="width:${width.toFixed(1)}%"></span></div>
-              ${type.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(type.boards, 8)}</div>` : ""}
+              ${boardsLine}
               ${renderLossAdvice(type.advice)}
               ${categories.length ? `
               <details class="theme-detail">
@@ -210,7 +275,6 @@ function renderPairProfile(report) {
           </div>
         </article>
       </div>
-      ${renderLossAdvice(profile.focus)}
   `, "", { id: "rs-profile" });
 }
 
@@ -228,23 +292,32 @@ function renderTopReviewPriorities(report) {
           const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
           const pctText = item.percent == null ? "n/a" : `${item.percent.toFixed(1)}%`;
           const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
+          const bestPeer = item.peerComparison ? item.peerComparison.rows.find((entry) => !entry.isTarget) : null;
+          const peerCount = item.peerComparison ? item.peerComparison.peerCount : 0;
+          const lead = formatLeadHtml(row.leadCard);
           return `
             <article class="priority-card">
               <div class="priority-rank">${escapeHtml(index + 1)}</div>
               <div class="priority-card-body">
                 <div class="priority-card-head">
                   <strong>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></strong>
-                  <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} / ${escapeHtml(pctText)}</span>
+                  <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} / ${escapeHtml(pctText)}${peerCount ? ` &middot; vs ${escapeHtml(peerCount)} other table${peerCount === 1 ? "" : "s"}` : ""}</span>
                 </div>
                 <div class="reason-list">
                   ${item.reasons.slice(0, 3).map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
                   ${renderConfidenceChip(item.diagnosis.confidence)}
                 </div>
                 ${renderLossAdvice(item.diagnosis.explanation)}
+                ${bestPeer ? `
+                <div class="swing-diff">
+                  <div class="swing-diff-row"><span>You</span><span class="contract">${contractGlyphHtml(rowContractText(row))}</span><b>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</b></div>
+                  <div class="swing-diff-row"><span>Best peer</span><span class="contract">${contractGlyphHtml(bestPeer.contract)}</span><b>${escapeHtml(formatSigned(bestPeer.score))}</b><i>${escapeHtml(peerDisplayName(bestPeer.pairNo, bestPeer.players))}</i></div>
+                </div>` : ""}
                 <div class="priority-mini-stats">
                   <span><b>${escapeHtml(mpText)}</b> MP</span>
-                  <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> field</span>
-                  <span><b>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</b> par</span>
+                  <span><b>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</b> vs field avg</span>
+                  <span><b>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</b> vs par</span>
+                  ${lead ? `<span><b>${lead}</b> lead</span>` : ""}
                 </div>
               </div>
             </article>
@@ -461,47 +534,47 @@ function formatSignedMp(value) {
   return value > 0 ? `+${formatMp(value)}` : formatMp(value);
 }
 
-function renderSwingReview(report) {
-  const items = report.reviewItems
-    .filter((item) => item.peerComparison && item.peerComparison.rows.length > 1)
-    .slice(0, 5);
-  if (!items.length) return "";
-  return renderReportSubsection("swing-review", "Board Swing Explanation", `
-      <div class="swing-card-list">
-        ${items.map((item, index) => renderSwingCard(item, index)).join("")}
-      </div>
-  `, "", { open: false });
-}
-
-function renderSwingCard(item, index) {
-  const row = item.row;
-  const contractText = `${row.declarerSide || ""} ${row.contract || ""}${row.result || ""}`.trim() || "No contract";
-  const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
-  const bestPeer = item.peerComparison ? item.peerComparison.rows.find((entry) => !entry.isTarget) : null;
-  const peerCount = item.peerComparison ? item.peerComparison.peerCount : 0;
-  return `
-    <article class="swing-card">
-      <div class="swing-card-head">
+function renderFieldContext(report) {
+  const context = report.fieldContext;
+  if (!context || (!context.rivals.length && !context.opponents.length)) return "";
+  const rivalRows = context.rivals.map((rival) => `
+    <tr>
+      <td>${escapeHtml(peerDisplayName(rival.pairNo, rival.players))}</td>
+      <td class="numeric">${escapeHtml(rival.wins)}-${escapeHtml(rival.losses)}-${escapeHtml(rival.ties)}</td>
+      <td class="numeric">${escapeHtml(formatSignedMp(rival.netMp))}</td>
+      <td>${rival.costliest.length ? rival.costliest.map((entry) => renderBoardJump(entry.boardNo)).join(", ") : "-"}</td>
+    </tr>
+  `).join("");
+  const opponentRows = context.opponents.map((opponent) => `
+    <tr>
+      <td>${escapeHtml(peerDisplayName(opponent.pairNo, opponent.players))}</td>
+      <td class="numeric">${escapeHtml(opponent.boardCount)}</td>
+      <td class="numeric">${escapeHtml(formatResultPercent(opponent.averagePercent))}</td>
+      <td class="numeric">${escapeHtml(opponent.delta == null ? "n/a" : `${formatSigned(Math.round(opponent.delta))} pts`)}</td>
+    </tr>
+  `).join("");
+  return renderReportSubsection("field-context", "Field Context", `
+      <div class="field-context-grid">
         <div>
-          <h4>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></h4>
-          <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} ${escapeHtml(item.side)} / ${escapeHtml(formatResultPercent(item.percent))}${peerCount ? ` &middot; vs ${escapeHtml(peerCount)} peer${peerCount === 1 ? "" : "s"}` : ""}</span>
+          <h4 class="term-tip"${tooltipAttrs("At matchpoints, scores are compared with every pair sitting the same direction - these are the pairs matchpoints are actually won from. Wins-losses-ties count board-by-board score comparisons; net MP is the swing against an even split.")}>Same-Direction Rivals</h4>
+          <div class="scorecard-table">
+            <table>
+              <thead><tr><th scope="col">Rival</th><th scope="col" class="numeric">W-L-T</th><th scope="col" class="numeric">Net MP</th><th scope="col">Costliest Boards</th></tr></thead>
+              <tbody>${rivalRows}</tbody>
+            </table>
+          </div>
         </div>
-        ${renderConfidenceChip(item.diagnosis.confidence)}
+        <div>
+          <h4>Opponents At Your Table</h4>
+          <div class="scorecard-table">
+            <table>
+              <thead><tr><th scope="col">Opponents</th><th scope="col" class="numeric">Boards</th><th scope="col" class="numeric">Avg Board</th><th scope="col" class="numeric">Vs Session Avg</th></tr></thead>
+              <tbody>${opponentRows}</tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div class="swing-facts">
-        <div class="review-stat"><span>Selected Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
-        <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
-        <div class="review-stat"><span>Diagnosis</span><strong>${escapeHtml(item.diagnosis.categoryLabel)}</strong></div>
-        <div class="review-stat"><span>Lost MP</span><strong>${escapeHtml(formatMp(item.mpLoss))}</strong></div>
-      </div>
-      ${bestPeer ? `
-      <div class="swing-diff">
-        <div class="swing-diff-row"><span>You</span><span class="contract">${contractGlyphHtml(rowContractText(row))}</span><b>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</b></div>
-        <div class="swing-diff-row"><span>Best peer</span><span class="contract">${contractGlyphHtml(bestPeer.contract)}</span><b>${escapeHtml(formatSigned(bestPeer.score))}</b><i>${escapeHtml(peerDisplayName(bestPeer.pairNo, bestPeer.players))}</i></div>
-      </div>` : ""}
-      ${renderLossAdvice(item.diagnosis.explanation)}
-    </article>
-  `;
+  `, "", { id: "rs-field", open: false });
 }
 
 const COLLIE_VARIANTS = 20;
@@ -548,13 +621,14 @@ function renderReviewQueue(report) {
   if (!items.length) {
     return renderReportSubsection("priority-review", "Other Notable Boards", `
       <div class="empty-state">No additional notable boards found for this pair.</div>
-    `, "", { open: false });
+    `, "", { open: false, id: "rs-more" });
   }
+  const countNote = `<p><span>${escapeHtml(plural(items.length, "more flagged board"))}</span></p>`;
   return renderReportSubsection("priority-review", "Other Notable Boards", `
       <div class="review-list">
         ${items.map(renderReviewItem).join("")}
       </div>
-  `, "", { open: false });
+  `, countNote, { open: false, id: "rs-more" });
 }
 
 function renderReviewItem(item) {
@@ -576,12 +650,13 @@ function renderReviewItem(item) {
         ${reasons.map((reason) => `<span class="reason-chip ${escapeHtml(reason.tone)}">${escapeHtml(reason.label)}</span>`).join("")}
       </div>
       <div class="review-stats">
-        <div class="review-stat"><span>Pair Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
+        <div class="review-stat"><span>Your Score</span><strong>${escapeHtml(item.pairScore == null ? "n/a" : formatSigned(item.pairScore))}</strong></div>
         <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
         <div class="review-stat"><span>Vs Field Avg</span><strong>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</strong></div>
         <div class="review-stat"><span>Vs Par</span><strong>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</strong></div>
         <div class="review-stat"><span>Tricks Vs Field</span><strong>${escapeHtml(ddText)}</strong></div>
         <div class="review-stat"><span>Makeable</span><strong class="contract">${contractGlyphHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
+        ${row.leadCard ? `<div class="review-stat"><span>Lead</span><strong>${formatLeadHtml(row.leadCard)}</strong></div>` : ""}
       </div>
       ${row.declarerName ? `<div class="cell-note">Declarer: ${escapeHtml(row.declarerName)}</div>` : ""}
     </article>
@@ -593,6 +668,9 @@ export {
   renderPairImprovementReport,
   renderReportSubsection,
   renderPracticeCards,
+  renderThisWeek,
+  sessionToneSentence,
+  formatLeadHtml,
   renderLossThemes,
   renderProfileMetric,
   renderPairProfile,
@@ -600,12 +678,11 @@ export {
   renderDeclaredScorecard,
   renderDefendedScorecard,
   renderOvertrickMeter,
+  renderFieldContext,
   renderTopReviewPriorities,
   renderConfidenceChip,
   formatResultPercent,
   formatSignedMp,
-  renderSwingReview,
-  renderSwingCard,
   renderLossAdvice,
   renderLossPeerSummary,
   renderLossExample,

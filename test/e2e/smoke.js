@@ -77,20 +77,28 @@ function check(condition, label) {
   await page.waitForTimeout(600);
   const overviewOk = await page.evaluate(() => document.getElementById("metricGrid").children.length > 0);
   check(overviewOk, "overview metrics render with PBN loaded");
-  const swingCheck = await page.evaluate(() => {
-    const card = document.querySelector(".swing-card");
-    if (!card) return { ok: false, why: "no swing card" };
-    const stats = Array.from(card.querySelectorAll(".review-stat"));
-    const mpStat = stats.find((stat) => stat.querySelector("span").textContent === "Matchpoints");
-    const lostStat = stats.find((stat) => stat.querySelector("span").textContent === "Lost MP");
-    if (!mpStat || !lostStat) return { ok: false, why: "missing stats" };
-    const mpMatch = mpStat.querySelector("strong").textContent.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-    if (!mpMatch) return { ok: false, why: `unparseable mp: ${mpStat.textContent}` };
-    const lost = Number(lostStat.querySelector("strong").textContent);
-    const expected = Number(mpMatch[2]) - Number(mpMatch[1]);
-    return { ok: Math.abs(lost - expected) < 0.06, why: `lost=${lost} expected=${expected}` };
+  const priorityCheck = await page.evaluate(() => {
+    const card = document.querySelector(".priority-card");
+    if (!card) return { ok: false, why: "no priority card" };
+    const diffRows = card.querySelectorAll(".swing-diff-row");
+    const hasDiff = diffRows.length === 2;
+    const youScore = hasDiff ? diffRows[0].querySelector("b").textContent : "";
+    const stats = card.querySelector(".priority-mini-stats");
+    const mpMatch = stats && stats.textContent.match(/([\d.]+)\s*\/\s*([\d.]+)/);
+    return {
+      ok: hasDiff && /^[+-]?\d+$/.test(youScore) && Boolean(mpMatch) && Number(mpMatch[1]) <= Number(mpMatch[2]),
+      why: `diffRows=${diffRows.length} you=${youScore}`
+    };
   });
-  check(swingCheck.ok, `swing card Lost MP equals top minus matchpoints (${swingCheck.why || "ok"})`);
+  check(priorityCheck.ok, `priority card carries inline peer diff and sane MP (${priorityCheck.why || "ok"})`);
+  const newSections = await page.evaluate(() =>
+    ["rs-bidding", "rs-declared", "rs-defended", "rs-field", "rs-more"].filter((id) => !document.getElementById(id)));
+  check(newSections.length === 0, `all report sections present (missing: ${newSections.join(",") || "none"})`);
+  const thisWeekOk = await page.evaluate(() => {
+    const card = document.querySelector(".this-week-card");
+    return Boolean(card && card.querySelector(".loss-advice"));
+  });
+  check(thisWeekOk, "this-week card leads the report");
 
   // 4. All views
   for (const view of ["overview", "improve", "boards", "results", "export", "diagnostics"]) {

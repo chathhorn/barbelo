@@ -373,6 +373,8 @@
  *   the room on defended boards.
  * @property {Object<string, *>} overtrickMeter Matchpoint price of one
  *   trick more or fewer on made contracts.
+ * @property {Object<string, *>} fieldContext Head-to-head records vs
+ *   same-direction rivals and per-opponent board summaries.
  * @property {Object<string, *>} summary Report-level totals (boards,
  *   percent, mpVsAverage, mpConceded, lowBoards, declaredBoards, ...).
  */

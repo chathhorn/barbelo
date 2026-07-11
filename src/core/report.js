@@ -419,7 +419,10 @@ function diagnosisConfidence(item, boardItem, dominant) {
 
 function peerDisplayName(pairNo, players) {
   const pair = pairNo == null || pairNo === "" ? "Peer" : `Pair ${pairNo}`;
-  return players ? `${pair} - ${players}` : pair;
+  // Placeholder identities ("Table 9 South") read like real names in
+  // coaching prose; suppress them.
+  if (!players || /^table\s+\d+/i.test(players)) return pair;
+  return `${pair} - ${players}`;
 }
 
 function buildSwingDiagnosis(item, boardItem) {
@@ -845,8 +848,8 @@ function buildPracticePriorities(lossLedger, decisionTypes, views) {
   decisionTypes.slice(0, 5).forEach((type) => {
     priorities.push({
       title: type.label,
-      metric: `${formatMp(type.totalLoss)} lost MP`,
-      detail: `${plural(type.boardCount, "board")} / ${plural(type.comparisonCount, "comparison")}`,
+      metric: `${formatMp(type.totalLoss)} MP conceded`,
+      detail: `${plural(type.boardCount, "board")}, vs ${plural(type.comparisonCount, "other table")}`,
       advice: type.advice,
       boards: type.examples.slice(0, 4).map((example) => example.boardNo)
     });
@@ -889,6 +892,92 @@ function buildPracticePriorities(lossLedger, decisionTypes, views) {
   }
 
   return priorities.slice(0, 5);
+}
+
+/**
+ * Field context: head-to-head records against every same-direction
+ * rival (the pairs matchpoints are actually won from), and a summary of
+ * the pair's boards against each opposing pair at the table.
+ */
+function buildFieldContext(results, views) {
+  const rivals = new Map();
+  const opponents = new Map();
+  let percentSum = 0;
+  let percentCount = 0;
+
+  views.forEach((view) => {
+    if (view.percent != null) {
+      percentSum += view.percent;
+      percentCount += 1;
+    }
+    const boardRows = results.rowsByField.get(view.row.fieldKey) || [];
+    if (view.pairScore != null) {
+      boardRows.forEach((peerRow) => {
+        if (peerRow === view.row) return;
+        const rivalKey = String(sideParticipantKey(peerRow, view.side));
+        if (rivalKey === String(view.participantKey)) return;
+        const peerScore = sideScore(peerRow, view.side);
+        if (peerScore == null) return;
+        if (!rivals.has(rivalKey)) {
+          rivals.set(rivalKey, {
+            key: rivalKey,
+            pairNo: sideParticipantNo(peerRow, view.side),
+            players: sideParticipantPlayers(peerRow, view.side),
+            wins: 0,
+            losses: 0,
+            ties: 0,
+            netMp: 0,
+            costliest: []
+          });
+        }
+        const rival = rivals.get(rivalKey);
+        // Each pairwise comparison is worth 1 MP; 0.5 is the expected
+        // share, so net swings +-0.5 per board.
+        if (view.pairScore > peerScore) {
+          rival.wins += 1;
+          rival.netMp += 0.5;
+        } else if (view.pairScore < peerScore) {
+          rival.losses += 1;
+          rival.netMp -= 0.5;
+          rival.costliest.push({ boardNo: view.row.boardNo, delta: peerScore - view.pairScore });
+        } else {
+          rival.ties += 1;
+        }
+      });
+    }
+    const oppKey = view.side === "NS" ? String(view.row.ewParticipantKey) : String(view.row.nsParticipantKey);
+    const oppNo = view.side === "NS" ? view.row.ewParticipantNo : view.row.nsParticipantNo;
+    const oppPlayers = view.side === "NS" ? view.row.ewParticipantPlayers : view.row.nsParticipantPlayers;
+    if (!opponents.has(oppKey)) {
+      opponents.set(oppKey, { key: oppKey, pairNo: oppNo, players: oppPlayers, boards: [], percents: [] });
+    }
+    const opponent = opponents.get(oppKey);
+    opponent.boards.push(view.row.boardNo);
+    if (view.percent != null) opponent.percents.push(view.percent);
+  });
+
+  const sessionAveragePercent = percentCount ? percentSum / percentCount : null;
+  return {
+    sessionAveragePercent,
+    rivals: Array.from(rivals.values())
+      .map((rival) => ({
+        ...rival,
+        games: rival.wins + rival.losses + rival.ties,
+        costliest: rival.costliest.sort((a, b) => b.delta - a.delta).slice(0, 2)
+      }))
+      .sort((a, b) => a.netMp - b.netMp || numericPairSort(a.pairNo, b.pairNo)),
+    opponents: Array.from(opponents.values())
+      .map((opponent) => {
+        const averagePercent = opponent.percents.length ? average(opponent.percents) : null;
+        return {
+          ...opponent,
+          boardCount: opponent.boards.length,
+          averagePercent,
+          delta: averagePercent != null && sessionAveragePercent != null ? averagePercent - sessionAveragePercent : null
+        };
+      })
+      .sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0) || numericPairSort(a.pairNo, b.pairNo))
+  };
 }
 
 function reviewPriorityAdvice(item) {
@@ -982,6 +1071,7 @@ function buildPairImprovementReport(results, participantKey) {
     declaredScorecard: buildDeclaredScorecard(results, views),
     defendedScorecard: buildDefendedScorecard(results, views),
     overtrickMeter: buildOvertrickMeter(results, views),
+    fieldContext: buildFieldContext(results, views),
     summary: {
       boards: views.length,
       players: standing ? standing.players : views[0].players,
@@ -1028,6 +1118,7 @@ export {
   weakestStat,
   buildPairProfile,
   buildPracticePriorities,
+  buildFieldContext,
   reviewPriorityAdvice,
   buildPairImprovementReport,
 };

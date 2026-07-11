@@ -2293,6 +2293,83 @@ details.board-details summary {
   margin: 4px 0 8px;
 }
 
+.this-week-card {
+  border: 1px solid rgba(15, 123, 108, 0.32);
+  background: #f7fcfa;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.this-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-bottom: 4px;
+}
+
+.this-week-head strong {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+.this-week-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.this-week-list {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.this-week-list li {
+  margin: 7px 0;
+}
+
+.this-week-list li > span {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.this-week-list .cell-note {
+  display: block;
+  margin-top: 2px;
+}
+
+a.result-summary-card {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 140ms ease;
+}
+
+a.result-summary-card:hover,
+a.result-summary-card:focus-visible {
+  border-color: var(--green);
+}
+
+.field-context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.field-context-grid h4 {
+  margin: 0 0 8px;
+}
+
+.field-context-grid .scorecard-table table {
+  min-width: 420px;
+}
+
+.muted-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .review-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));

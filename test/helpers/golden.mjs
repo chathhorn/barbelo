@@ -74,7 +74,12 @@ function snapshotSession(session) {
         round4(report.defendedScorecard.netTricks),
         report.defendedScorecard.flaggedCount
       ],
-      overtricks: [report.overtrickMeter.boards.length, round4(report.overtrickMeter.pushWorth)]
+      overtricks: [report.overtrickMeter.boards.length, round4(report.overtrickMeter.pushWorth)],
+      field: [
+        report.fieldContext.rivals.length,
+        report.fieldContext.rivals[0] ? report.fieldContext.rivals[0].key : null,
+        round4(report.fieldContext.rivals[0] ? report.fieldContext.rivals[0].netMp : null)
+      ]
     };
   });
 

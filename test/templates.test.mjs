@@ -139,9 +139,9 @@ test("report subsections honor open and id options", () => {
   assert.match(closed, /<details class="report-subsection x" id="rs-x">/);
 });
 
-test("swing cards keep the contract inline in the title and have no redundant open link", async () => {
+test("priority cards fold in the swing detail: peer diff, table count, no redundant link", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
-  const { renderSwingReview } = await import("../src/ui/reportView.js");
+  const { renderTopReviewPriorities } = await import("../src/ui/reportView.js");
   const swingCsv = csvFrom([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
     ["1", "1", "2", "N", "3 NT", "-2"],
@@ -150,11 +150,62 @@ test("swing cards keep the contract inline in the title and have no redundant op
   ]);
   const swingResults = buildResultsAnalysis(parseResultsCsv(swingCsv, "t.csv", swingCsv.length), null);
   const report = buildPairImprovementReport(swingResults, "1");
-  const html = renderSwingReview(report);
-  assert.match(html, /<h4><button [^>]*data-board-jump="1"[^>]*>Board 1<\/button> - <span class="contract">/);
-  assert.match(html, /vs 2 peers/);
+  const html = renderTopReviewPriorities(report);
+  assert.match(html, /<strong><button [^>]*data-board-jump="1"[^>]*>Board 1<\/button> - <span class="contract">/);
+  assert.match(html, /vs 2 other tables/);
+  assert.match(html, /swing-diff/, "peer diff should be inline on the priority card");
+  assert.match(html, /Best peer/);
   assert.doesNotMatch(html, /Open board/);
-  assert.doesNotMatch(html, /swing-actions/);
+});
+
+test("this-week card leads with the focus advice and top priorities", async () => {
+  const { buildPairImprovementReport } = await import("../src/core/report.js");
+  const { renderThisWeek } = await import("../src/ui/reportView.js");
+  const csv = csvFrom([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="]
+  ]);
+  const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
+  const report = buildPairImprovementReport(results, "1");
+  const html = renderThisWeek(report);
+  assert.match(html, /This Week/);
+  assert.match(html, /loss-advice/, "focus advice renders in the this-week card");
+  assert.match(html, /this-week-list/);
+});
+
+test("opening leads format with suit glyphs and survive odd input", async () => {
+  const { formatLeadHtml } = await import("../src/ui/reportView.js");
+  assert.match(formatLeadHtml("SQ"), /suit-glyph spade/);
+  assert.match(formatLeadHtml("SQ"), /Q$/);
+  assert.match(formatLeadHtml("h10"), /suit-glyph heart/);
+  assert.equal(formatLeadHtml(""), "");
+  assert.equal(formatLeadHtml("??"), "??");
+});
+
+test("each board lists under one theme only, with a shared note elsewhere", async () => {
+  const { buildPairImprovementReport } = await import("../src/core/report.js");
+  const { renderLossThemes } = await import("../src/ui/reportView.js");
+  // Board 1 loses once to a missed game (delta 450) and once to a
+  // same-contract overtrick (delta 30): bidding judgment is the home.
+  const csv = csvFrom([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 S", "+1"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "3 S", "+2"]
+  ]);
+  const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
+  const report = buildPairImprovementReport(results, "1");
+  const html = renderLossThemes(report);
+  // Compare only the scan-level "Boards:" lines (cell-note before the
+  // collapsed evidence details), which is where duplication hurt.
+  const biddingCard = /Bidding Judgment[\s\S]*?<\/article>/.exec(html);
+  const declarerCard = /Declarer Play[\s\S]*?<\/article>/.exec(html);
+  assert.ok(biddingCard && declarerCard, "expected both theme cards");
+  const scanPart = (card) => card.split("<details")[0];
+  assert.match(scanPart(biddingCard[0]), /data-board-jump="1"/, "home theme lists the board");
+  assert.doesNotMatch(scanPart(declarerCard[0]), /data-board-jump="1"/, "secondary theme must not list the board in its Boards line");
+  assert.match(scanPart(declarerCard[0]), /shared/);
 });
 
 test("the coach avatar varies deterministically across advice texts", async () => {

@@ -367,6 +367,33 @@ test("profile weakness and focus sentence name the same biggest problem", () => 
   assert.ok(report.profile.focus.toLowerCase().includes(report.decisionTypes[0].label.toLowerCase()));
 });
 
+test("field context tracks rival head-to-heads and table opponents", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "+1"],
+    ["1", "3", "4", "N", "3 NT", "="],
+    ["2", "1", "2", "N", "2 S", "="],
+    ["2", "3", "4", "N", "2 S", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const rival = report.fieldContext.rivals.find((entry) => String(entry.pairNo) === "3");
+  assert.ok(rival, "same-direction rival missing");
+  assert.equal(rival.wins, 1);
+  assert.equal(rival.losses, 0);
+  assert.equal(rival.ties, 1);
+  assert.equal(rival.netMp, 0.5);
+  const opponent = report.fieldContext.opponents.find((entry) => String(entry.pairNo) === "2");
+  assert.ok(opponent, "table opponent missing");
+  assert.equal(opponent.boardCount, 2);
+});
+
+test("placeholder player identities never read as names in coaching prose", async () => {
+  const { peerDisplayName } = await import("../src/core/report.js");
+  assert.equal(peerDisplayName("4", "Table 9 South"), "Pair 4");
+  assert.equal(peerDisplayName("4", "Ann West / Bo East"), "Pair 4 - Ann West / Bo East");
+  assert.equal(peerDisplayName("4", ""), "Pair 4");
+});
+
 test("director-adjusted boards never appear in the review queue", () => {
   const results = analyzeCsv([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],
