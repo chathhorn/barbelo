@@ -42,7 +42,8 @@ typedefs in `src/core/types.js` and type-checked in CI
 | `src/core/boards.js` | Hand evaluation, PBN board normalization, double-dummy access, dealer/vul cycles. |
 | `src/core/compatibility.js` | Plausibility checks that a results file belongs to the loaded PBN. |
 | `src/core/results.js` | Result-row normalization and scoring, rosters, matchpointing, standings, session summary. |
-| `src/core/report.js` | Pair Improvement Report engine: per-pair views, loss ledger, diagnoses, priorities. |
+| `src/core/report.js` | Pair Improvement Report engine: per-pair views, loss ledger, diagnoses, priorities, field context. |
+| `src/core/cohorts.js` | Same-contract cohort analyses: bidding scorecard, declared/defended scorecards, overtrick meter. |
 | `src/core/types.js` | JSDoc typedefs only; no runtime code. |
 | `src/parsers/pbn.js` | PBN text to directives and per-board tag records; deal/par/double-dummy tag parsing. |
 | `src/parsers/bws.js` | Bridgemate `.BWS` (Jet3 database) binary scan to raw result and player rows. |
