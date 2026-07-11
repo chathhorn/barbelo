@@ -160,7 +160,8 @@ test("priority cards fold in the swing detail: peer diff, table count, no redund
 
 test("quiz cards commit before revealing: options live, evidence hidden", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
-  const { renderTableTime } = await import("../src/ui/quizView.js");
+  const { buildPairExercises } = await import("../src/core/exercises.js");
+  const { prepareQuiz, renderQuizLaunch, renderQuizCard } = await import("../src/ui/quizView.js");
   const csv = csvFrom([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
     ["1", "1", "2", "N", "3 NT", "="],
@@ -170,13 +171,16 @@ test("quiz cards commit before revealing: options live, evidence hidden", async 
   ]);
   const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
   const report = buildPairImprovementReport(results, "1");
-  const html = renderTableTime(results, report);
-  assert.match(html, /id="rs-quiz"/);
+  const count = prepareQuiz(results, report);
+  assert.ok(count >= 3, `expected a quiz, got ${count} cards`);
+  const launch = renderQuizLaunch();
+  assert.match(launch, /data-quiz-open/, "launch button missing");
+  assert.match(launch, new RegExp(`${count} quick questions`), "launch note should say how many questions");
+  const html = renderQuizCard(buildPairExercises(results, report).cards[0]);
   assert.match(html, /data-quiz-card=/);
   assert.match(html, /data-quiz-answer=/);
   assert.match(html, /<div class="quiz-reveal hidden"/, "reveal must start hidden");
   assert.match(html, /button type="button" class="quiz-option"/);
-  assert.match(html, /biscuit-jar/);
   // The pair's own result never appears before the reveal block.
   const preReveal = html.split("quiz-reveal")[0];
   assert.doesNotMatch(preReveal, /your own row/i);
@@ -184,7 +188,8 @@ test("quiz cards commit before revealing: options live, evidence hidden", async 
 
 test("the partner sheet prints questions up front and answers behind a page break", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
-  const { renderTableTime } = await import("../src/ui/quizView.js");
+  const { buildPairExercises } = await import("../src/core/exercises.js");
+  const { renderQuizPrintSheet } = await import("../src/ui/quizView.js");
   const csv = csvFrom([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
     ["1", "1", "2", "N", "3 NT", "="],
@@ -194,8 +199,7 @@ test("the partner sheet prints questions up front and answers behind a page brea
   ]);
   const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
   const report = buildPairImprovementReport(results, "1");
-  const html = renderTableTime(results, report);
-  assert.match(html, /data-quiz-print/);
+  const html = renderQuizPrintSheet(buildPairExercises(results, report).cards, report);
   assert.match(html, /quiz-print-sheet/);
   assert.match(html, /quiz-print-answers/);
   const front = html.split("quiz-print-answers")[0].split("quiz-print-sheet")[1];

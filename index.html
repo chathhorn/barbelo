@@ -326,6 +326,28 @@
     </div>
   </div>
 
+  <div class="quiz-overlay hidden" id="quizOverlay" role="dialog" aria-modal="true" aria-labelledby="quizOverlayTitle">
+    <div class="quiz-overlay-backdrop" data-quiz-overlay-close></div>
+    <div class="quiz-overlay-panel">
+      <header class="quiz-overlay-header">
+        <h2 id="quizOverlayTitle">Table Time</h2>
+        <div class="quiz-overlay-progress">
+          <div class="biscuit-jar" id="quizOverlayJar"></div>
+          <span class="quiz-progress-label" id="quizOverlayCount" aria-live="polite"></span>
+        </div>
+        <div class="board-overlay-actions">
+          <button type="button" class="ghost" data-quiz-print>Print partner sheet</button>
+          <button type="button" id="quizOverlayClose">Close</button>
+        </div>
+      </header>
+      <div class="quiz-overlay-stage">
+        <button type="button" class="quiz-nav-arrow" id="quizPrevButton" data-quiz-nav="-1" aria-label="Previous question">&lsaquo;</button>
+        <div class="quiz-overlay-body" id="quizOverlayBody"></div>
+        <button type="button" class="quiz-nav-arrow" id="quizNextButton" data-quiz-nav="1" aria-label="Next question">&rsaquo;</button>
+      </div>
+    </div>
+  </div>
+
   <div id="quizPrintMount" aria-hidden="true"></div>
   <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
   <div class="tooltip-popup hidden" id="termTooltip" role="tooltip"></div>

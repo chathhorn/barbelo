@@ -100,17 +100,31 @@ function check(condition, label) {
   });
   check(thisWeekOk, "this-week card leads the report");
   const quizCheck = await page.evaluate(() => {
-    const card = document.querySelector("[data-quiz-card]");
-    if (!card) return { ok: false, why: "no quiz card" };
-    const button = card.querySelector("[data-quiz-option]");
-    button.click();
-    const revealed = !card.querySelector(".quiz-reveal").classList.contains("hidden");
-    const earned = document.querySelectorAll(".table-time .biscuit.earned").length;
-    const locked = card.querySelectorAll("[data-quiz-option]:disabled").length > 0;
-    const verdict = card.querySelector("[data-quiz-verdict]").textContent.trim().length > 0;
-    return { ok: revealed && earned === 1 && locked && verdict, why: `revealed=${revealed} earned=${earned} locked=${locked} verdict=${verdict}` };
+    const launch = document.querySelector("[data-quiz-open]");
+    if (!launch) return { ok: false, why: "no launch button in This Week" };
+    launch.click();
+    const overlay = document.getElementById("quizOverlay");
+    if (overlay.classList.contains("hidden")) return { ok: false, why: "overlay did not open" };
+    const card = overlay.querySelector("[data-quiz-card]");
+    if (!card) return { ok: false, why: "no card in overlay" };
+    card.querySelector("[data-quiz-option]").click();
+    const revealed = !overlay.querySelector(".quiz-reveal").classList.contains("hidden");
+    const earned = overlay.querySelectorAll(".biscuit.earned").length;
+    const label1 = document.getElementById("quizOverlayCount").textContent;
+    document.getElementById("quizNextButton").click();
+    const label2 = document.getElementById("quizOverlayCount").textContent;
+    const freshCard = overlay.querySelector("[data-quiz-card]");
+    const secondUnanswered = freshCard && !freshCard.classList.contains("answered");
+    document.getElementById("quizPrevButton").click();
+    const backAnswered = overlay.querySelector("[data-quiz-card]").classList.contains("answered");
+    document.getElementById("quizOverlayClose").click();
+    const closed = overlay.classList.contains("hidden");
+    return {
+      ok: revealed && earned === 1 && label1 !== label2 && secondUnanswered && backAnswered && closed,
+      why: `revealed=${revealed} earned=${earned} nav=${label1}->${label2} second=${secondUnanswered} back=${backAnswered} closed=${closed}`
+    };
   });
-  check(quizCheck.ok, `quiz card reveals on answer and fills a biscuit (${quizCheck.why})`);
+  check(quizCheck.ok, `quiz overlay: answer, navigate, persist, close (${quizCheck.why})`);
 
   // 4. All views
   for (const view of ["overview", "improve", "boards", "results", "export", "diagnostics"]) {

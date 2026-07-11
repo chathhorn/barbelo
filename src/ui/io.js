@@ -22,7 +22,7 @@ import {
 import { applyActiveView, renderTaskNav } from "./dashboard.js";
 import { showToast } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
-import { handleQuizClick } from "./quizView.js";
+import { handleQuizClick, handleQuizKeydown } from "./quizView.js";
 import { STATE } from "./state.js";
 
 function decodeTextBuffer(buffer) {
@@ -143,6 +143,7 @@ function setupEvents() {
     if (boardNo) revealBoardInExplorer(boardNo);
   });
   document.addEventListener("keydown", (event) => {
+    if (handleQuizKeydown(event)) return;
     if (event.key === "Escape") closeBoardOverlay();
     if ((event.key === "Enter" || event.key === " ") && event.target instanceof Element) {
       const jump = event.target.closest("[data-board-jump], [data-board-select]");
@@ -195,6 +196,15 @@ function setupEvents() {
     renderPairImprovementReport(STATE.results);
   });
   document.getElementById("pairReportBody").addEventListener("click", handleQuizClick);
+  document.getElementById("quizOverlay").addEventListener("click", (event) => {
+    if (handleQuizClick(event)) return;
+    // Board jumps inside the quiz reveal open the board preview on top.
+    const jump = event.target.closest("[data-board-jump]");
+    if (jump) {
+      event.preventDefault();
+      showBoardOverlay(jump.getAttribute("data-board-jump"));
+    }
+  });
   document.getElementById("dashboard").addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-board-jump]");
     if (!trigger) return;
