@@ -99,6 +99,18 @@ function check(condition, label) {
     return Boolean(card && card.querySelector(".loss-advice"));
   });
   check(thisWeekOk, "this-week card leads the report");
+  const quizCheck = await page.evaluate(() => {
+    const card = document.querySelector("[data-quiz-card]");
+    if (!card) return { ok: false, why: "no quiz card" };
+    const button = card.querySelector("[data-quiz-option]");
+    button.click();
+    const revealed = !card.querySelector(".quiz-reveal").classList.contains("hidden");
+    const earned = document.querySelectorAll(".table-time .biscuit.earned").length;
+    const locked = card.querySelectorAll("[data-quiz-option]:disabled").length > 0;
+    const verdict = card.querySelector("[data-quiz-verdict]").textContent.trim().length > 0;
+    return { ok: revealed && earned === 1 && locked && verdict, why: `revealed=${revealed} earned=${earned} locked=${locked} verdict=${verdict}` };
+  });
+  check(quizCheck.ok, `quiz card reveals on answer and fills a biscuit (${quizCheck.why})`);
 
   // 4. All views
   for (const view of ["overview", "improve", "boards", "results", "export", "diagnostics"]) {

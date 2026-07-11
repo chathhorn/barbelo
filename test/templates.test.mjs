@@ -158,6 +158,30 @@ test("priority cards fold in the swing detail: peer diff, table count, no redund
   assert.doesNotMatch(html, /Open board/);
 });
 
+test("quiz cards commit before revealing: options live, evidence hidden", async () => {
+  const { buildPairImprovementReport } = await import("../src/core/report.js");
+  const { renderTableTime } = await import("../src/ui/quizView.js");
+  const csv = csvFrom([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["1", "3", "4", "N", "3 NT", "+1"],
+    ["1", "5", "6", "N", "3 NT", "+1"],
+    ["1", "7", "8", "N", "3 NT", "-1"]
+  ]);
+  const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
+  const report = buildPairImprovementReport(results, "1");
+  const html = renderTableTime(results, report);
+  assert.match(html, /id="rs-quiz"/);
+  assert.match(html, /data-quiz-card=/);
+  assert.match(html, /data-quiz-answer=/);
+  assert.match(html, /<div class="quiz-reveal hidden"/, "reveal must start hidden");
+  assert.match(html, /button type="button" class="quiz-option"/);
+  assert.match(html, /biscuit-jar/);
+  // The pair's own result never appears before the reveal block.
+  const preReveal = html.split("quiz-reveal")[0];
+  assert.doesNotMatch(preReveal, /your own row/i);
+});
+
 test("this-week card leads with the focus advice and top priorities", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
   const { renderThisWeek } = await import("../src/ui/reportView.js");

@@ -6,6 +6,7 @@ import { parseBwsBuffer } from "../../src/parsers/bws.js";
 import { buildAnalysis } from "../../src/core/boards.js";
 import { buildResultsAnalysis } from "../../src/core/results.js";
 import { buildPairImprovementReport } from "../../src/core/report.js";
+import { buildPairExercises } from "../../src/core/exercises.js";
 import { samplePath, hasSample, readSample } from "./load-app.js";
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "golden", "fixtures");
@@ -79,7 +80,8 @@ function snapshotSession(session) {
         report.fieldContext.rivals.length,
         report.fieldContext.rivals[0] ? report.fieldContext.rivals[0].key : null,
         round4(report.fieldContext.rivals[0] ? report.fieldContext.rivals[0].netMp : null)
-      ]
+      ],
+      quiz: buildPairExercises(results, report).cards.map((card) => [card.type, card.boardNo, card.answerKey])
     };
   });
 

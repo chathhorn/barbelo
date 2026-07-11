@@ -186,13 +186,18 @@ function buildOvertrickMeter(results, views) {
     const peerTookTrick = cohort.some((peer) => peer.tricks != null && peer.tricks > row.tricks);
     boards.push({
       boardNo: row.boardNo,
+      rowIndex: row.index,
       contractText: rowContractText(row),
       mpIfUp,
       mpIfDown,
       peerTookTrick,
       // Red only when the trick is field-proven: a same-contract peer took it.
       flagged: peerTookTrick && mpIfUp > 0,
-      freeSafety: mpIfDown === 0
+      freeSafety: mpIfDown === 0,
+      pairScore: view.pairScore,
+      matchpoints: view.matchpoints,
+      percent: view.percent,
+      boardTop: row.boardTop
     });
   });
 

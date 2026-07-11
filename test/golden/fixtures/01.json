@@ -1429,6 +1429,28 @@
     7,
     "2",
     -2
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     9,
+     "jump"
+    ],
+    [
+     "ladder",
+     2,
+     "top"
+    ],
+    [
+     "scoring",
+     22,
+     "correct"
+    ],
+    [
+     "scoring",
+     3,
+     "correct"
+    ]
    ]
   },
   "2": {
@@ -1544,6 +1566,28 @@
     7,
     "4",
     -0.5
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     28,
+     "nudge"
+    ],
+    [
+     "ladder",
+     19,
+     "top"
+    ],
+    [
+     "scoring",
+     26,
+     "correct"
+    ],
+    [
+     "scoring",
+     3,
+     "correct"
+    ]
    ]
   },
   "9": {
@@ -1661,6 +1705,28 @@
     7,
     "12",
     -4.5
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     12,
+     "jump"
+    ],
+    [
+     "ladder",
+     7,
+     "bottom"
+    ],
+    [
+     "scoring",
+     6,
+     "correct"
+    ],
+    [
+     "scoring",
+     3,
+     "correct"
+    ]
    ]
   }
  }

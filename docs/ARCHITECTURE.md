@@ -44,6 +44,7 @@ typedefs in `src/core/types.js` and type-checked in CI
 | `src/core/results.js` | Result-row normalization and scoring, rosters, matchpointing, standings, session summary. |
 | `src/core/report.js` | Pair Improvement Report engine: per-pair views, loss ledger, diagnoses, priorities, field context. |
 | `src/core/cohorts.js` | Same-contract cohort analyses: bidding scorecard, declared/defended scorecards, overtrick meter. |
+| `src/core/exercises.js` | Table Time quiz generator: deterministic, self-checking exercises from the pair's own session. |
 | `src/core/types.js` | JSDoc typedefs only; no runtime code. |
 | `src/parsers/pbn.js` | PBN text to directives and per-board tag records; deal/par/double-dummy tag parsing. |
 | `src/parsers/bws.js` | Bridgemate `.BWS` (Jet3 database) binary scan to raw result and player rows. |
@@ -55,6 +56,7 @@ typedefs in `src/core/types.js` and type-checked in CI
 | `src/ui/chartsView.js` | SVG charts, notable-board groups, and the pair standings table. |
 | `src/ui/boardsView.js` | Board explorer: list, filters, deal diagram, traveler, double dummy, board overlay. |
 | `src/ui/reportView.js` | Renders the Pair Improvement Report sections. |
+| `src/ui/quizView.js` | Renders and drives the Table Time quiz cards (reveal spine, biscuit jar). |
 | `src/ui/csvExport.js` | CSV column definitions per row mode, preview, and download. |
 | `src/ui/controller.js` | Load/clear actions and the top-level `renderAll()` render pass. |
 | `src/ui/io.js` | File reading and decoding, drag-and-drop, and all DOM event wiring. |

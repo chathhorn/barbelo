@@ -1105,6 +1105,28 @@
     5,
     "6:EW",
     -1
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     5,
+     "jump"
+    ],
+    [
+     "ladder",
+     11,
+     "top"
+    ],
+    [
+     "scoring",
+     21,
+     "correct"
+    ],
+    [
+     "scoring",
+     21,
+     "correct"
+    ]
    ]
   },
   "4:EW": {
@@ -1227,6 +1249,28 @@
     5,
     "6:EW",
     -6.5
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     5,
+     "jump"
+    ],
+    [
+     "ladder",
+     3,
+     "bottom"
+    ],
+    [
+     "scoring",
+     15,
+     "correct"
+    ],
+    [
+     "scoring",
+     21,
+     "correct"
+    ]
    ]
   },
   "6:NS": {
@@ -1339,6 +1383,28 @@
     5,
     "4:NS",
     -1.5
+   ],
+   "quiz": [
+    [
+     "overtrick",
+     8,
+     "jump"
+    ],
+    [
+     "ladder",
+     19,
+     "top"
+    ],
+    [
+     "scoring",
+     24,
+     "correct"
+    ],
+    [
+     "scoring",
+     21,
+     "correct"
+    ]
    ]
   }
  }

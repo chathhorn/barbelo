@@ -22,6 +22,7 @@ import {
 import { applyActiveView, renderTaskNav } from "./dashboard.js";
 import { showToast } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
+import { handleQuizClick } from "./quizView.js";
 import { STATE } from "./state.js";
 
 function decodeTextBuffer(buffer) {
@@ -193,6 +194,7 @@ function setupEvents() {
     STATE.reportPair = event.target.value;
     renderPairImprovementReport(STATE.results);
   });
+  document.getElementById("pairReportBody").addEventListener("click", handleQuizClick);
   document.getElementById("dashboard").addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-board-jump]");
     if (!trigger) return;

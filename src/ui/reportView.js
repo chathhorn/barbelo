@@ -12,6 +12,7 @@ import {
 import { buildPairImprovementReport, decisionTypeInfoForCategory, dominantBoardLoss, peerDisplayName } from "../core/report.js";
 import { defaultReportPair, rowContractText } from "../core/results.js";
 import { SUITS } from "../core/constants.js";
+import { renderTableTime } from "./quizView.js";
 import { assetUrl, renderBoardJump, renderBoardJumpList } from "./dom.js";
 import { STATE } from "./state.js";
 import { annotateTermTooltips, term, tooltipAttrs } from "./terms.js";
@@ -54,6 +55,7 @@ function renderPairImprovementReport(results) {
   caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed. ${sessionToneSentence(summary, report.reviewItems.length)}`;
   body.innerHTML = `
     <nav class="report-nav" aria-label="Report sections">
+      <a href="#rs-quiz">Quiz</a>
       <a href="#rs-summary">Summary</a>
       <a href="#rs-profile">Profile</a>
       <a href="#rs-bidding">Bidding</a>
@@ -65,6 +67,7 @@ function renderPairImprovementReport(results) {
       <a href="#rs-field">Field</a>
     </nav>
     ${renderThisWeek(report)}
+    ${renderTableTime(results, report)}
     <div class="report-summary-grid" id="rs-summary">
       <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
       <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
