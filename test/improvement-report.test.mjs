@@ -367,6 +367,44 @@ test("profile weakness and focus sentence name the same biggest problem", () => 
   assert.ok(report.profile.focus.toLowerCase().includes(report.decisionTypes[0].label.toLowerCase()));
 });
 
+test("a made doubled contract loses to the missed slam, not to penalty/double", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "5 C X", "="],
+    ["1", "3", "4", "N", "6 C", "="],
+    ["1", "5", "6", "N", "6 C", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const categories = report.lossLedger.categories.map((category) => category.key);
+  assert.ok(categories.includes("missedGameSlam"), `expected missedGameSlam, got ${categories.join(",")}`);
+  assert.ok(!categories.includes("penaltyDouble"), "a made doubled contract is not a double problem");
+});
+
+test("the field DD baseline only uses same-declaring-side peers", () => {
+  // Pair 1 defends East's 2S while NS peers declare 3NT: the NS rows'
+  // DD deltas must not pollute the defending pair's baseline.
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "E", "2 S", "="],
+    ["1", "3", "4", "N", "3 NT", "-1"],
+    ["1", "5", "6", "N", "3 NT", "-1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const view = report.rows[0];
+  assert.equal(view.fieldDdDelta, null, "no same-declaring-side peer: baseline must stay null");
+});
+
+test("a single-table disaster is still flagged despite a null percent", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "7 NT X", "-5"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(report.rows[0].percent, null, "single-table board should have no percent");
+  assert.equal(report.reviewItems.length, 1, "failed doubled contract must still be flagged");
+  assert.ok(report.reviewItems[0].reasons.some((reason) => reason.label.includes("failed doubled")));
+});
+
 test("field context tracks rival head-to-heads and table opponents", () => {
   const results = analyzeCsv([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],

@@ -1486,13 +1486,13 @@
    "categories": [
     [
      "competitiveAuction",
-     29,
-     12
+     36,
+     13
     ],
     [
      "penaltyDouble",
-     24,
-     4
+     17,
+     3
     ],
     [
      "partscoreBattle",
@@ -1533,18 +1533,18 @@
    "decisionTypes": [
     [
      "competitiveAuction",
-     46,
-     15
-    ],
-    [
-     "penaltyDouble",
-     24,
-     4
+     53,
+     16
     ],
     [
      "biddingJudgment",
      17,
      6
+    ],
+    [
+     "penaltyDouble",
+     17,
+     3
     ],
     [
      "defense",
@@ -1560,8 +1560,8 @@
    "reviewBoards": [
     12,
     20,
-    25,
     17,
+    25,
     15,
     27,
     11,
@@ -1586,8 +1586,8 @@
    ],
    "defended": [
     17,
-    -9.2143,
-    4
+    -9.6786,
+    5
    ],
    "overtricks": [
     6,
@@ -1698,7 +1698,7 @@
    ],
    "defended": [
     12,
-    -4.7857,
+    -5.0476,
     4
    ],
    "overtricks": [
@@ -1800,7 +1800,7 @@
    ],
    "defended": [
     12,
-    0.7857,
+    0.6333,
     2
    ],
    "overtricks": [

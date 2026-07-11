@@ -212,9 +212,15 @@ function buildOvertrickMeter(results, views) {
 function buildBiddingScorecard(results, views) {
   const gameBoards = [];
   const slams = [];
+  // Without a PBN double-dummy table there is no game availability to
+  // judge; the renderer needs to say so honestly.
+  const hasDd = views.some((view) =>
+    view.row.board && Array.isArray(view.row.board.optimumRows) && view.row.board.optimumRows.length > 0);
   views.forEach((view) => {
     const row = view.row;
     if (view.bestMakeable.rank < 2) return;
+    // Unplayed or director-adjusted rows carry no auction to judge.
+    if (view.pairScore == null) return;
     const pairRank = view.declared ? contractClassRank(row.contractClass) : 0;
     const pairBidGame = view.declared && pairRank >= 2;
     const target = contractTarget(row.parsedContract);
@@ -228,10 +234,18 @@ function buildBiddingScorecard(results, views) {
       const peerTarget = contractTarget(peer.parsedContract);
       return peerTarget != null && peer.tricks != null && peer.tricks >= peerTarget;
     });
+    const madeGameScores = peersMadeGame
+      .map((peer) => sideScore(peer, view.side))
+      .filter((value) => value != null);
+    const bestGameScore = madeGameScores.length ? Math.max(...madeGameScores) : null;
     let bucket;
     if (view.declared && row.parsedContract && row.parsedContract.doubled) bucket = "competitive";
     else if (pairBidGame) bucket = made === false ? "bidFailed" : "bidMade";
-    else if (peersMadeGame.length) bucket = "missed";
+    // "Missed" needs the outcome, not just the auction: a pair that
+    // out-scored the game (e.g. +800 defending a doubled save) missed
+    // nothing.
+    else if (bestGameScore != null && view.pairScore < bestGameScore) bucket = "missed";
+    else if (bestGameScore != null) bucket = "beatGame";
     else bucket = "stayedLow";
     const vulnerable = isVulnerable(row.board ? row.board.vulnerable : "None", view.side);
     gameBoards.push({
@@ -253,6 +267,7 @@ function buildBiddingScorecard(results, views) {
         bestText: view.bestMakeable.text,
         bidSlam: view.declared && pairRank >= 3,
         made,
+        percent: view.percent,
         contractText: rowContractText(row) || "Defended"
       });
     }
@@ -263,10 +278,12 @@ function buildBiddingScorecard(results, views) {
   return {
     gameBoards,
     slams,
+    hasDd,
     gamesAvailable: gameBoards.length,
     bidMade: bucketCount("bidMade"),
     bidFailed: bucketCount("bidFailed"),
     missed: bucketCount("missed"),
+    beatGame: bucketCount("beatGame"),
     stayedLow: bucketCount("stayedLow"),
     competitive: bucketCount("competitive"),
     netMp: judged.length ? sum(judged.map((board) => board.mpVsAverage || 0)) : null

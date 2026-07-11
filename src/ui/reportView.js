@@ -69,7 +69,7 @@ function renderPairImprovementReport(results) {
       <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
       <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
       <a class="result-summary-card" href="#rs-boards"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></a>
-      <a class="result-summary-card" href="#rs-themes"><strong>${escapeHtml(summary.lossCategories)}</strong><span>Loss Themes</span></a>
+      <a class="result-summary-card" href="#rs-themes"><strong>${escapeHtml(report.decisionTypes.length)}</strong><span>Loss Themes</span></a>
     </div>
     ${renderPairProfile(report)}
     ${renderBiddingScorecard(report)}
@@ -84,7 +84,7 @@ function renderPairImprovementReport(results) {
   annotateTermTooltips(panel);
 }
 
-function sessionToneSentence(summary, reviewCount) {
+function sessionToneSentence(summary, shownCount) {
   if (summary.percent == null) return "";
   const pct = summary.percent;
   const tone = pct >= 60
@@ -94,8 +94,9 @@ function sessionToneSentence(summary, reviewCount) {
       : pct >= 45
         ? "A middle-of-the-field session"
         : "A tough session";
-  const flagged = reviewCount
-    ? ` ${plural(reviewCount, "board")} flagged for review.`
+  const flaggedCount = summary.flaggedBoards != null ? summary.flaggedBoards : shownCount;
+  const flagged = flaggedCount
+    ? ` ${plural(flaggedCount, "board")} flagged for review${flaggedCount > shownCount ? ` (top ${shownCount} shown)` : ""}.`
     : " No boards needed flagging.";
   return `${tone}.${flagged}`;
 }
@@ -187,16 +188,18 @@ function renderLossThemes(report) {
     ? ` ${plural(ledger.tieCount, "tied comparison")} counted as shared results, not losses.`
     : "";
   // One home per board: a board lists under the theme that carried its
-  // biggest loss; other themes only count it as shared.
+  // biggest loss. Replayed boards keep one dominant per play, so a
+  // board number may legitimately be home to two themes.
   const dominantByBoard = new Map();
   (ledger.boardItems || []).forEach((item) => {
     const dominant = dominantBoardLoss(item);
-    if (dominant) dominantByBoard.set(String(item.boardNo), dominant.key);
+    if (!dominant) return;
+    const key = String(item.boardNo);
+    if (!dominantByBoard.has(key)) dominantByBoard.set(key, new Set());
+    dominantByBoard.get(key).add(dominant.key);
   });
   const summary = `
-    <p>
-      <span>${escapeHtml(formatMp(conceded))} MP conceded to same-direction tables that beat this pair, across ${escapeHtml(plural(ledger.boardCount, "board"))}.${escapeHtml(tieNote)}</span>
-    </p>
+    <span class="subsection-note">${escapeHtml(formatMp(conceded))} MP conceded to same-direction tables that beat this pair, across ${escapeHtml(plural(ledger.outrightBoardCount != null ? ledger.outrightBoardCount : ledger.boardCount, "board"))}.${escapeHtml(tieNote)}</span>
   `;
   const body = `
       <div class="decision-type-grid">
@@ -205,7 +208,10 @@ function renderLossThemes(report) {
           const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(conceded)} MP conceded in this report (${width.toFixed(0)}%). One MP for each same-direction table that beat this pair.`;
           const categories = categoriesByType.get(type.key) || [];
           const categoryKeys = new Set(categories.map((category) => category.key));
-          const homeBoards = type.boards.filter((boardNo) => categoryKeys.has(dominantByBoard.get(String(boardNo))));
+          const homeBoards = type.boards.filter((boardNo) => {
+            const dominants = dominantByBoard.get(String(boardNo));
+            return dominants && [...dominants].some((key) => categoryKeys.has(key));
+          });
           const sharedCount = type.boards.length - homeBoards.length;
           const boardsLine = homeBoards.length
             ? `<div class="cell-note">Boards: ${renderBoardJumpList(homeBoards, 8)}${sharedCount ? `<span class="muted-note"> +${escapeHtml(plural(sharedCount, "board"))} shared with other themes</span>` : ""}</div>`
@@ -217,7 +223,7 @@ function renderLossThemes(report) {
               <div class="decision-type-head">
                 <div>
                   <strong>${term(type.label)}</strong>
-                  <span>${escapeHtml(plural(type.boardCount, "board"))}, vs ${escapeHtml(plural(type.comparisonCount, "other table"))}</span>
+                  <span>${escapeHtml(plural(type.boardCount, "board"))}, ${escapeHtml(plural(type.comparisonCount, "lost head-to-head"))}</span>
                 </div>
                 <b class="term-tip"${tooltipAttrs(basis)}>${escapeHtml(formatMp(type.totalLoss))} MP</b>
               </div>
@@ -231,7 +237,7 @@ function renderLossThemes(report) {
                   <div class="theme-category">
                     <div class="theme-category-head">
                       <strong>${term(category.label)}</strong>
-                      <span>${escapeHtml(formatMp(category.totalLoss))} MP &middot; ${escapeHtml(plural(category.comparisonCount, "comparison"))}</span>
+                      <span>${escapeHtml(formatMp(category.totalLoss))} MP &middot; ${escapeHtml(plural(category.comparisonCount, "lost head-to-head"))}</span>
                     </div>
                     <ul class="loss-example-list">
                       ${category.examples.slice(0, 2).map(renderLossExample).join("")}
@@ -331,6 +337,7 @@ const GAME_BUCKET_INFO = {
   bidMade: { label: "bid & made", tone: "green" },
   bidFailed: { label: "bid, went down", tone: "gold" },
   missed: { label: "missed game", tone: "red" },
+  beatGame: { label: "beat the game score", tone: "green" },
   stayedLow: { label: "stayed low with the field", tone: "" },
   competitive: { label: "competitive board", tone: "" }
 };
@@ -341,9 +348,14 @@ function roundTenth(value) {
 
 function renderBiddingScorecard(report) {
   const card = report.biddingScorecard;
-  if (!card || !card.gamesAvailable) {
+  if (!card || !card.hasDd) {
     return renderReportSubsection("bidding-scorecard", "Bidding Scorecard", `
-      <div class="empty-state">Double-dummy found no makeable game for this pair's side on the boards they played${card ? "" : ", or no hand record is loaded"}.</div>
+      <div class="empty-state">Open a PBN hand record to enable the bidding scorecard; it needs the double-dummy table.</div>
+    `, "", { id: "rs-bidding", open: false });
+  }
+  if (!card.gamesAvailable) {
+    return renderReportSubsection("bidding-scorecard", "Bidding Scorecard", `
+      <div class="empty-state">Double-dummy found no makeable game for this pair's side on the boards they played.</div>
     `, "", { id: "rs-bidding", open: false });
   }
   const stats = `
@@ -352,7 +364,7 @@ function renderBiddingScorecard(report) {
       <div class="review-stat"><span>Bid &amp; Made</span><strong>${escapeHtml(card.bidMade)}</strong></div>
       <div class="review-stat"><span>Bid, Went Down</span><strong>${escapeHtml(card.bidFailed)}</strong></div>
       <div class="review-stat"><span>Missed</span><strong>${escapeHtml(card.missed)}</strong></div>
-      <div class="review-stat"><span>Stayed Low</span><strong>${escapeHtml(card.stayedLow)}</strong></div>
+      <div class="review-stat"><span>Stayed Low</span><strong>${escapeHtml(card.stayedLow + card.beatGame)}</strong></div>
       <div class="review-stat"><span>Net MP On These</span><strong>${escapeHtml(formatSignedMp(card.netMp))}</strong></div>
     </div>
   `;
@@ -374,8 +386,14 @@ function renderBiddingScorecard(report) {
     `;
   }).join("");
   const slamNote = card.slams.length ? `
-    <div class="cell-note">Slam-strength boards: ${card.slams.map((slam) =>
-      `${renderBoardJump(slam.boardNo)} (<span class="contract">${contractGlyphHtml(slam.bestText)}</span> makes) - ${escapeHtml(slam.bidSlam ? (slam.made === false ? "bid, went down" : "bid and made") : "stopped short")}`).join("; ")}.</div>
+    <div class="cell-note">Slam-strength boards: ${card.slams.map((slam) => {
+      const outcome = slam.bidSlam
+        ? (slam.made === false ? "bid, went down" : "bid and made")
+        : slam.percent != null && slam.percent >= 60
+          ? "scored well without bidding it"
+          : "stopped short";
+      return `${renderBoardJump(slam.boardNo)} (<span class="contract">${contractGlyphHtml(slam.bestText)}</span> makes) - ${escapeHtml(outcome)}`;
+    }).join("; ")}.</div>
   ` : "";
   const missedNote = card.missed
     ? `<p class="cell-note">"Missed" only counts boards where another same-direction table bid the game and made it.</p>`
@@ -458,7 +476,7 @@ function renderOvertrickMeter(report) {
   ` : "";
   const headline = flagged.length
     ? `Overtricks left on the table were worth ${formatSignedMp(meter.pushWorth)} MP this session.`
-    : "No matchpoints were left on the table in made contracts.";
+    : "No field-proven overtricks were missed in made contracts.";
   const safetyNote = meter.freeSafetyCount
     ? ` On ${plural(meter.freeSafetyCount, "board")} a safety play was free: even one fewer trick would have cost nothing.`
     : "";
@@ -623,7 +641,7 @@ function renderReviewQueue(report) {
       <div class="empty-state">No additional notable boards found for this pair.</div>
     `, "", { open: false, id: "rs-more" });
   }
-  const countNote = `<p><span>${escapeHtml(plural(items.length, "more flagged board"))}</span></p>`;
+  const countNote = `<span class="subsection-note">${escapeHtml(plural(items.length, "more flagged board"))}</span>`;
   return renderReportSubsection("priority-review", "Other Notable Boards", `
       <div class="review-list">
         ${items.map(renderReviewItem).join("")}
@@ -640,6 +658,7 @@ function renderReviewItem(item) {
   const reasons = item.reasons.length ? item.reasons : [{ label: "review candidate", tone: "", weight: 0 }];
   const relTricks = item.relativeTrickDelta == null ? null : Math.round(item.relativeTrickDelta * 10) / 10;
   const ddText = relTricks == null ? "n/a" : `${formatSigned(relTricks)} trick${Math.abs(relTricks) === 1 ? "" : "s"}`;
+  const lead = formatLeadHtml(row.leadCard);
   return `
     <article class="review-item">
       <div class="review-head">
@@ -656,7 +675,7 @@ function renderReviewItem(item) {
         <div class="review-stat"><span>Vs Par</span><strong>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</strong></div>
         <div class="review-stat"><span>Tricks Vs Field</span><strong>${escapeHtml(ddText)}</strong></div>
         <div class="review-stat"><span>Makeable</span><strong class="contract">${contractGlyphHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
-        ${row.leadCard ? `<div class="review-stat"><span>Lead</span><strong>${formatLeadHtml(row.leadCard)}</strong></div>` : ""}
+        ${lead ? `<div class="review-stat"><span>Lead</span><strong>${lead}</strong></div>` : ""}
       </div>
       ${row.declarerName ? `<div class="cell-note">Declarer: ${escapeHtml(row.declarerName)}</div>` : ""}
     </article>

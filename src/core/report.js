@@ -194,9 +194,13 @@ function pairResultView(results, row, participantKey) {
   const trickDeltaForPair = row.ddDelta == null ? null : declared ? row.ddDelta : -row.ddDelta;
   // Club fields deviate from double-dummy systematically (DD assumes
   // perfect defense), so trick judgments are made relative to the
-  // field's own DD deviation on the board, not to DD itself.
+  // field's own DD deviation on the board, not to DD itself. Only
+  // same-declaring-side peers count: ddDelta is declarer-relative, so
+  // mixing sides flips its meaning for a defender.
   const peerDdDeltas = boardRows
-    .filter((entry) => String(sideParticipantKey(entry, side)) !== pairKey)
+    .filter((entry) =>
+      String(sideParticipantKey(entry, side)) !== pairKey &&
+      entry.declarerPair === row.declarerPair)
     .map((entry) => entry.ddDelta)
     .filter((value) => value != null);
   const fieldDdDelta = peerDdDeltas.length ? average(peerDdDeltas) : null;
@@ -246,7 +250,9 @@ function analyzeReviewItem(view) {
 
   // A board at or above average never needs review: the flags below
   // explain why a below-average board went wrong, nothing more.
-  if (pct >= 50) return { ...view, reasons, severity: 0 };
+  // Null-percent boards (single-table: boardTop 0) fall through so the
+  // par/field/trick/failed flags can still catch a disaster.
+  if (view.percent != null && pct >= 50) return { ...view, reasons, severity: 0 };
 
   if (pct <= 25) addReviewReason(reasons, "low board", "red", 35);
   else if (pct <= 40) addReviewReason(reasons, "below average board", "gold", 18);
@@ -543,9 +549,11 @@ function classifyLossComparison(view, peerRow, peerScore, scoreDelta, loss) {
     return { key: "declarerTricks" };
   }
   if (sameContract && !targetDeclared && !peerDeclared) return { key: "defensiveTricks" };
-  // Only a double at the pair's own table is a double decision the pair
-  // faced; a doubled peer table falls through to the real cause.
-  if (targetContract.doubled) return { key: "penaltyDouble" };
+  // Only a FAILED double at the pair's own table is a double story; a
+  // made doubled contract lost for some other reason (e.g. peers who
+  // bid the slam over the pair's 5CX+550), and peer-table doubles fall
+  // through to the real cause.
+  if (targetContract.doubled && targetMade !== true) return { key: "penaltyDouble" };
   if (peerDeclared && peerRank >= 2 && peerRank > targetRank && peerMade !== false) return { key: "missedGameSlam" };
   // A failed contract that double-dummy says could make is a play
   // problem, not an auction problem.
@@ -721,6 +729,8 @@ function buildPairLossLedger(results, views) {
     tieLoss,
     tieCount,
     boardCount: boardItems.length,
+    outrightBoardCount: boardItems.filter((item) =>
+      item.comparisons.some((comparison) => comparison.categoryKey !== "tieSplit")).length,
     categoryCount: categories.length,
     boardItems,
     categories
@@ -849,7 +859,7 @@ function buildPracticePriorities(lossLedger, decisionTypes, views) {
     priorities.push({
       title: type.label,
       metric: `${formatMp(type.totalLoss)} MP conceded`,
-      detail: `${plural(type.boardCount, "board")}, vs ${plural(type.comparisonCount, "other table")}`,
+      detail: `${plural(type.boardCount, "board")}, ${plural(type.comparisonCount, "lost head-to-head")}`,
       advice: type.advice,
       boards: type.examples.slice(0, 4).map((example) => example.boardNo)
     });
@@ -1078,6 +1088,7 @@ function buildPairImprovementReport(results, participantKey) {
       percent: standing && standing.percent != null ? standing.percent : percents.length ? average(percents) : null,
       averageBoardPercent: percents.length ? average(percents) : null,
       lowBoards: lowBoards.length,
+      flaggedBoards: candidates.length,
       fieldLosses: fieldLosses.length,
       averageVsPar: vsParValues.length ? average(vsParValues) : null,
       mpVsAverage: topSum ? mpEarned - topSum / 2 : null,

@@ -172,6 +172,47 @@ test("bidding scorecard buckets: bid & made, missed, stayed low, failed, competi
   ]).bucket, "competitive", "doubled own contracts are excluded from bidding judgment");
 });
 
+test("out-scoring the game is never a missed game", () => {
+  const analysis = buildAnalysis(parsePbn(ddPbn(10), "t.pbn"));
+  // Pair 1 collects +800 defending a doubled save while a peer makes
+  // the vulnerable-free 4S for +420: better than bidding the game.
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "E", "5 C X", "-4"],
+    ["1", "3", "4", "N", "4 S", "="]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const board = report.biddingScorecard.gameBoards[0];
+  assert.equal(board.bucket, "beatGame", `+800 beats +420; got ${board.bucket}`);
+  assert.equal(report.biddingScorecard.missed, 0);
+});
+
+test("unplayed and adjusted rows never enter the bidding scorecard", () => {
+  const analysis = buildAnalysis(parsePbn(ddPbn(10), "t.pbn"));
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],
+    ["1", "1", "2", "", "", "", "40%-60%"],
+    ["1", "3", "4", "N", "4 S", "=", ""]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(report.biddingScorecard.gamesAvailable, 0, "an adjusted row has no auction to judge");
+});
+
+test("bidding scorecard knows when no double-dummy data exists", () => {
+  const noPbn = buildPairImprovementReport(analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "4 S", "="],
+    ["1", "3", "4", "N", "4 S", "+1"]
+  ]), "1");
+  assert.equal(noPbn.biddingScorecard.hasDd, false);
+  const withPbn = buildPairImprovementReport(analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "4 S", "="],
+    ["1", "3", "4", "N", "4 S", "+1"]
+  ], buildAnalysis(parsePbn(ddPbn(10), "t.pbn"))), "1");
+  assert.equal(withPbn.biddingScorecard.hasDd, true);
+});
+
 test("a defending pair with a makeable game is judged on what the same-direction field did", () => {
   const analysis = buildAnalysis(parsePbn(ddPbn(10), "t.pbn"));
   const results = analyzeCsv([
