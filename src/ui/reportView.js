@@ -617,7 +617,7 @@ function renderLossAdvice(advice) {
       <span class="collie-head" aria-hidden="true">
         <img src="${escapeHtml(assetUrl(`assets/collie-${collieVariant(advice)}.svg`))}" alt="" loading="lazy" decoding="async">
       </span>
-      <p>${escapeHtml(advice)}</p>
+      <p>${contractGlyphHtml(advice)}</p>
     </div>
   `;
 }

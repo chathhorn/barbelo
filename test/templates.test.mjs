@@ -257,6 +257,27 @@ test("each board lists under one theme only, with a shared note elsewhere", asyn
   assert.match(scanPart(declarerCard[0]), /shared/);
 });
 
+test("coaching prose and quiz reveals render suit glyphs, never letter abbreviations", async () => {
+  const { renderLossAdvice, renderQuizCard } = await import("../src/ui/reportView.js").then(async (reportView) => ({
+    renderLossAdvice: reportView.renderLossAdvice,
+    renderQuizCard: (await import("../src/ui/quizView.js")).renderQuizCard
+  }));
+  const advice = renderLossAdvice("Compare N 4 S-3 for -300 with Pair 3's N 4 S+2 for +680.");
+  assert.match(advice, /suit-glyph spade/);
+  assert.doesNotMatch(advice, /4 S/, "raw suit letter leaked into coaching prose");
+  const card = renderQuizCard({
+    id: "t", type: "bid", title: "T", boardNo: 1, maskBoard: false, options: [{ key: "a", label: "A" }],
+    answerKey: "a",
+    prompt: { lead: "You played 4 H X-1.", question: "In 4 H, how many tricks?" },
+    reveal: { room: "Peers bid 4 H.", dd: "Double-dummy says N 4 S makes.", yours: "You took 9 in 3 NT.", coachRight: "x", coachWrong: "y" }
+  });
+  assert.match(card, /suit-glyph heart/);
+  // Attribute values (aria-labels, data keys) are plain text by nature;
+  // the assertion covers only visible markup.
+  const visible = card.replace(/="[^"]*"/g, "=\"\"");
+  assert.doesNotMatch(visible, /4 [SH][^a-z]/, "raw suit letters leaked into a quiz card");
+});
+
 test("the coach avatar varies deterministically across advice texts", async () => {
   const { collieVariant, renderLossAdvice } = await import("../src/ui/reportView.js");
   assert.equal(collieVariant("stay low on part scores"), collieVariant("stay low on part scores"));

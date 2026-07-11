@@ -1,7 +1,7 @@
 // SVG charts and notable-board summaries for the overview and results
 // views.
-import { DENOMS, SEATS } from "../core/constants.js";
-import { average, escapeHtml, formatSigned, sum } from "../core/format.js";
+import { DENOMS, SEATS, SUITS } from "../core/constants.js";
+import { average, contractGlyphHtml, escapeHtml, formatSigned, sum } from "../core/format.js";
 import { renderBoardJump } from "./dom.js";
 import { STATE } from "./state.js";
 import {
@@ -399,15 +399,24 @@ function renderNotables(analysis, boards) {
     "gold"
   );
 
+  // Voids are stored as "N S" (seat, suit letter): render the suit as
+  // a glyph so no raw abbreviation reaches the page.
+  const voidHtml = (entry) => {
+    const [seat, suitKey] = String(entry).split(" ");
+    const suit = SUITS.find((meta) => meta.key === suitKey);
+    return suit
+      ? `${escapeHtml(seat)} <span class="suit-glyph ${escapeHtml(suit.className)}">${suit.html}</span>`
+      : escapeHtml(entry);
+  };
   const voidBoards = currentBoards
     .filter((board) => board.voids.length)
     .slice(0, 6)
-    .map((board) => row(board.boardNo, `Voids: ${escapeHtml(board.voids.join(", "))}. Expect unusual auction and play choices.`));
+    .map((board) => row(board.boardNo, `Voids: ${board.voids.map(voidHtml).join(", ")}. Expect unusual auction and play choices.`));
 
   const longSuitBoards = currentBoards
     .filter((board) => board.longSuits.length)
     .slice(0, 6)
-    .map((board) => row(board.boardNo, `Seven-card or longer suit: ${escapeHtml(board.longSuits.join(", "))}. Check preempts, competition, and suit establishment.`));
+    .map((board) => row(board.boardNo, `Seven-card or longer suit: ${contractGlyphHtml(board.longSuits.join(", "))}. Check preempts, competition, and suit establishment.`));
 
   const imbalances = [...currentBoards]
     .sort((a, b) => Math.abs(b.hcpDeltaNS) - Math.abs(a.hcpDeltaNS))

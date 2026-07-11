@@ -80,7 +80,7 @@ function renderQuizCard(card) {
       ${handsHtml}
       ${renderFitStrip(card.prompt.fit)}
       ${columnHtml}
-      <p class="quiz-question">${escapeHtml(card.prompt.question)}</p>
+      <p class="quiz-question">${contractGlyphHtml(card.prompt.question)}</p>
       <div class="quiz-options" role="group" aria-label="${escapeHtml(card.prompt.question)}">
         ${card.options.map((option) => `
           <button type="button" class="quiz-option" data-quiz-option="${escapeHtml(option.key)}" aria-pressed="false">
@@ -91,8 +91,8 @@ function renderQuizCard(card) {
       </div>
       <div class="quiz-reveal hidden" aria-live="polite">
         <div class="quiz-verdict" data-quiz-verdict></div>
-        ${card.reveal.room ? `<div class="quiz-rung"><span class="quiz-rung-label">The room</span><p>${escapeHtml(card.reveal.room)}</p></div>` : ""}
-        ${card.reveal.dd ? `<div class="quiz-rung"><span class="quiz-rung-label">The computer</span><p>${escapeHtml(card.reveal.dd)}</p></div>` : ""}
+        ${card.reveal.room ? `<div class="quiz-rung"><span class="quiz-rung-label">The room</span><p>${contractGlyphHtml(card.reveal.room)}</p></div>` : ""}
+        ${card.reveal.dd ? `<div class="quiz-rung"><span class="quiz-rung-label">The computer</span><p>${contractGlyphHtml(card.reveal.dd)}</p></div>` : ""}
         <div class="quiz-rung">
           <span class="quiz-rung-label">Your table</span>
           <p>${contractGlyphHtml(card.reveal.yours)}${card.boardNo != null ? ` ${renderBoardJump(card.boardNo)}` : ""}</p>
@@ -218,7 +218,7 @@ function renderQuizPrintSheet(cards, report) {
       ${card.hands ? `<div class="quiz-hands">${card.hands.seats.map((seat) => renderHandBlock(card.hands.board, seat)).join("")}</div>` : ""}
       ${renderFitStrip(card.prompt.fit)}
       ${card.prompt.column ? `<p class="quiz-print-column">Other results: ${card.prompt.column.map(escapeHtml).join(" &middot; ")}</p>` : ""}
-      <p><strong>${escapeHtml(card.prompt.question)}</strong></p>
+      <p><strong>${contractGlyphHtml(card.prompt.question)}</strong></p>
       <ul class="quiz-print-options">
         ${card.options.map((option) => `<li><span class="print-box"></span>${escapeHtml(option.label)}</li>`).join("")}
       </ul>
