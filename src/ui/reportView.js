@@ -123,9 +123,9 @@ function renderThisWeek(report) {
   return `
     <section class="this-week-card" aria-label="This week's focus">
       <div class="this-week-head"><strong>This Week</strong><span>What to look at before the next session.</span></div>
-      ${renderQuizLaunch()}
       ${renderLossAdvice(focus)}
       ${list}
+      ${renderQuizLaunch()}
     </section>
   `;
 }
