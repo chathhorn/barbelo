@@ -206,7 +206,10 @@ function buildPairRosters(playerNumbers, rows, multiSection) {
     roster.players = SEATS.map((seat) => roster.playersBySeat[seat]).filter((player) => player && playerDisplay(player));
     roster.knownPlayers = roster.players.filter(playerHasIdentity);
     roster.placeholderPlayers = roster.players.filter((player) => player && !playerHasIdentity(player));
-    roster.label = roster.players.map(playerDisplay).join(" / ");
+    // Labels carry real identities only. Placeholder seats ("Table 6
+    // East") stay internal bookkeeping: a pair with no recovered names
+    // is shown by its number, never by an invented name.
+    roster.label = roster.knownPlayers.map(playerDisplay).join(" / ");
   });
   pairRosters.profile = summarizePairRosters(pairRosters);
   return pairRosters;
@@ -230,18 +233,6 @@ function summarizePairRosters(pairRosters) {
   };
 }
 
-function fallbackPairSeatLabel(pairNo, seat) {
-  if (pairNo == null || pairNo === "" || !seat) return "";
-  return `Pair ${pairNo} ${seatName(seat)}`;
-}
-
-function fallbackPairLabel(pairNo, side) {
-  if (pairNo == null || pairNo === "") return "";
-  if (side === "NS") return ["N", "S"].map((seat) => fallbackPairSeatLabel(pairNo, seat)).join(" / ");
-  if (side === "EW") return ["E", "W"].map((seat) => fallbackPairSeatLabel(pairNo, seat)).join(" / ");
-  return `Pair ${pairNo} Player 1 / Pair ${pairNo} Player 2`;
-}
-
 function pairRosterLabel(pairRosters, pairNo, side, sideOnly) {
   const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
   if (sideRoster && sideRoster.label) return sideRoster.label;
@@ -249,14 +240,15 @@ function pairRosterLabel(pairRosters, pairNo, side, sideOnly) {
     const roster = pairRosters.get(pairRosterKey(pairNo));
     if (roster && roster.label) return roster.label;
   }
-  return fallbackPairLabel(pairNo, side);
+  // No invented fallback names: displays degrade to "Pair N".
+  return "";
 }
 
 function pairSeatPlayer(pairRosters, pairNo, seat, side, sideOnly) {
   const sideRoster = side ? pairRosters.get(pairRosterKey(pairNo, side)) : null;
   const roster = sideRoster || (sideOnly ? null : pairRosters.get(pairRosterKey(pairNo)));
-  const player = roster ? playerDisplay(roster.playersBySeat[seat]) : "";
-  return player || fallbackPairSeatLabel(pairNo, seat);
+  const player = roster ? roster.playersBySeat[seat] : null;
+  return player && playerHasIdentity(player) ? playerDisplay(player) : "";
 }
 
 function pairRosterKnownCount(pairRosters, pairNo, side, sideOnly) {
@@ -537,12 +529,12 @@ function buildResultsAnalysis(rawResults, analysis) {
   const partialRosterStandings = pairStandings.filter((standing) => standing.boards && standing.knownPlayers > 0 && standing.knownPlayers < 2);
   if (partialRosterStandings.length) {
     const examples = partialRosterStandings.map((standing) => standing.pairNo).sort(numericPairSort).slice(0, 8).join(", ");
-    warnings.push(`${plural(partialRosterStandings.length, "active partnership has", "active partnerships have")} only one recovered player name or member number${examples ? ` (${examples})` : ""}; placeholder labels are used for missing members.`);
+    warnings.push(`${plural(partialRosterStandings.length, "active partnership has", "active partnerships have")} only one recovered player name or member number${examples ? ` (${examples})` : ""}; the missing member is left blank.`);
   }
   const missingRosterStandings = pairStandings.filter((standing) => standing.boards && !standing.knownPlayers);
   if (missingRosterStandings.length) {
     const examples = missingRosterStandings.map((standing) => standing.pairNo).sort(numericPairSort).slice(0, 8).join(", ");
-    warnings.push(`${plural(missingRosterStandings.length, "active partnership has", "active partnerships have")} no recovered player names or member numbers${examples ? ` (${examples})` : ""}; placeholder labels are used where table, seat, or pair context is available.`);
+    warnings.push(`${plural(missingRosterStandings.length, "active partnership has", "active partnerships have")} no recovered player names or member numbers${examples ? ` (${examples})` : ""}; these pairs are listed by pair number only.`);
   }
 
   const boardSummaries = Array.from(rowsByBoard.entries())
@@ -612,8 +604,6 @@ export {
   rosterPairId,
   buildPairRosters,
   summarizePairRosters,
-  fallbackPairSeatLabel,
-  fallbackPairLabel,
   pairRosterLabel,
   pairSeatPlayer,
   pairRosterKnownCount,

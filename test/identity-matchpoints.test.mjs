@@ -104,6 +104,47 @@ test("AVE remark variants parse to percentage awards", () => {
   assert.equal(flat.ewPercent, 50);
 });
 
+test("pairs with no recovered names are labeled by number only, never invented names", () => {
+  const results = analyzeRaw([
+    // Pair 8 sits a table whose player rows are blank; pair 6's blank
+    // rows sit at a table absent from the traveler entirely.
+    { Board: 1, Table: 1, Round: 1, PairNS: 2, PairEW: 8, "NS/EW": "N", Contract: "3 NT", Result: "=" },
+    { Board: 1, Table: 2, Round: 1, PairNS: 4, PairEW: 6, "NS/EW": "N", Contract: "3 NT", Result: "-1" }
+  ], [
+    { Section: 1, Table: 1, Direction: "E", Number: "", Name: "", Round: 1 },
+    { Section: 1, Table: 1, Direction: "W", Number: "", Name: "", Round: 1 },
+    { Section: 1, Table: 9, Direction: "E", Number: "", Name: "", Round: 1 },
+    { Section: 1, Table: 9, Direction: "W", Number: "", Name: "", Round: 1 }
+  ]);
+  for (const key of ["8", "6"]) {
+    const standing = results.pairStandings.find((entry) => String(entry.key) === key);
+    assert.ok(standing, `pair ${key} standing missing`);
+    assert.equal(standing.players, "", `pair ${key} should have no player label, got ${JSON.stringify(standing.players)}`);
+  }
+  assert.ok(!results.rows.some((row) =>
+    /Table \d|Player \d/.test(`${row.nsPlayers} ${row.ewPlayers} ${row.nsParticipantPlayers} ${row.ewParticipantPlayers}`)),
+  "invented placeholder names leaked into row labels");
+});
+
+test("a partial pair shows only its known player, and unknown declarers stay blank", () => {
+  const results = analyzeRaw([
+    { Board: 1, Table: 1, Round: 1, PairNS: 2, PairEW: 8, "NS/EW": "E", Contract: "3 NT", Result: "=" }
+  ], [
+    { Section: 1, Table: 1, Direction: "E", Number: "123", Name: "Joe Bullock", Round: 1 },
+    { Section: 1, Table: 1, Direction: "W", Number: "", Name: "", Round: 1 }
+  ]);
+  const standing = results.pairStandings.find((entry) => String(entry.key) === "8");
+  assert.equal(standing.players, "Joe Bullock");
+  assert.equal(results.rows[0].declarerName, "Joe Bullock");
+  const westDeclares = analyzeRaw([
+    { Board: 1, Table: 1, Round: 1, PairNS: 2, PairEW: 8, "NS/EW": "W", Contract: "3 NT", Result: "=" }
+  ], [
+    { Section: 1, Table: 1, Direction: "E", Number: "123", Name: "Joe Bullock", Round: 1 },
+    { Section: 1, Table: 1, Direction: "W", Number: "", Name: "", Round: 1 }
+  ]);
+  assert.equal(westDeclares.rows[0].declarerName, "", "an unknown declarer must not get an invented label");
+});
+
 test("blank placeholder player rows never overwrite recovered names", () => {
   const results = analyzeRaw([
     { Board: 1, Table: 2, Round: 1, PairNS: 2, PairEW: 8, "NS/EW": "N", Contract: "3 NT", Result: "=" },
