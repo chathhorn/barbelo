@@ -1348,7 +1348,8 @@
   "1": {
    "boards": 26,
    "percent": 53.5256,
-   "lostMatchpoints": 72.5,
+   "mpVsAverage": 5.5,
+   "mpConceded": 52,
    "declaredBoards": 10,
    "categories": [
     [
@@ -1357,24 +1358,14 @@
      9
     ],
     [
-     "tieSplit",
-     20.5,
-     17
+     "partscoreBattle",
+     16,
+     7
     ],
     [
      "declarerTricks",
      11,
      5
-    ],
-    [
-     "partscoreBattle",
-     9,
-     5
-    ],
-    [
-     "overreach",
-     7,
-     3
     ],
     [
      "defensiveTricks",
@@ -1385,23 +1376,13 @@
    "decisionTypes": [
     [
      "competitiveAuction",
-     31,
-     13
-    ],
-    [
-     "smallEdges",
-     20.5,
-     17
+     38,
+     15
     ],
     [
      "declarerPlay",
      11,
      5
-    ],
-    [
-     "biddingJudgment",
-     7,
-     3
     ],
     [
      "defense",
@@ -1411,28 +1392,23 @@
    ],
    "reviewBoards": [
     16,
+    6,
     5,
     25,
-    6,
     15,
     3,
     27,
     10,
-    17,
-    19
+    17
    ]
   },
   "2": {
    "boards": 26,
    "percent": 57.6923,
-   "lostMatchpoints": 66,
+   "mpVsAverage": 12,
+   "mpConceded": 47,
    "declaredBoards": 12,
    "categories": [
-    [
-     "tieSplit",
-     19,
-     16
-    ],
     [
      "competitiveAuction",
      14,
@@ -1444,14 +1420,14 @@
      4
     ],
     [
-     "overreach",
+     "partscoreBattle",
      8,
-     2
+     5
     ],
     [
-     "partscoreBattle",
+     "overreach",
      6,
-     5
+     1
     ],
     [
      "declarerTricks",
@@ -1477,23 +1453,18 @@
    "decisionTypes": [
     [
      "competitiveAuction",
-     20,
+     22,
      11
-    ],
-    [
-     "smallEdges",
-     19,
-     16
-    ],
-    [
-     "biddingJudgment",
-     12,
-     4
     ],
     [
      "defense",
      11,
      4
+    ],
+    [
+     "biddingJudgment",
+     10,
+     3
     ],
     [
      "declarerPlay",
@@ -1514,26 +1485,25 @@
     22,
     12,
     24,
-    10,
-    1,
-    2
+    10
    ]
   },
   "9": {
    "boards": 28,
    "percent": 47.0238,
-   "lostMatchpoints": 89,
+   "mpVsAverage": -5,
+   "mpConceded": 70,
    "declaredBoards": 18,
    "categories": [
     [
-     "overreach",
-     21,
-     6
+     "declarerTricks",
+     20,
+     8
     ],
     [
-     "tieSplit",
-     19,
-     14
+     "partscoreBattle",
+     13,
+     7
     ],
     [
      "missedGameSlam",
@@ -1541,23 +1511,13 @@
      4
     ],
     [
-     "declarerTricks",
-     10,
+     "competitiveAuction",
+     11,
      6
     ],
     [
-     "competitiveAuction",
-     10,
-     5
-    ],
-    [
      "wrongStrain",
-     7,
-     4
-    ],
-    [
-     "partscoreBattle",
-     5,
+     8,
      5
     ],
     [
@@ -1569,28 +1529,28 @@
      "penaltyDouble",
      2,
      1
+    ],
+    [
+     "overreach",
+     1,
+     1
     ]
    ],
    "decisionTypes": [
     [
-     "biddingJudgment",
-     40,
-     13
-    ],
-    [
-     "smallEdges",
-     19,
-     14
-    ],
-    [
      "competitiveAuction",
-     15,
-     10
+     24,
+     12
+    ],
+    [
+     "biddingJudgment",
+     21,
+     9
     ],
     [
      "declarerPlay",
-     10,
-     6
+     20,
+     8
     ],
     [
      "defense",
@@ -1604,15 +1564,15 @@
     ]
    ],
    "reviewBoards": [
-    6,
     15,
+    6,
     13,
     2,
     3,
-    4,
     10,
-    8,
+    4,
     17,
+    8,
     7
    ]
   }

@@ -34,10 +34,12 @@ const CASES = [
     ]
   },
   {
+    // Board 4 is all-vul in the standard cycle: -300 clears both the
+    // vulnerability-aware swing gate and the -200 own-score gate.
     board: 4,
     category: "overreach",
     rows: [
-      ["4", "1", "2", "N", "5 D", "-1"],
+      ["4", "1", "2", "N", "5 D", "-3"],
       ["4", "3", "4", "N", "3 D", "+1"]
     ]
   },
@@ -110,5 +112,15 @@ test("every loss category maps to a decision type", () => {
   const typeKeys = new Set(report.decisionTypes.map((type) => type.key));
   assert.ok(typeKeys.size >= 5, `expected several decision types, got ${[...typeKeys].join(",")}`);
   const totalFromTypes = report.decisionTypes.reduce((acc, type) => acc + type.totalLoss, 0);
-  assert.equal(totalFromTypes, report.lossLedger.totalLoss);
+  assert.equal(totalFromTypes, report.lossLedger.outrightLoss, "decision types must partition the conceded (non-tie) losses");
+});
+
+test("ties are tallied but never become themes", () => {
+  const tieItem = byBoard.get("10");
+  assert.ok(tieItem, "tie board missing from board items");
+  assert.equal(tieItem.comparisons[0].categoryKey, "tieSplit");
+  assert.ok(!report.lossLedger.categories.some((category) => category.key === "tieSplit"), "tieSplit leaked into theme categories");
+  assert.equal(report.lossLedger.tieCount, 1);
+  assert.equal(report.lossLedger.tieLoss, 0.5);
+  assert.ok(!report.decisionTypes.some((type) => type.key === "smallEdges"), "smallEdges decision type should no longer exist");
 });

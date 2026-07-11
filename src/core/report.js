@@ -6,6 +6,7 @@ import { denomMeta } from "./constants.js";
 import { formatSigned, formatMp, plural, sum, average, uniqueSorted } from "./format.js";
 import { classifyContract, contractClassRank, contractTarget, samePlayedContract } from "./contracts.js";
 import { numericPairSort } from "./format.js";
+import { isVulnerable } from "./scoring.js";
 import {
   rowContractText,
   sideScore,
@@ -105,12 +106,6 @@ const DECISION_TYPE_INFO = {
     categories: ["penaltyDouble"],
     advice: "Review doubles, redoubles, sacrifices, and penalty passes as separate decisions; these boards often swing more than one normal partscore."
   },
-  smallEdges: {
-    label: "Small Edges",
-    tone: "",
-    categories: ["tieSplit"],
-    advice: "Tied comparisons point to thin overtricks, extra undertricks, and partscore details that convert shared boards into above-average scores."
-  },
   manualReview: {
     label: "Manual Review",
     tone: "",
@@ -191,6 +186,16 @@ function pairResultView(results, row, participantKey) {
   const percent = isNS ? row.nsPercent : row.ewPercent;
   const declared = row.declarerPair === side;
   const trickDeltaForPair = row.ddDelta == null ? null : declared ? row.ddDelta : -row.ddDelta;
+  // Club fields deviate from double-dummy systematically (DD assumes
+  // perfect defense), so trick judgments are made relative to the
+  // field's own DD deviation on the board, not to DD itself.
+  const peerDdDeltas = boardRows
+    .filter((entry) => String(sideParticipantKey(entry, side)) !== pairKey)
+    .map((entry) => entry.ddDelta)
+    .filter((value) => value != null);
+  const fieldDdDelta = peerDdDeltas.length ? average(peerDdDeltas) : null;
+  const expectedTrickDelta = fieldDdDelta == null ? 0 : declared ? fieldDdDelta : -fieldDdDelta;
+  const relativeTrickDelta = trickDeltaForPair == null ? null : trickDeltaForPair - expectedTrickDelta;
   const bestMakeable = bestMakeableForPair(row.board, side);
   const fieldDelta = pairScore != null && fieldAverage != null ? pairScore - fieldAverage : null;
   const vsPar = pairScore != null && parScore != null ? pairScore - parScore : null;
@@ -211,6 +216,8 @@ function pairResultView(results, row, participantKey) {
     parScore,
     vsPar,
     trickDeltaForPair,
+    fieldDdDelta,
+    relativeTrickDelta,
     bestMakeable
   };
 }
@@ -231,18 +238,24 @@ function analyzeReviewItem(view) {
   const target = contractTarget(row.parsedContract);
   const failedContract = view.declared && target != null && row.tricks != null && row.tricks < target;
 
+  // A board at or above average never needs review: the flags below
+  // explain why a below-average board went wrong, nothing more.
+  if (pct >= 50) return { ...view, reasons, severity: 0 };
+
   if (pct <= 25) addReviewReason(reasons, "low board", "red", 35);
   else if (pct <= 40) addReviewReason(reasons, "below average board", "gold", 18);
 
-  if (row.boardTop && mpLoss >= row.boardTop * 0.5) addReviewReason(reasons, "large matchpoint loss", "red", 28);
   if (fieldLoss >= 500) addReviewReason(reasons, "far below field", "red", 26);
   else if (fieldLoss >= 200) addReviewReason(reasons, "below field", "gold", 14);
 
   if (parLoss >= 500) addReviewReason(reasons, "well below par", "red", 24);
   else if (parLoss >= 200) addReviewReason(reasons, "below par", "gold", 12);
 
-  if (view.trickDeltaForPair != null && view.trickDeltaForPair <= -2) addReviewReason(reasons, "multiple trick loss vs DD", "red", 24);
-  else if (view.trickDeltaForPair === -1) addReviewReason(reasons, view.declared ? "declarer trick loss vs DD" : "defensive trick loss vs DD", "gold", 13);
+  // Trick flags are relative to the field's DD deviation on the board:
+  // -1 vs double-dummy is often the normal club result.
+  const relTricks = view.relativeTrickDelta;
+  if (relTricks != null && relTricks <= -2) addReviewReason(reasons, "multiple trick loss vs field", "red", 24);
+  else if (relTricks != null && relTricks <= -1) addReviewReason(reasons, view.declared ? "declarer trick loss vs field" : "defensive trick loss vs field", "gold", 13);
 
   if (failedContract) {
     addReviewReason(reasons, row.parsedContract.doubled ? "failed doubled contract" : "failed contract", "red", row.parsedContract.doubled ? 28 : 18);
@@ -255,13 +268,12 @@ function analyzeReviewItem(view) {
     addReviewReason(reasons, "competitive auction review", "gold", 14);
   }
 
-  if (!reasons.length && pct < 50) addReviewReason(reasons, "small loss", "", 6);
-
   severity += Math.max(0, 100 - pct) * 0.7;
-  severity += mpLoss * 4;
+  // Normalized by the board top so severity is comparable across field sizes.
+  if (row.boardTop) severity += (mpLoss / row.boardTop) * 30;
   severity += Math.min(35, fieldLoss / 25);
   severity += Math.min(35, parLoss / 25);
-  if (view.trickDeltaForPair != null && view.trickDeltaForPair < 0) severity += Math.abs(view.trickDeltaForPair) * 14;
+  if (relTricks != null && relTricks < 0) severity += Math.min(28, -relTricks * 12);
   severity += reasons.reduce((acc, reason) => acc + reason.weight, 0);
 
   return {
@@ -426,7 +438,9 @@ function buildSwingDiagnosis(item, boardItem) {
   let explanation;
 
   if (dominant.key === "declarerTricks") {
-    explanation = `This pair lost ${lossText} mainly because same-direction peers took more tricks in the same contract family. Compare ${targetText} with ${peerName}'s ${peerText}.`;
+    explanation = dominant.comparisons.some(comparisonSameContract)
+      ? `This pair lost ${lossText} mainly because same-direction peers took more tricks in the same contract family. Compare ${targetText} with ${peerName}'s ${peerText}.`
+      : `This pair lost ${lossText} in a contract double-dummy says could make, so the swing most likely came from the play. Compare ${targetText} with ${peerName}'s ${peerText}.`;
   } else if (dominant.key === "defensiveTricks") {
     explanation = `This pair lost ${lossText} on defense. Same-direction peers defended the same or similar contract more profitably; start with opening lead, shifts, and cash-out timing.`;
   } else if (dominant.key === "missedGameSlam") {
@@ -523,8 +537,18 @@ function classifyLossComparison(view, peerRow, peerScore, scoreDelta, loss) {
   // Only a double at the pair's own table is a double decision the pair
   // faced; a doubled peer table falls through to the real cause.
   if (targetContract.doubled) return { key: "penaltyDouble" };
-  if (targetFailed && (scoreDelta >= 200 || peerMade || !peerDeclared)) return { key: "overreach" };
   if (peerDeclared && peerRank >= 2 && peerRank > targetRank && peerMade !== false) return { key: "missedGameSlam" };
+  // A failed contract that double-dummy says could make is a play
+  // problem, not an auction problem.
+  const targetLevelTarget = contractTarget(targetContract);
+  if (targetFailed && row.ddTricks != null && targetLevelTarget != null && row.ddTricks >= targetLevelTarget) {
+    return { key: "declarerTricks" };
+  }
+  // "Landing too high" needs a real swing to earn the overreach label;
+  // undertrick swings scale with vulnerability.
+  const vulnerableSide = isVulnerable(row.board ? row.board.vulnerable : "None", side);
+  const bigSwing = scoreDelta >= (vulnerableSide ? 300 : 200);
+  if (targetFailed && (bigSwing || (view.pairScore != null && view.pairScore <= -200))) return { key: "overreach" };
 
   if (targetDeclared && peerDeclared && targetContract.strain && peerContract.strain && targetContract.strain !== peerContract.strain) {
     const levelGap = Math.abs((targetContract.level || 0) - (peerContract.level || 0));
@@ -634,10 +658,20 @@ function buildPairLossLedger(results, views) {
   const categoryMap = new Map();
   let totalLoss = 0;
   let tieLoss = 0;
+  let tieCount = 0;
   let outrightLoss = 0;
 
   boardItems.forEach((boardItem) => {
     boardItem.comparisons.forEach((comparison) => {
+      totalLoss += comparison.loss;
+      // Ties are the expected shared outcome, not a coachable loss:
+      // they are tallied but never become themes or weaknesses.
+      if (comparison.categoryKey === "tieSplit") {
+        tieLoss += comparison.loss;
+        tieCount += 1;
+        return;
+      }
+      outrightLoss += comparison.loss;
       const info = lossCategoryInfo(comparison.categoryKey);
       if (!categoryMap.has(comparison.categoryKey)) {
         categoryMap.set(comparison.categoryKey, {
@@ -656,9 +690,6 @@ function buildPairLossLedger(results, views) {
       category.comparisonCount += 1;
       category.boards.add(String(comparison.boardNo));
       category.comparisons.push(comparison);
-      totalLoss += comparison.loss;
-      if (comparison.loss === 0.5 && comparison.scoreDelta === 0) tieLoss += comparison.loss;
-      else outrightLoss += comparison.loss;
     });
   });
 
@@ -679,6 +710,7 @@ function buildPairLossLedger(results, views) {
     totalLoss,
     outrightLoss,
     tieLoss,
+    tieCount,
     boardCount: boardItems.length,
     categoryCount: categories.length,
     boardItems,
@@ -730,7 +762,6 @@ function buildPairProfile(views, lossLedger, decisionTypes) {
   const weakestRole = weakestStat(roleStats);
   const strongestContract = bestStat(contractStats);
   const weakestContract = weakestStat(contractStats);
-  const topCategory = lossLedger && lossLedger.categories ? lossLedger.categories[0] : null;
   const topDecisionType = decisionTypes && decisionTypes.length ? decisionTypes[0] : null;
   const highBoards = views.filter((view) => view.percent != null && view.percent >= 65).length;
   const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35).length;
@@ -759,11 +790,13 @@ function buildPairProfile(views, lossLedger, decisionTypes) {
     });
   }
 
-  if (topCategory) {
+  // Same partition as the focus sentence below, so the profile never
+  // names two different "biggest problems".
+  if (topDecisionType) {
     weaknesses.push({
       label: "Biggest Loss Theme",
-      value: topCategory.label,
-      detail: `${formatMp(topCategory.totalLoss)} lost MP on ${plural(topCategory.boardCount, "board")}.`
+      value: topDecisionType.label,
+      detail: `${formatMp(topDecisionType.totalLoss)} MP conceded on ${plural(topDecisionType.boardCount, "board")}.`
     });
   }
   if (weakestRole && weakestRole.percent < 50) {
@@ -789,7 +822,7 @@ function buildPairProfile(views, lossLedger, decisionTypes) {
   }
 
   const focus = topDecisionType
-    ? `The largest improvement area is ${topDecisionType.label.toLowerCase()}, worth ${formatMp(topDecisionType.totalLoss)} lost MP across ${plural(topDecisionType.boardCount, "board")}. ${topDecisionType.advice}`
+    ? `The largest improvement area is ${topDecisionType.label.toLowerCase()}, worth ${formatMp(topDecisionType.totalLoss)} MP conceded across ${plural(topDecisionType.boardCount, "board")}. ${topDecisionType.advice}`
     : "No same-direction loss pattern stands out. Review the lowest boards first and look for small scoring edges.";
 
   return {
@@ -827,12 +860,12 @@ function buildPracticePriorities(lossLedger, decisionTypes, views) {
   }
 
   if (priorities.length < 3) {
-    const trickLosses = views.filter((view) => view.trickDeltaForPair != null && view.trickDeltaForPair < 0);
+    const trickLosses = views.filter((view) => view.relativeTrickDelta != null && view.relativeTrickDelta <= -1);
     if (trickLosses.length) {
       priorities.push({
         title: "Double-Dummy Trick Checks",
         metric: plural(trickLosses.length, "board"),
-        detail: "Actual tricks below double-dummy expectation",
+        detail: "Trick results at least one trick below the field's norm",
         advice: "Use double-dummy only after replaying the hand yourself; then compare where best play finds the missing trick.",
         boards: trickLosses.slice(0, 4).map((view) => view.row.boardNo)
       });
@@ -902,20 +935,32 @@ function buildPairImprovementReport(results, participantKey) {
       diagnosis: buildSwingDiagnosis(item, boardLossItem)
     };
   });
+  // Only actual flags qualify: no severity-only or below-50% catch-all,
+  // so a clean session produces a short queue (or none at all).
   const candidates = analyzed.filter((item) =>
-    (item.reasons.length || item.severity >= 20) &&
+    item.reasons.length &&
     !(item.row.adjustment && item.row.scoreNS == null));
   const reviewed = candidates
     .sort((a, b) => b.severity - a.severity || (a.percent || 0) - (b.percent || 0))
     .slice(0, 10);
   const percents = views.map((view) => view.percent).filter((value) => value != null);
   const vsParValues = views.map((view) => view.vsPar).filter((value) => value != null);
-  const trickLosses = views.filter((view) => view.trickDeltaForPair != null && view.trickDeltaForPair < 0);
+  const trickLosses = views.filter((view) => view.relativeTrickDelta != null && view.relativeTrickDelta <= -1);
   const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35);
   const fieldLosses = views.filter((view) => view.fieldDelta != null && view.fieldDelta <= -200);
   const decisionTypes = buildDecisionTypeSummary(lossLedger);
   const profile = buildPairProfile(views, lossLedger, decisionTypes);
   const practicePriorities = buildPracticePriorities(lossLedger, decisionTypes, views);
+  // Headline baseline is the field average (half the top per board),
+  // not a perfect top: a good session must read as a good session.
+  let mpEarned = 0;
+  let topSum = 0;
+  views.forEach((view) => {
+    if (view.matchpoints != null && view.row.boardTop != null) {
+      mpEarned += view.matchpoints;
+      topSum += view.row.boardTop;
+    }
+  });
 
   return {
     pairKey: key,
@@ -935,7 +980,8 @@ function buildPairImprovementReport(results, participantKey) {
       lowBoards: lowBoards.length,
       fieldLosses: fieldLosses.length,
       averageVsPar: vsParValues.length ? average(vsParValues) : null,
-      lostMatchpoints: lossLedger.totalLoss,
+      mpVsAverage: topSum ? mpEarned - topSum / 2 : null,
+      mpConceded: lossLedger.outrightLoss,
       lossCategories: lossLedger.categoryCount,
       trickLossBoards: trickLosses.length,
       declaredBoards: views.filter((view) => view.declared).length,

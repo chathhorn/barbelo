@@ -225,6 +225,148 @@ test("a replayed board keeps two distinct plays apart", () => {
   assert.ok(!peerPairs.includes("1"), "the pair's own replay row appeared as a peer");
 });
 
+test("mpVsAverage measures the session against the field average, not a perfect top", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "+1"],
+    ["1", "3", "4", "N", "3 NT", "="],
+    ["1", "5", "6", "N", "3 NT", "-1"],
+    ["2", "1", "2", "N", "3 NT", "-1"],
+    ["2", "3", "4", "N", "3 NT", "="],
+    ["2", "5", "6", "N", "3 NT", "+1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  // One top and one bottom on top-2 boards: exactly average.
+  assert.equal(report.summary.mpVsAverage, 0);
+  assert.equal(report.summary.mpConceded, 2);
+  assert.equal(report.summary.mpVsAverage != null && "lostMatchpoints" in report.summary, false, "lostMatchpoints headline replaced by mpVsAverage");
+});
+
+test("a mildly below-average board with no real flag stays out of the review queue", () => {
+  // 41.7% board: worse than average but flagged by nothing - the old
+  // pct<50 catch-all and severity floor put boards like this in every
+  // pair's queue.
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["1", "3", "4", "N", "3 NT", "-1"],
+    ["1", "5", "6", "N", "3 NT", "-1"],
+    ["1", "7", "8", "N", "3 NT", "="],
+    ["1", "9", "10", "N", "3 NT", "+1"],
+    ["1", "11", "12", "N", "3 NT", "+1"],
+    ["1", "13", "14", "N", "3 NT", "+1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const view = report.rows[0];
+  assert.ok(view.percent > 40 && view.percent < 50, `expected a 40-50% board, got ${view.percent}`);
+  assert.equal(report.reviewItems.length, 0, "unflagged below-average board leaked into the review queue");
+});
+
+test("overreach needs a vulnerability-scaled swing or a real minus score", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "3 S", "+1"],
+    ["2", "1", "2", "N", "4 S", "-1"],
+    ["2", "3", "4", "N", "3 S", "+1"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const byBoard = new Map();
+  report.lossLedger.boardItems.forEach((item) => byBoard.set(String(item.boardNo), item));
+  // Board 1 (none vul): -50 vs +170 is a 220 swing, over the 200 gate.
+  assert.equal(byBoard.get("1").comparisons[0].categoryKey, "overreach");
+  // Board 2 (NS vul): -100 vs +170 is 270, under the 300 vul gate.
+  assert.equal(byBoard.get("2").comparisons[0].categoryKey, "contractSelection", "vulnerable down-one should not be branded overreach");
+});
+
+const DD_PBN = [
+  "[Board \"1\"]",
+  "[Deal \"N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432\"]",
+  "[OptimumResultTable \"Declarer;Denomination\\2R;Result\\2R\"]",
+  "N NT 9",
+  "N S 10",
+  "N H 8",
+  "N D 8",
+  "N C 8",
+  "S NT 9",
+  "S S 10",
+  "S H 8",
+  "S D 8",
+  "S C 8",
+  "E NT 4",
+  "E S 3",
+  "E H 5",
+  "E D 5",
+  "E C 5",
+  "W NT 4",
+  "W S 3",
+  "W H 5",
+  "W D 5",
+  "W C 5"
+].join("\n");
+
+test("failing a double-dummy-makeable contract is a play problem, not overreach", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "2 S", "+2"]
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  const item = report.lossLedger.boardItems[0];
+  assert.equal(item.comparisons[0].categoryKey, "declarerTricks", "DD says 4S makes: the failure is the play, not the auction");
+  const reviewItem = report.reviewItems.find((entry) => String(entry.row.boardNo) === "1");
+  assert.ok(/could make|the play/.test(reviewItem.diagnosis.explanation), "diagnosis should point at the play");
+});
+
+test("trick flags are relative to the field's DD deviation, not raw DD", () => {
+  const analysis = buildAnalysis(parsePbn(DD_PBN, "t.pbn"));
+  // Everyone one trick under DD: the normal club result, nothing to flag.
+  const flat = buildPairImprovementReport(analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "4 S", "-1"],
+    ["1", "5", "6", "N", "4 S", "-1"]
+  ], analysis), "1");
+  assert.equal(flat.rows[0].relativeTrickDelta, 0, "matching the field's DD deviation should read as zero");
+  // Two tricks under a field that took DD tricks: flag it.
+  const behind = buildPairImprovementReport(analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "-2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["1", "5", "6", "N", "4 S", "="]
+  ], analysis), "1");
+  assert.equal(behind.rows[0].relativeTrickDelta, -2);
+  const item = behind.reviewItems.find((entry) => String(entry.row.boardNo) === "1");
+  assert.ok(item.reasons.some((reason) => reason.label.includes("trick loss vs field")), "field-relative trick loss should be flagged");
+});
+
+test("an above-average board is never a review candidate, even with a failed contract", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "5 S", "-2"]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(report.rows[0].percent, 100, "down one should have won the board");
+  assert.equal(report.reviewItems.length, 0, "a winning board must not be flagged for review");
+});
+
+test("profile weakness and focus sentence name the same biggest problem", () => {
+  const results = analyzeCsv([
+    ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "2", "N", "2 S", "+2"],
+    ["1", "3", "4", "N", "4 S", "="],
+    ["2", "1", "2", "N", "3 NT", "-1"],
+    ["2", "3", "4", "N", "3 NT", "="]
+  ]);
+  const report = buildPairImprovementReport(results, "1");
+  const weakness = report.profile.weaknesses.find((entry) => entry.label === "Biggest Loss Theme");
+  assert.ok(weakness, "biggest loss theme missing");
+  assert.equal(weakness.value, report.decisionTypes[0].label, "profile weakness and focus must rank from the same partition");
+  assert.ok(report.profile.focus.toLowerCase().includes(report.decisionTypes[0].label.toLowerCase()));
+});
+
 test("director-adjusted boards never appear in the review queue", () => {
   const results = analyzeCsv([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result", "Remarks"],

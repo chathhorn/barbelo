@@ -339,6 +339,9 @@
  * @property {number|null} vsPar
  * @property {number|null} trickDeltaForPair ddDelta from this pair's
  *   view (negated when defending).
+ * @property {number|null} fieldDdDelta Average peer ddDelta on the board.
+ * @property {number|null} relativeTrickDelta trickDeltaForPair minus the
+ *   field's expected DD deviation (club fields run below double-dummy).
  * @property {{ className: string, rank: number, text: string }} bestMakeable
  *   Best makeable contract for this pair from the double-dummy table.
  */
@@ -363,7 +366,7 @@
  * @property {Object<string, *>} profile Strengths, weaknesses, role and
  *   contract-class stats, and a focus sentence.
  * @property {Object<string, *>} summary Report-level totals (boards,
- *   percent, lostMatchpoints, lowBoards, declaredBoards, ...).
+ *   percent, mpVsAverage, mpConceded, lowBoards, declaredBoards, ...).
  */
 
 export {};

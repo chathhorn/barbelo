@@ -61,11 +61,11 @@ function renderPairImprovementReport(results) {
     <div class="report-summary-grid" id="rs-summary">
       <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
       <div class="result-summary-card"><strong>${escapeHtml(summary.averageBoardPercent == null ? "n/a" : `${summary.averageBoardPercent.toFixed(1)}%`)}</strong><span>Avg Board</span></div>
-      <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints given up to same-direction peers: for each board, one MP per peer pair that beat this result and half an MP per tie.")}>${escapeHtml(formatMp(summary.lostMatchpoints))}</strong><span>Lost MP</span></div>
+      <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
       <div class="result-summary-card"><strong>${escapeHtml(summary.lossCategories)}</strong><span>Loss Themes</span></div>
       <div class="result-summary-card"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></div>
       <div class="result-summary-card"><strong>${escapeHtml(summary.averageVsPar == null ? "n/a" : formatSigned(Math.round(summary.averageVsPar)))}</strong><span>Avg Vs Par</span></div>
-      <div class="result-summary-card"><strong>${escapeHtml(summary.trickLossBoards)}</strong><span>DD Trick Losses</span></div>
+      <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Boards where this pair's trick result was at least one full trick below the field's own double-dummy-relative norm on that board.")}>${escapeHtml(summary.trickLossBoards)}</strong><span>Tricks Vs Field</span></div>
     </div>
     ${renderPairProfile(report)}
     ${renderLossThemes(report)}
@@ -120,23 +120,26 @@ function renderLossThemes(report) {
       : `<div class="empty-state">No same-direction matchpoint losses found for this pair.</div>`;
     return renderReportSubsection("loss-themes", "Loss Themes", fallback, "", { id: "rs-themes" });
   }
-  const totalLoss = ledger.totalLoss || sum(types.map((type) => type.totalLoss));
+  const conceded = ledger.outrightLoss || sum(types.map((type) => type.totalLoss));
   const categoriesByType = new Map();
   (ledger.categories || []).forEach((category) => {
     const typeKey = decisionTypeInfoForCategory(category.key).key;
     if (!categoriesByType.has(typeKey)) categoriesByType.set(typeKey, []);
     categoriesByType.get(typeKey).push(category);
   });
+  const tieNote = ledger.tieCount
+    ? ` ${plural(ledger.tieCount, "tied comparison")} counted as shared results, not losses.`
+    : "";
   const summary = `
     <p>
-      <span>${escapeHtml(formatMp(ledger.totalLoss))} lost MP across ${escapeHtml(plural(ledger.boardCount, "board"))}; ${escapeHtml(formatMp(ledger.outrightLoss))} from beaten comparisons and ${escapeHtml(formatMp(ledger.tieLoss))} from tie splits.</span>
+      <span>${escapeHtml(formatMp(conceded))} MP conceded to same-direction tables that beat this pair, across ${escapeHtml(plural(ledger.boardCount, "board"))}.${escapeHtml(tieNote)}</span>
     </p>
   `;
   const body = `
       <div class="decision-type-grid">
         ${types.map((type, index) => {
-          const width = totalLoss ? (type.totalLoss / totalLoss) * 100 : 0;
-          const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(totalLoss)} lost MP in this report (${width.toFixed(0)}%). One MP per beaten same-direction comparison, half per tie.`;
+          const width = conceded ? (type.totalLoss / conceded) * 100 : 0;
+          const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(conceded)} MP conceded in this report (${width.toFixed(0)}%). One MP for each same-direction table that beat this pair.`;
           const categories = categoriesByType.get(type.key) || [];
           return `
             <article class="decision-type-card ${escapeHtml(type.tone || "")}">
@@ -362,7 +365,8 @@ function renderReviewItem(item) {
   const pctText = item.percent == null ? "n/a" : `${item.percent.toFixed(1)}%`;
   const mpText = item.matchpoints == null || row.boardTop == null ? "n/a" : `${item.matchpoints.toFixed(1)} / ${row.boardTop.toFixed(1)}`;
   const reasons = item.reasons.length ? item.reasons : [{ label: "review candidate", tone: "", weight: 0 }];
-  const ddText = item.trickDeltaForPair == null ? "n/a" : `${formatSigned(item.trickDeltaForPair)} trick${Math.abs(item.trickDeltaForPair) === 1 ? "" : "s"}`;
+  const relTricks = item.relativeTrickDelta == null ? null : Math.round(item.relativeTrickDelta * 10) / 10;
+  const ddText = relTricks == null ? "n/a" : `${formatSigned(relTricks)} trick${Math.abs(relTricks) === 1 ? "" : "s"}`;
   return `
     <article class="review-item">
       <div class="review-head">
@@ -377,7 +381,7 @@ function renderReviewItem(item) {
         <div class="review-stat"><span>Matchpoints</span><strong>${escapeHtml(mpText)}</strong></div>
         <div class="review-stat"><span>Vs Field Avg</span><strong>${escapeHtml(item.fieldDelta == null ? "n/a" : formatSigned(Math.round(item.fieldDelta)))}</strong></div>
         <div class="review-stat"><span>Vs Par</span><strong>${escapeHtml(item.vsPar == null ? "n/a" : formatSigned(item.vsPar))}</strong></div>
-        <div class="review-stat"><span>DD Effect</span><strong>${escapeHtml(ddText)}</strong></div>
+        <div class="review-stat"><span>Tricks Vs Field</span><strong>${escapeHtml(ddText)}</strong></div>
         <div class="review-stat"><span>Makeable</span><strong class="contract">${contractGlyphHtml(item.bestMakeable.text || item.bestMakeable.className)}</strong></div>
       </div>
       ${row.declarerName ? `<div class="cell-note">Declarer: ${escapeHtml(row.declarerName)}</div>` : ""}

@@ -48,7 +48,8 @@ function snapshotSession(session) {
     reports[key] = {
       boards: report.summary.boards,
       percent: round4(report.summary.percent),
-      lostMatchpoints: report.summary.lostMatchpoints,
+      mpVsAverage: round4(report.summary.mpVsAverage),
+      mpConceded: report.summary.mpConceded,
       declaredBoards: report.summary.declaredBoards,
       categories: report.lossLedger.categories.map((category) => [category.key, category.totalLoss, category.boardCount]),
       decisionTypes: report.decisionTypes.map((type) => [type.key, type.totalLoss, type.boardCount]),
