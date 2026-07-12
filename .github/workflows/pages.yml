@@ -34,9 +34,63 @@ jobs:
       - name: Type-check core and parsers
         run: npx --yes -p typescript@5.9 tsc -p jsconfig.json --noEmit
 
+  simulator-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_VERSION: 1.61.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Browser tooling is CI-only. Keep the app's dependency-free repository
+      # convention by pinning an ephemeral install instead of tracking an npm
+      # manifest or lockfile.
+      - name: Install pinned browser-test package
+        run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.61.1
+
+      - name: Verify Playwright pin
+        run: node -e "const actual=require('playwright/package.json').version; if (actual !== process.env.PLAYWRIGHT_VERSION) throw new Error('Expected Playwright ' + process.env.PLAYWRIGHT_VERSION + ', got ' + actual)"
+
+      # The simulator suite currently targets Chromium only. Playwright's
+      # --with-deps option installs the matching Linux browser dependencies.
+      - name: Install pinned Chromium
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Run simulator browser test
+        run: node test/e2e/simulator.js
+
+      - name: Prepare built-site simulator harness
+        run: |
+          set -euo pipefail
+          site_root=/tmp/bridge-simulator-built-e2e
+          mkdir -p "$site_root/assets" "$site_root/vendor/three"
+          cp index.html "$site_root/index.html"
+          cp assets/barbelo.css assets/simulator.css assets/*.png assets/*.jpg assets/*.svg "$site_root/assets/"
+          cp -R assets/simulator "$site_root/assets/"
+          cp vendor/three/LICENSE vendor/three/VERSION "$site_root/vendor/three/"
+          npx --yes esbuild@0.25.5 src/main.js \
+            --bundle --format=iife --legal-comments=eof \
+            --outfile="$site_root/assets/barbelo.js"
+          npx --yes esbuild@0.25.5 src/simulator/index.js \
+            --bundle --format=iife --global-name=BridgeSimulator --legal-comments=eof \
+            --outfile="$site_root/assets/bridge-simulator.js"
+          sed -i 's/__BARBELO_VERSION__/built-e2e/g' "$site_root/index.html"
+          sed -i 's|<script type="module" src="src/main.js?v=built-e2e"></script>|<script defer src="assets/barbelo.js?v=built-e2e"></script>|' "$site_root/index.html"
+
+      - name: Run built-site simulator browser test
+        env:
+          SERVE_ROOT: /tmp/bridge-simulator-built-e2e
+        run: node test/e2e/simulator-built.js
+
   build:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, simulator-e2e]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
