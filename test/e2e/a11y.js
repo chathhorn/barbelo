@@ -101,6 +101,32 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   const selVisible = await page.evaluate(() => document.getElementById("reportPairSelect").getBoundingClientRect().height > 0);
   check(selVisible, "pair select still visible in header");
 
+  // report headings descend both semantically and visually
+  const headingHierarchy = await page.evaluate(() => {
+    const report = document.querySelector("#pairReportDisclosure > summary h2");
+    const section = document.querySelector("#rs-declared > summary h3");
+    const nested = document.querySelector("#rs-declared .overtrick-meter h4");
+    const summary = document.getElementById("rs-summary-title");
+    const thisWeek = document.getElementById("rs-this-week-title");
+    const size = (element) => element ? parseFloat(getComputedStyle(element).fontSize) : 0;
+    const summaryStyle = summary ? getComputedStyle(summary) : null;
+    return {
+      tags: [report, section, nested, thisWeek].map((element) => element && element.tagName),
+      sizes: [size(report), size(section), size(nested)],
+      summaryExposed: Boolean(summaryStyle && summaryStyle.display !== "none" && summaryStyle.visibility !== "hidden")
+    };
+  });
+  const [reportSize, sectionSize, nestedSize] = headingHierarchy.sizes;
+  check(
+    headingHierarchy.tags.join(",") === "H2,H3,H4,H3" &&
+      reportSize > sectionSize && sectionSize > nestedSize && headingHierarchy.summaryExposed,
+    `report heading hierarchy (${JSON.stringify(headingHierarchy)})`
+  );
+  const nestedSummaryControls = await page.evaluate(() =>
+    document.querySelectorAll(".report-subsection > summary [tabindex], .report-subsection > summary a, .report-subsection > summary button, .report-subsection > summary input, .report-subsection > summary select, .report-subsection > summary textarea").length
+  );
+  check(nestedSummaryControls === 0, `report section headings contain no nested controls (${nestedSummaryControls})`);
+
   // tooltip escape dismissal
   await page.evaluate(() => {
     const tip = document.querySelector("[data-tooltip]");

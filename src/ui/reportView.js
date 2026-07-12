@@ -69,12 +69,15 @@ function renderPairImprovementReport(results) {
       <a href="#rs-field">Field</a>
     </nav>
     ${renderThisWeek(report)}
-    <div class="report-summary-grid" id="rs-summary">
-      <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
-      <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
-      <a class="result-summary-card" href="#rs-boards"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></a>
-      <a class="result-summary-card" href="#rs-themes"><strong>${escapeHtml(report.decisionTypes.length)}</strong><span>Loss Themes</span></a>
-    </div>
+    <section class="report-summary" id="rs-summary" aria-labelledby="rs-summary-title">
+      <h3 class="visually-hidden" id="rs-summary-title">Summary</h3>
+      <div class="report-summary-grid">
+        <div class="result-summary-card"><strong>${escapeHtml(summary.percent == null ? "n/a" : `${summary.percent.toFixed(1)}%`)}</strong><span>Session</span></div>
+        <div class="result-summary-card"><strong class="term-tip"${tooltipAttrs("Matchpoints earned minus the field-average expectation (half the top on every board). Positive means an above-average session.")}>${escapeHtml(formatSignedMp(summary.mpVsAverage))}</strong><span>MP Vs Average</span></div>
+        <a class="result-summary-card" href="#rs-boards"><strong>${escapeHtml(summary.lowBoards)}</strong><span>Low Boards</span></a>
+        <a class="result-summary-card" href="#rs-themes"><strong>${escapeHtml(report.decisionTypes.length)}</strong><span>Loss Themes</span></a>
+      </div>
+    </section>
     ${renderPairProfile(report)}
     ${renderBiddingScorecard(report)}
     ${renderDeclaredScorecard(report)}
@@ -121,8 +124,8 @@ function renderThisWeek(report) {
     </ol>
   ` : "";
   return `
-    <section class="this-week-card" aria-label="This week's focus">
-      <div class="this-week-head"><strong>This Week</strong><span>What to look at before the next session.</span></div>
+    <section class="this-week-card" aria-labelledby="rs-this-week-title">
+      <header class="this-week-head"><h3 id="rs-this-week-title">This Week</h3><span>What to look at before the next session.</span></header>
       ${renderLossAdvice(focus)}
       ${list}
       ${renderQuizLaunch()}
@@ -143,7 +146,7 @@ function renderReportSubsection(className, title, bodyHtml, summaryExtra = "", o
   return `
     <details class="report-subsection ${escapeHtml(className)}"${options.open === false ? "" : " open"}${options.id ? ` id="${escapeHtml(options.id)}"` : ""}>
       <summary class="section-kicker">
-        <h3>${term(title)}</h3>
+        <h3>${escapeHtml(title)}</h3>
         ${summaryExtra}
       </summary>
       <div class="report-subsection-body">
@@ -161,7 +164,7 @@ function renderPracticeCards(priorities) {
             <div class="priority-rank">${escapeHtml(index + 1)}</div>
             <div class="practice-card-body">
               <div class="practice-card-head">
-                <strong>${term(priority.title)}</strong>
+                <h4>${term(priority.title)}</h4>
                 <span>${escapeHtml(priority.metric)} - ${escapeHtml(priority.detail)}</span>
               </div>
               ${priority.boards && priority.boards.length ? `<div class="cell-note">Boards: ${renderBoardJumpList(priority.boards, 6)}</div>` : ""}
@@ -209,7 +212,7 @@ function renderLossThemes(report) {
             <article class="decision-type-card ${escapeHtml(type.tone || "")}">
               <div class="decision-type-head">
                 <div>
-                  <strong>${term(type.label)}</strong>
+                  <h4>${term(type.label)}</h4>
                   <span>${escapeHtml(plural(type.boardCount, "board"))}, ${escapeHtml(plural(type.comparisonCount, "lost head-to-head"))}</span>
                 </div>
                 <b class="term-tip"${tooltipAttrs(basis)}>${escapeHtml(formatMp(type.totalLoss))} MP</b>
@@ -223,7 +226,7 @@ function renderLossThemes(report) {
                 ${categories.map((category) => `
                   <div class="theme-category">
                     <div class="theme-category-head">
-                      <strong>${term(category.label)}</strong>
+                      <h5>${term(category.label)}</h5>
                       <span>${escapeHtml(formatMp(category.totalLoss))} MP &middot; ${escapeHtml(plural(category.comparisonCount, "lost head-to-head"))}</span>
                     </div>
                     <ul class="loss-example-list">
@@ -256,13 +259,13 @@ function renderPairProfile(report) {
   return renderReportSubsection("pair-profile", "Pair Profile", `
       <div class="profile-grid">
         <article class="profile-card">
-          <h4>Strengths</h4>
+          <h4 class="report-nested-title">Strengths</h4>
           <div class="profile-metric-list">
             ${(profile.strengths.length ? profile.strengths : [{ label: "Baseline", value: "No standout strength", detail: "Review more sessions to establish a clearer pattern." }]).map(renderProfileMetric).join("")}
           </div>
         </article>
         <article class="profile-card">
-          <h4>Weaknesses</h4>
+          <h4 class="report-nested-title">Weaknesses</h4>
           <div class="profile-metric-list">
             ${(profile.weaknesses.length ? profile.weaknesses : [{ label: "Baseline", value: "No standout weakness", detail: "Same-direction loss patterns are limited in this file." }]).map(renderProfileMetric).join("")}
           </div>
@@ -293,7 +296,7 @@ function renderTopReviewPriorities(report) {
               <div class="priority-rank">${escapeHtml(index + 1)}</div>
               <div class="priority-card-body">
                 <div class="priority-card-head">
-                  <strong>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></strong>
+                  <h4>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText)}</span></h4>
                   <span>${escapeHtml(item.declared ? "Declaring" : "Defending")} / ${escapeHtml(pctText)}${peerCount ? ` &middot; vs ${escapeHtml(peerCount)} other table${peerCount === 1 ? "" : "s"}` : ""}</span>
                 </div>
                 <div class="reason-list">
@@ -468,11 +471,11 @@ function renderOvertrickMeter(report) {
     ? ` On ${plural(meter.freeSafetyCount, "board")} a safety play was free: even one fewer trick would have cost nothing.`
     : "";
   return `
-    <div class="overtrick-meter">
-      <strong class="term-tip"${tooltipAttrs("For every made contract: the score is recomputed with one trick more and one trick fewer, then re-ranked against the board's actual results to price the trick in matchpoints.")}>Overtrick meter</strong>
+    <section class="overtrick-meter">
+      <h4 class="report-nested-title term-tip"${tooltipAttrs("For every made contract: the score is recomputed with one trick more and one trick fewer, then re-ranked against the board's actual results to price the trick in matchpoints.")}>Overtrick Meter</h4>
       <p>${escapeHtml(headline)}${escapeHtml(safetyNote)}</p>
       ${flaggedList}
-    </div>
+    </section>
   `;
 }
 
@@ -560,24 +563,24 @@ function renderFieldContext(report) {
   `).join("");
   return renderReportSubsection("field-context", "Field Context", `
       <div class="field-context-grid">
-        <div>
-          <h4 class="term-tip"${tooltipAttrs("At matchpoints, scores are compared with every pair sitting the same direction - these are the pairs matchpoints are actually won from. Wins-losses-ties count board-by-board score comparisons; net MP is the swing against an even split.")}>Same-Direction Rivals</h4>
+        <section class="field-context-section">
+          <h4 class="report-nested-title term-tip"${tooltipAttrs("At matchpoints, scores are compared with every pair sitting the same direction - these are the pairs matchpoints are actually won from. Wins-losses-ties count board-by-board score comparisons; net MP is the swing against an even split.")}>Same-Direction Rivals</h4>
           <div class="scorecard-table">
             <table>
               <thead><tr><th scope="col">Rival</th><th scope="col" class="numeric">W-L-T</th><th scope="col" class="numeric">Net MP</th><th scope="col">Costliest Boards</th></tr></thead>
               <tbody>${rivalRows}</tbody>
             </table>
           </div>
-        </div>
-        <div>
-          <h4>Opponents At Your Table</h4>
+        </section>
+        <section class="field-context-section">
+          <h4 class="report-nested-title">Opponents At Your Table</h4>
           <div class="scorecard-table">
             <table>
               <thead><tr><th scope="col">Opponents</th><th scope="col" class="numeric">Boards</th><th scope="col" class="numeric">Avg Board</th><th scope="col" class="numeric">Vs Session Avg</th></tr></thead>
               <tbody>${opponentRows}</tbody>
             </table>
           </div>
-        </div>
+        </section>
       </div>
   `, "", { id: "rs-field", open: false });
 }
@@ -649,7 +652,7 @@ function renderReviewItem(item) {
   return `
     <article class="review-item">
       <div class="review-head">
-        <strong>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText || "No contract")}</span></strong>
+        <h4>${renderBoardJump(row.boardNo)} - <span class="contract">${contractGlyphHtml(contractText || "No contract")}</span></h4>
         <span>${escapeHtml(role)} / ${escapeHtml(pctText)}</span>
       </div>
       <div class="reason-list">

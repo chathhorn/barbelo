@@ -136,12 +136,13 @@ test("report subsections honor open and id options", () => {
   const open = renderReportSubsection("x", "Title", "<p>body</p>");
   const closed = renderReportSubsection("x", "Title", "<p>body</p>", "", { open: false, id: "rs-x" });
   assert.match(open, /<details class="report-subsection x" open>/);
+  assert.match(open, /<summary class="section-kicker">\s*<h3>Title<\/h3>/);
   assert.match(closed, /<details class="report-subsection x" id="rs-x">/);
 });
 
 test("priority cards fold in the swing detail: peer diff, table count, no redundant link", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
-  const { renderTopReviewPriorities } = await import("../src/ui/reportView.js");
+  const { renderReviewItem, renderTopReviewPriorities } = await import("../src/ui/reportView.js");
   const swingCsv = csvFrom([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
     ["1", "1", "2", "N", "3 NT", "-2"],
@@ -151,11 +152,12 @@ test("priority cards fold in the swing detail: peer diff, table count, no redund
   const swingResults = buildResultsAnalysis(parseResultsCsv(swingCsv, "t.csv", swingCsv.length), null);
   const report = buildPairImprovementReport(swingResults, "1");
   const html = renderTopReviewPriorities(report);
-  assert.match(html, /<strong><button [^>]*data-board-jump="1"[^>]*>Board 1<\/button> - <span class="contract">/);
+  assert.match(html, /<h4><button [^>]*data-board-jump="1"[^>]*>Board 1<\/button> - <span class="contract">/);
   assert.match(html, /vs 2 other tables/);
   assert.match(html, /swing-diff/, "peer diff should be inline on the priority card");
   assert.match(html, /Best peer/);
   assert.doesNotMatch(html, /Open board/);
+  assert.match(renderReviewItem(report.reviewItems[0]), /<div class="review-head">\s*<h4>/);
 });
 
 test("quiz cards commit before revealing: options live, evidence hidden", async () => {
@@ -197,9 +199,42 @@ test("this-week card leads with the focus advice and top priorities", async () =
   const results = buildResultsAnalysis(parseResultsCsv(csv, "t.csv", csv.length), null);
   const report = buildPairImprovementReport(results, "1");
   const html = renderThisWeek(report);
-  assert.match(html, /This Week/);
+  assert.match(html, /<h3 id="rs-this-week-title">This Week<\/h3>/);
   assert.match(html, /loss-advice/, "focus advice renders in the this-week card");
   assert.match(html, /this-week-list/);
+});
+
+test("nested report groups use semantic subordinate headings", async () => {
+  const { renderFieldContext, renderOvertrickMeter, renderPracticeCards } = await import("../src/ui/reportView.js");
+  const overtrick = renderOvertrickMeter({
+    overtrickMeter: {
+      boards: [{ boardNo: "1" }],
+      flaggedBoards: [],
+      pushWorth: 0,
+      freeSafetyCount: 0
+    }
+  });
+  assert.match(overtrick, /<section class="overtrick-meter">/);
+  assert.match(overtrick, /<h4 class="report-nested-title term-tip"[^>]*>Overtrick Meter<\/h4>/);
+
+  const field = renderFieldContext({
+    fieldContext: {
+      rivals: [{ pairNo: "2", players: "", wins: 1, losses: 0, ties: 0, netMp: 1, costliest: [] }],
+      opponents: [{ pairNo: "3", players: "", boardCount: 1, averagePercent: 50, delta: 0 }]
+    }
+  });
+  assert.equal((field.match(/<section class="field-context-section">/g) || []).length, 2);
+  assert.match(field, /<h4 class="report-nested-title term-tip"[^>]*>Same-Direction Rivals<\/h4>/);
+  assert.match(field, /<h4 class="report-nested-title">Opponents At Your Table<\/h4>/);
+
+  const practice = renderPracticeCards([{
+    title: "Bidding Judgment",
+    metric: "1 MP",
+    detail: "one board",
+    boards: [],
+    advice: "Review the auction."
+  }]);
+  assert.match(practice, /<div class="practice-card-head">\s*<h4>/);
 });
 
 test("opening leads format with suit glyphs and survive odd input", async () => {
@@ -233,6 +268,8 @@ test("each loss theme lists all of its boards, including boards shared with othe
   const scanPart = (card) => card.split("<details")[0];
   assert.match(scanPart(biddingCard[0]), /data-board-jump="1"/, "bidding theme lists the board");
   assert.match(scanPart(declarerCard[0]), /data-board-jump="1"/, "declarer theme also lists the shared board");
+  assert.match(html, /<div class="decision-type-head">[\s\S]*?<h4>/);
+  assert.match(html, /<div class="theme-category-head">\s*<h5>/);
   assert.doesNotMatch(html, /shared with other themes/);
 });
 

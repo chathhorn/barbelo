@@ -632,6 +632,19 @@ details.panel-disclosure {
   display: none !important;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1645,6 +1658,10 @@ details.board-details summary {
    7. Pair improvement report
    ============================================================ */
 
+#pairReportPanel .panel-header h2 {
+  font-size: 17px;
+}
+
 .report-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
@@ -1693,12 +1710,16 @@ details.board-details summary {
 .report-subsection {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 18px;
 }
 
 .report-subsection > summary.section-kicker {
   cursor: pointer;
   list-style: none;
+  padding: 8px 10px;
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  background: var(--panel-soft);
 }
 
 .report-subsection > summary.section-kicker::-webkit-details-marker {
@@ -1725,14 +1746,15 @@ details.board-details summary {
 
 .section-kicker {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
 .section-kicker h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.3;
   letter-spacing: 0;
 }
 
@@ -1742,6 +1764,13 @@ details.board-details summary {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+}
+
+.report-nested-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .report-subsection,
@@ -1818,8 +1847,8 @@ details.board-details summary {
   gap: 10px;
 }
 
-.practice-card-head strong,
-.decision-type-head strong,
+.practice-card-head h4,
+.decision-type-head h4,
 .swing-card-head h4 {
   display: block;
   margin: 0;
@@ -1993,7 +2022,8 @@ details.board-details summary {
   gap: 2px;
 }
 
-.priority-card-head strong {
+.priority-card-head h4 {
+  margin: 0;
   font-size: 14px;
 }
 
@@ -2081,6 +2111,12 @@ details.board-details summary {
   color: var(--muted);
   font-size: 11.5px;
   white-space: nowrap;
+}
+
+.theme-category-head h5 {
+  margin: 0;
+  font: inherit;
+  font-weight: 700;
 }
 
 .swing-diff {
@@ -2215,8 +2251,9 @@ details.board-details summary {
   gap: 10px;
 }
 
-.review-head strong {
-  font-size: 15px;
+.review-head h4 {
+  margin: 0;
+  font-size: 14px;
 }
 
 .review-head span {
@@ -2284,8 +2321,10 @@ details.board-details summary {
 
 .overtrick-meter {
   margin-top: 14px;
-  border-top: 1px dashed var(--line);
-  padding-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  padding: 11px 12px;
 }
 
 .overtrick-meter p {
@@ -2638,7 +2677,8 @@ button.quiz-option.is-chosen {
   margin-bottom: 4px;
 }
 
-.this-week-head strong {
+.this-week-head h3 {
+  margin: 0;
   font-size: 15px;
   letter-spacing: 0.01em;
 }
@@ -2685,7 +2725,7 @@ a.result-summary-card:focus-visible {
   gap: 16px;
 }
 
-.field-context-grid h4 {
+.field-context-grid .report-nested-title {
   margin: 0 0 8px;
 }
 
@@ -3052,6 +3092,16 @@ body.modal-open {
   .report-subsection,
   #rs-summary {
     scroll-margin-top: 56px;
+  }
+
+  .report-subsection > summary.section-kicker {
+    flex-wrap: wrap;
+  }
+
+  .section-kicker .subsection-note {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
   }
 
   .board-card {
