@@ -94,6 +94,7 @@ function spriteKeyForEntity(entity) {
   if (kind.includes("coffee")) return "coffee";
   if (kind.includes("system") || kind.includes("armor")) return "systemNotes";
   if (kind.includes("lift-control")) return "systemNotes";
+  if (kind.includes("next-round") || kind.includes("exit")) return "vaultDoor";
   if (entity && entity.kind === "enemy" && kind.includes("score-slip")) return "kibitzer";
   if (kind.includes("card")) return "cardBack";
   if (kind.includes("slip")) return "reviewSlip";
@@ -105,6 +106,7 @@ function spriteSizeForEntity(entity) {
     .filter(Boolean).join(" ").toLowerCase();
   if (kind.includes("coach")) return { width: 1.35, height: 1.35 };
   if (kind.includes("boss") || kind.includes("bottom")) return { width: 2.8, height: 3.3 };
+  if (kind.includes("next-round") || kind.includes("exit")) return { width: 1.6, height: 2.4 };
   if (kind.includes("imp") || kind.includes("overtrick")) return { width: 1.1, height: 1.1 };
   if (kind.includes("score-slip") || kind.includes("card") || kind.includes("projectile")) return { width: 0.28, height: 0.42 };
   if (kind.includes("pickup") || kind.includes("biscuit") || kind.includes("coffee") || kind.includes("slip")) {

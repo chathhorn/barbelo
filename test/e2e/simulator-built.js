@@ -6,12 +6,18 @@ const path = require("node:path");
 
 const REPO = path.resolve(__dirname, "..", "..");
 const SERVE_ROOT = path.resolve(process.env.SERVE_ROOT || path.join(REPO, "_site"));
-let chromium;
+const BROWSER_NAME = String(process.env.PLAYWRIGHT_BROWSER || "chromium").toLowerCase();
+const SUPPORTED_BROWSERS = new Set(["chromium", "firefox", "webkit"]);
+let browserType;
 try {
-  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
+  const playwright = require(path.join(REPO, "node_modules", "playwright"));
+  browserType = playwright[BROWSER_NAME];
 } catch (error) {
   console.log("SKIP: playwright not installed (npm install playwright)");
   process.exit(0);
+}
+if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
+  throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
 }
 
 const MIME = {
@@ -72,7 +78,8 @@ function check(ok, label) {
   const server = await serve();
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;
-  const browser = await chromium.launch();
+  const browser = await browserType.launch();
+  console.log(`BROWSER: ${BROWSER_NAME} ${browser.version()} (Playwright 1.61.1)`);
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
   const requests = [];
@@ -137,7 +144,9 @@ function check(ok, label) {
 
   await browser.close();
   server.close();
-  console.log(failures.length ? `\nBUILT SIMULATOR E2E FAILED (${failures.length})` : "\nBUILT SIMULATOR E2E PASSED");
+  console.log(failures.length
+    ? `\nBUILT SIMULATOR E2E FAILED (${BROWSER_NAME}; ${failures.length})`
+    : `\nBUILT SIMULATOR E2E PASSED (${BROWSER_NAME})`);
   process.exit(failures.length ? 1 : 0);
 })().catch((error) => {
   console.error("BUILT SIMULATOR E2E CRASHED:", error);

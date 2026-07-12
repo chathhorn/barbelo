@@ -35,10 +35,16 @@ jobs:
         run: npx --yes -p typescript@5.9 tsc -p jsconfig.json --noEmit
 
   simulator-e2e:
+    name: Simulator E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     env:
       PLAYWRIGHT_VERSION: 1.61.1
+      PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -57,10 +63,13 @@ jobs:
       - name: Verify Playwright pin
         run: node -e "const actual=require('playwright/package.json').version; if (actual !== process.env.PLAYWRIGHT_VERSION) throw new Error('Expected Playwright ' + process.env.PLAYWRIGHT_VERSION + ', got ' + actual)"
 
-      # The simulator suite currently targets Chromium only. Playwright's
-      # --with-deps option installs the matching Linux browser dependencies.
-      - name: Install pinned Chromium
-        run: npx --no-install playwright install --with-deps chromium
+      # Playwright 1.61.1 pins Chromium v1228, Firefox v1532, and WebKit v2311.
+      # Each matrix leg installs only its browser and matching Linux libraries.
+      - name: Install pinned browser
+        run: npx --no-install playwright install --with-deps "$PLAYWRIGHT_BROWSER"
+
+      - name: Run responsive capability browser test
+        run: node test/e2e/simulator-responsive.js
 
       - name: Run simulator browser test
         run: node test/e2e/simulator.js

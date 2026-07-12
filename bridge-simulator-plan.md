@@ -1,13 +1,14 @@
 # Bridge Simulator: Product and Implementation Plan
 
-Status: unlinked implementation candidate. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium gates are implemented. Phase 8 finalization still requires the human playtest, real-device performance, and broader browser/Safari gates below, so no visible Pair Improvement Report launch control has been added.
+Status: unlinked implementation candidate. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium/Firefox/WebKit gates are implemented. Phase 8 finalization still requires Standard-mode balance evidence, the structured human playtest, real-device performance, and the real-Safari manual gate below, so no visible Pair Improvement Report launch control has been added.
 
 Implementation checkpoint (2026-07-12):
 
-- The complete 12-space, three-wing level, three secrets, 20 ordinary opponents, timed lift shortcut, boss, exit, Standard/Practice/Coach-only modes, and two-part debrief are present.
+- The complete 12-space, three-wing level, three secrets, 20 ordinary opponents, timed lift shortcut, boss, visible/proximity-cued exit, Standard/Practice/Coach-only modes, and two-part debrief are present.
 - The fixed 35 Hz simulation covers deterministic movement/AI, nearest-impact card combat, held fire, bounded Shuffle, checkpoints without Honor farming, System Notes, lifts, arena containment, and full cleanup.
 - Original simulator art, procedural audio, captions, semantic coaching overlays, reduced effects, high contrast, keyboard fallback, Pointer Lock failure handling, and context-loss recovery are present.
-- Pure/core, source-browser, load-failure, complete-mission, and built-IIFE browser gates use committed synthetic data and keep all requests same-origin.
+- A deterministic Practice bot completes the real map through movement, portals, lift timing, combat, all slips/secrets, boss, and exit without state teleports; it visits all 12 spaces and earns the exact 5,250 Honor total.
+- Pure/core, source-browser, resize/zoom, load-failure, complete-mission, and built-IIFE browser gates use committed synthetic data and keep all requests same-origin. The 2026-07-12 local gate used Playwright 1.61.1 with Chromium 149.0.7827.55, Firefox 151.0, and WebKit 26.5; macOS 26.5.2 reports real Safari 26.5.2, whose manual gate remains pending.
 - The report loader prepares current pair/session inputs, but the launch control remains intentionally absent pending the explicit finalization decision.
 
 Working subtitle: **The Lost Matchpoints**

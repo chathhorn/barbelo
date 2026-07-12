@@ -1,7 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SLICE_LEVEL } from "../src/core/simulator/level.js";
+import { createSimulation, getSimulationSnapshot } from "../src/core/simulator/simulation.js";
 import { createLevelMeshes } from "../src/simulator/levelMeshes.js";
+import { snapshotEntities } from "../src/simulator/renderer.js";
+import { spriteKeyForEntity, spriteSizeForEntity } from "../src/simulator/sprites.js";
+
+const SCENARIO = Object.freeze({
+  seed: "renderer-exit-test",
+  representativeHand: null,
+  wings: [{ slot: "A" }],
+  boss: { title: "The Bottom Board" },
+});
 
 function worldBounds(mesh) {
   mesh.geometry.computeBoundingBox();
@@ -30,4 +40,20 @@ test("floor and ceiling meshes occupy the same authored X/Z rooms", () => {
   });
 
   meshes.destroy();
+});
+
+test("the authored next-round exit reaches the renderer as a visible door billboard", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const snapshot = getSimulationSnapshot(state);
+  const marker = SLICE_LEVEL.markers.find((entry) => entry.id === SLICE_LEVEL.objectives.exitMarkerId);
+  const exit = snapshotEntities(snapshot).find((entity) => entity.id === marker.id);
+
+  assert.ok(exit, "the simulation snapshot should expose the authored exit marker");
+  assert.equal(exit.kind, "exit");
+  assert.equal(exit.label, "Move for the Next Round");
+  assert.deepEqual(exit.position, marker.position);
+  assert.equal(exit.active, true);
+  assert.equal(exit.blocking, false);
+  assert.equal(spriteKeyForEntity(exit), "vaultDoor");
+  assert.deepEqual(spriteSizeForEntity(exit), { width: 1.6, height: 2.4 });
 });

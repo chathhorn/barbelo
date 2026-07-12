@@ -135,6 +135,24 @@ function createLiftControl(marker) {
   };
 }
 
+function createExit(marker) {
+  return {
+    id: marker.id,
+    kind: "exit",
+    type: "next-round-exit",
+    sprite: "next-round-exit",
+    label: marker.label || "Move for the Next Round",
+    position: { ...marker.position },
+    spaceId: marker.spaceId,
+    radius: marker.radius || 0.7,
+    height: 2.4,
+    interactionRange: 1.5,
+    active: true,
+    alive: true,
+    blocking: false,
+  };
+}
+
 /**
  * @param {{ scenario?: any, level?: any, mode?: string }} [options]
  */
@@ -171,6 +189,7 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     blocking: true,
   }));
   const liftControls = level.markers.filter((marker) => marker.type === "liftControl").map(createLiftControl);
+  const exits = level.markers.filter((marker) => marker.type === "exit").map(createExit);
   const state = {
     schemaVersion: SIMULATION_SCHEMA_VERSION,
     scenarioSeed: scenario.seed,
@@ -193,6 +212,7 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     secrets,
     covers,
     liftControls,
+    exits,
     projectiles: [],
     portalStates: initialPortalStates(level),
     lifts: initialLiftStates(level),
@@ -642,11 +662,38 @@ function restartRun(state) {
   return [event];
 }
 
+function currentWingObjective(state) {
+  const wingId = state.level.objectives.wingIds.find((candidate) => state.enemies.some((enemy) =>
+    enemy.wingId === candidate && enemy.spawnSpaceId === state.player.spaceId));
+  if (!wingId) return "";
+
+  const wingIndex = state.level.objectives.wingIds.indexOf(wingId);
+  const wing = state.scenario.wings && state.scenario.wings[wingIndex];
+  const label = wing && wing.title || `Coaching Wing ${wingId.toUpperCase()}`;
+  const remaining = state.enemies.filter((enemy) => enemy.wingId === wingId && enemy.alive).length;
+  if (remaining > 0) return `${label}: ${remaining} ${remaining === 1 ? "opponent" : "opponents"} remain.`;
+
+  const slip = state.reviewSlips.find((entry) => entry.wingId === wingId);
+  if (slip && !slip.collected) return `${label} clear. Recover its Review Slip.`;
+  return "";
+}
+
 function objectiveText(state) {
   if (state.status === "complete") return "Move for the next round complete.";
-  if (state.progress.bossDefeated) return "Exit through Move for the Next Round.";
+  if (state.progress.bossDefeated) {
+    const exit = markerById(state.level, state.level.objectives.exitMarkerId);
+    if (exit && state.player.spaceId === exit.spaceId) {
+      if (distance(exit.position, state.player.position) <= 1.5) {
+        return "Press Interact at Move for the Next Round.";
+      }
+      return "Approach Move for the Next Round, then press Interact.";
+    }
+    return "Follow the open victory gate to Move for the Next Round.";
+  }
   if (state.progress.bossActive) return `Reseat ${state.scenario.boss && state.scenario.boss.title || "The Bottom Board"}.`;
   const required = state.level.objectives.requiredSlipCount;
+  const wingObjective = state.progress.slips < required ? currentWingObjective(state) : "";
+  if (wingObjective) return wingObjective;
   if (state.progress.slips < required) return `Recover Review Slips (${state.progress.slips}/${required}).`;
   return "Enter the Traveler Vault.";
 }
@@ -699,6 +746,7 @@ function renderEntities(state) {
     ...state.reviewSlips,
     ...state.secrets,
     ...state.liftControls,
+    ...state.exits,
     ...state.projectiles.map((projectile) => ({ ...projectile, kind: projectile.type })),
   ].map((entity) => ({
     ...entity,

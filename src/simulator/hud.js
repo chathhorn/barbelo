@@ -249,7 +249,7 @@ function renderChalkboard(modal, wing, { reopened = false } = {}) {
   const feedback = wing && wing.coachFeedback || {};
   modal.hidden = false;
   modal.innerHTML = `
-    <article class="simulator-chalkboard" role="dialog" aria-modal="true" aria-labelledby="simulator-chalkboard-title">
+    <article class="simulator-chalkboard" aria-labelledby="simulator-chalkboard-title">
       <h2 id="simulator-chalkboard-title">${escapeHtml(wing && wing.title || "Coach's Chalkboard")}</h2>
       ${renderSegments(feedback.summary, "simulator-chalkboard-summary")}
       <details class="simulator-evidence" open>
@@ -277,7 +277,7 @@ function renderPause(modal, { muted = false, cards = [], reason = "pause" } = {}
         <button type="button" data-simulator-restart>Restart run</button>`;
   modal.hidden = false;
   modal.innerHTML = `
-    <section class="simulator-modal" role="dialog" aria-modal="true" aria-labelledby="simulator-pause-title">
+    <section class="simulator-modal" aria-labelledby="simulator-pause-title">
       <h2 id="simulator-pause-title">Paused at the table</h2>
       <p>${escapeHtml(contextNote)}</p>
       <p><strong>Throwing hand:</strong> ${escapeHtml(handLabel(cards))}</p>
@@ -298,7 +298,7 @@ function renderPause(modal, { muted = false, cards = [], reason = "pause" } = {}
 function renderHelp(modal, { requiredSlips = 3, bossTitle = "The Bottom Board", cards = [] } = {}) {
   modal.hidden = false;
   modal.innerHTML = `
-    <section class="simulator-modal" role="dialog" aria-modal="true" aria-labelledby="simulator-help-title">
+    <section class="simulator-modal" aria-labelledby="simulator-help-title">
       <h2 id="simulator-help-title">Coach's clipboard</h2>
       <p>Recover ${escapeHtml(requiredSlips)} Review ${requiredSlips === 1 ? "Slip" : "Slips"}, enter the Traveler Vault, defeat ${escapeHtml(bossTitle)}, and move for the next round.</p>
       <p><strong>Throwing hand:</strong> ${escapeHtml(handLabel(cards))}</p>

@@ -171,9 +171,11 @@ class SimulatorApp {
     this.modalReturnFocus = null;
     this.helpReturnKind = "";
     this.timers = new Set();
+    this.capabilityTimer = 0;
     this.boundClick = (event) => this.handleClick(event);
     this.boundChange = (event) => this.handleSettingChange(event);
     this.boundKeydown = (event) => this.handleKeydown(event);
+    this.boundViewportChange = () => this.scheduleCapabilityRefresh();
     this.boundVisibility = () => {
       if (document.hidden) this.pause("tab-hidden");
     };
@@ -188,6 +190,8 @@ class SimulatorApp {
     this.host.addEventListener("keydown", this.boundKeydown, true);
     document.addEventListener("visibilitychange", this.boundVisibility);
     window.addEventListener("blur", this.boundBlur);
+    window.addEventListener("resize", this.boundViewportChange);
+    window.visualViewport?.addEventListener("resize", this.boundViewportChange);
     this.applyDisplaySettings();
     this.showPreflight();
   }
@@ -196,17 +200,65 @@ class SimulatorApp {
     return this.level.objectives.requiredSlipCount;
   }
 
-  showPreflight() {
-    this.stopGame();
-    this.modalKind = "";
+  scheduleCapabilityRefresh() {
+    if (this.destroyed) return;
+    if (this.capabilityTimer) window.clearTimeout(this.capabilityTimer);
+    // Debounce window drags and browser zoom so the WebGL capability probe is
+    // not recreated for every intermediate resize event.
+    this.capabilityTimer = window.setTimeout(() => {
+      this.capabilityTimer = 0;
+      this.refreshCapability({ refreshPreflight: true });
+    }, 100);
+  }
+
+  refreshCapability({ refreshPreflight = false } = {}) {
+    const previous = this.capability;
+    const next = fpsCapability();
+    const changed = !previous || previous.available !== next.available || previous.reason !== next.reason;
+    this.capability = next;
+
+    // Resizing never destroys or replaces an active run. The newly measured
+    // capability governs the next launch, and only a currently visible
+    // preflight is rerendered immediately.
+    if (!refreshPreflight || !changed || !this.host.querySelector(".simulator-preflight")) return;
+    const active = document.activeElement instanceof HTMLElement && this.host.contains(document.activeElement)
+      ? document.activeElement
+      : null;
+    let focusToken = null;
+    if (active?.hasAttribute("data-simulator-start")) {
+      focusToken = { key: "simulatorStart", value: active.dataset.simulatorStart };
+    } else if (active?.hasAttribute("data-simulator-setting")) {
+      focusToken = { key: "simulatorSetting", value: active.dataset.simulatorSetting };
+    }
+    this.renderPreflightView({ focusToken });
+  }
+
+  renderPreflightView({ focusFirst = false, focusToken = null } = {}) {
     renderPreflight(this.host, this.scenario, this.settings, this.assetUrl, {
       fpsAvailable: this.capability.available,
       requiredSlips: this.requiredSlips(),
       unavailableReason: this.capability.reason,
     });
-    this.options.onStatus?.("Ready for preflight");
-    const first = this.host.querySelector("[data-simulator-start]:not([disabled])");
-    if (first) first.focus();
+    this.options.onStatus?.(this.capability.available ? "Ready for preflight" : "Coach-only mode available");
+
+    let target = null;
+    if (focusToken) {
+      target = [...this.host.querySelectorAll("[data-simulator-start], [data-simulator-setting]")]
+        .find((element) => element.dataset[focusToken.key] === focusToken.value);
+    }
+    if (!target || target.disabled) {
+      target = focusFirst || focusToken
+        ? this.host.querySelector("[data-simulator-start]:not([disabled])")
+        : null;
+    }
+    target?.focus();
+  }
+
+  showPreflight() {
+    this.stopGame();
+    this.modalKind = "";
+    this.refreshCapability();
+    this.renderPreflightView({ focusFirst: true });
   }
 
   applyDisplaySettings() {
@@ -335,6 +387,7 @@ class SimulatorApp {
   }
 
   startGame(mode = "standard") {
+    this.refreshCapability();
     if (!this.capability.available) {
       this.showCoachOnly();
       return;
@@ -455,7 +508,9 @@ class SimulatorApp {
         this.audio?.play("pickup");
         this.showCaption(`Secret found: ${event.label}`);
       } else if (event.type === "interaction-blocked") {
-        this.showCaption("The Coach points at the remaining opponents. Reseat them first.");
+        this.showCaption(event.reason === "lift-locked"
+          ? "The lift call stays locked until this coaching wing is complete."
+          : "The Coach points at the remaining opponents. Reseat them first.");
       } else if (event.type === "interaction-empty") {
         this.showCaption("Nothing to review here. Try the chalkboard or the exit.");
       } else if (event.type === "boss-activated") {
@@ -630,6 +685,8 @@ class SimulatorApp {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.capabilityTimer) window.clearTimeout(this.capabilityTimer);
+    this.capabilityTimer = 0;
     this.stopGame();
     disposeSpriteTextures(this.textures);
     this.textures = {};
@@ -638,6 +695,8 @@ class SimulatorApp {
     this.host.removeEventListener("keydown", this.boundKeydown, true);
     document.removeEventListener("visibilitychange", this.boundVisibility);
     window.removeEventListener("blur", this.boundBlur);
+    window.removeEventListener("resize", this.boundViewportChange);
+    window.visualViewport?.removeEventListener("resize", this.boundViewportChange);
     this.host.innerHTML = "";
   }
 }

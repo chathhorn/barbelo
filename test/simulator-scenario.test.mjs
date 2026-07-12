@@ -9,8 +9,10 @@ import {
   canonicalizeCards,
 } from "../src/core/simulator/scenario.js";
 import { fingerprint, stableStringify } from "../src/core/simulator/seed.js";
+import { parseBwsBuffer } from "../src/parsers/bws.js";
 import { parseResultsCsv } from "../src/parsers/csv.js";
 import { parsePbn } from "../src/parsers/pbn.js";
+import fixture from "./helpers/bws-fixture.js";
 import { csvFrom } from "./helpers/load-app.js";
 
 const HEADER = ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"];
@@ -39,6 +41,7 @@ const WINNER_SESSION = [
 ];
 
 const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
+const INVALID_DEAL = "N:AKQ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
 
 function pbnForBoards(boardNumbers) {
   return boardNumbers.map((boardNo) => [
@@ -97,6 +100,39 @@ function assertCanonicalHand(cards) {
   assert.equal(cards.length, 13);
   assert.equal(new Set(cards.map((card) => `${card.suit}${card.rank}`)).size, 13);
   assert.deepEqual(canonicalizeCards(cards), cards);
+}
+
+function assertStableSerializableScenario(inputs) {
+  const first = buildBridgeSimulatorScenario(inputs);
+  const second = buildBridgeSimulatorScenario(inputs);
+  assert.ok(first, "scenario should be playable");
+  assert.equal(JSON.stringify(first), JSON.stringify(second), "variant scenario should be deterministic");
+  assert.deepEqual(JSON.parse(JSON.stringify(first)), first, "variant scenario should be JSON-serializable");
+  assert.doesNotThrow(() => structuredClone(first));
+  assertCanonicalHand(first.representativeHand.cards);
+  return first;
+}
+
+function bwsReceivedRow(overrides = {}) {
+  return fixture.buildReceivedRow({
+    id: 1,
+    section: 1,
+    table: 1,
+    round: 1,
+    board: 1,
+    pairNS: 1,
+    pairEW: 2,
+    declarer: 1,
+    nsEw: "N",
+    contract: "3 NT",
+    result: "=",
+    leadCard: null,
+    remarks: null,
+    dateSerial: 46203,
+    timeSerial: 0.5,
+    erased: 0,
+    ...overrides,
+  });
 }
 
 test("seed helpers and scenario output are deterministic, immutable, and serializable", () => {
@@ -254,6 +290,149 @@ test("a defended representative board uses the opening leader's analyzed hand", 
   assert.deepEqual(scenario.representativeHand.cards.map((card) => `${card.suit}${card.rank}`), [
     "S6", "S5", "S4", "H6", "H5", "H4", "D6", "D5", "D4", "CT", "C9", "C6", "C5",
   ]);
+});
+
+test("replayed boards retain the diagnosed result-row identity without inventing a hand", () => {
+  const { results, report } = scenarioFor([
+    HEADER,
+    ["1", "1", "2", "N", "4 S", "="],
+    ["1", "1", "6", "N", "4 S", "-1"],
+    ["1", "3", "4", "N", "4 S", "="],
+  ]);
+  assert.equal(report.rows.length, 2, "both plays by the selected pair should reach the report");
+  const failing = report.reviewItems.find((item) => item.pairScore === -50);
+  assert.ok(failing, "the failing replay should remain the review item");
+
+  const scenario = assertStableSerializableScenario({ results, report });
+  const expectedKey = `${failing.row.fieldKey}|row:${failing.row.index}`;
+  assert.deepEqual(scenario.coaching.checkpointRowKeys, [expectedKey]);
+  const featured = scenario.wings.find((wing) => wing.featuredBoard);
+  assert.equal(featured.featuredBoard.rowIdentity.rowIndex, failing.row.index);
+  assert.equal(featured.featuredBoard.pairScore, -50);
+  assert.equal(scenario.representativeHand.source, "practice");
+  assert.equal(scenario.provenance.hasPbn, false);
+  assert.match(scenario.representativeHand.provenanceNote[0].text, /Practice Deck/);
+});
+
+test("multi-section pair keys keep scenarios scoped to their own section", () => {
+  const results = analyzeCsv([
+    ["Section", "Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
+    ["1", "1", "1", "2", "N", "3 NT", "="],
+    ["1", "1", "3", "4", "N", "3 NT", "+1"],
+    ["2", "1", "1", "2", "N", "2 S", "+1"],
+    ["2", "1", "3", "4", "N", "4 S", "="],
+  ]);
+  const sectionOneReport = buildPairImprovementReport(results, "S1:1");
+  const sectionTwoReport = buildPairImprovementReport(results, "S2:1");
+  assert.ok(sectionOneReport && sectionTwoReport);
+  assert.deepEqual(sectionOneReport.rows.map((view) => view.row.fieldKey), ["1|1"]);
+  assert.deepEqual(sectionTwoReport.rows.map((view) => view.row.fieldKey), ["2|1"]);
+
+  const sectionOne = assertStableSerializableScenario({ results, report: sectionOneReport });
+  const sectionTwo = assertStableSerializableScenario({ results, report: sectionTwoReport });
+  assert.equal(sectionOne.identity.pairKey, "S1:1");
+  assert.equal(sectionTwo.identity.pairKey, "S2:1");
+  assert.ok(sectionOne.coaching.checkpointRowKeys.every((key) => key.startsWith("1|1|row:")));
+  assert.ok(sectionTwo.coaching.checkpointRowKeys.every((key) => key.startsWith("2|1|row:")));
+  assert.notEqual(sectionOne.seed, sectionTwo.seed, "section-scoped pairs should not share a scenario seed");
+  assert.equal(sectionOne.representativeHand.source, "practice");
+  assert.equal(sectionTwo.representativeHand.source, "practice");
+});
+
+test("BWS erased and adjusted rows cannot become coaching evidence or a PBN hand", () => {
+  const raw = parseBwsBuffer(fixture.buildBwsFile({
+    pages: [[
+      bwsReceivedRow({ id: 1, erased: 1 }),
+      bwsReceivedRow({ id: 2, contract: null, result: null, remarks: "40%-60%" }),
+      bwsReceivedRow({ id: 3, table: 2, pairNS: 3, pairEW: 4, result: "+1" }),
+      bwsReceivedRow({ id: 4, table: 3, pairNS: 5, pairEW: 6, result: "-1" }),
+    ]],
+  }), "adjusted-erased.BWS");
+  assert.equal(raw.receivedData.find((row) => row.ID === 1).Erased, 1, "fixture should traverse the real BWS erased flag");
+  const analysis = buildAnalysis(parsePbn(pbnForBoards([1]), "adjusted-erased.pbn"));
+  const results = buildResultsAnalysis(raw, analysis);
+  assert.ok(!results.rows.some((row) => row.id === 1), "erased row should be removed by results ingestion");
+  const adjusted = results.rows.find((row) => row.id === 2);
+  assert.deepEqual(adjusted.adjustment, { nsPercent: 40, ewPercent: 60 });
+  assert.equal(adjusted.scoreNS, null);
+  assert.ok(results.warnings.some((warning) => /erased/i.test(warning)));
+  assert.ok(results.warnings.some((warning) => /director-adjusted/i.test(warning)));
+
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(report.rows.length, 1);
+  assert.equal(report.rows[0].row.id, 2);
+  assert.equal(report.reviewItems.length, 0, "adjusted result should not enter the review queue");
+  const scenario = assertStableSerializableScenario({ analysis, results, report });
+  assert.equal(scenario.mode, "defend-crown");
+  assert.equal(scenario.coaching.suitableEvidenceCount, 0);
+  assert.equal(scenario.coaching.boardSpecificCheckpointCount, 0);
+  assert.ok(scenario.wings.every((wing) => wing.featuredBoard == null));
+  assert.equal(scenario.provenance.compatibilityStatus, "match");
+  assert.equal(scenario.representativeHand.source, "practice");
+  assert.equal(scenario.provenance.usedValidDeal, false);
+  assert.match(scenario.representativeHand.provenanceNote[0].text, /no valid joined 13-card loaded-PBN hand/i);
+  assert.doesNotMatch(scenario.representativeHand.provenanceNote[0].text, /^Using /);
+});
+
+test("an overlapping but invalid PBN deal always falls back to a labeled Practice Deck", () => {
+  const invalidPbn = `[Board "1"]\n[Deal "${INVALID_DEAL}"]`;
+  const analysis = buildAnalysis(parsePbn(invalidPbn, "invalid-deal.pbn"));
+  assert.equal(analysis.boards.length, 1);
+  assert.equal(analysis.boards[0].validDeal, false);
+  const results = analyzeCsv([
+    HEADER,
+    ["1", "1", "2", "N", "3 NT", "="],
+    ["1", "3", "4", "N", "3 NT", "+1"],
+  ], analysis);
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(results.summary.compatibility.status, "match", "board overlap alone should exercise the invalid-deal guard");
+
+  const scenario = assertStableSerializableScenario({ analysis, results, report });
+  assert.equal(scenario.provenance.hasPbn, true);
+  assert.equal(scenario.provenance.compatibilityStatus, "match");
+  assert.equal(scenario.provenance.usedValidDeal, false);
+  assert.equal(scenario.representativeHand.source, "practice");
+  assert.equal(scenario.representativeHand.boardNo, null);
+  assert.equal(scenario.representativeHand.seat, null);
+  assert.match(scenario.representativeHand.provenanceNote[0].text, /no valid joined 13-card loaded-PBN hand/i);
+  assert.doesNotMatch(scenario.representativeHand.provenanceNote[0].text, /Using .*loaded PBN Board/i);
+});
+
+test("BWS placeholder identities stay blank and named peers never enter scenario or hostile copy", () => {
+  const raw = parseBwsBuffer(fixture.buildBwsFile({
+    pages: [
+      [
+        bwsReceivedRow({ id: 1 }),
+        bwsReceivedRow({ id: 2, table: 2, pairNS: 3, pairEW: 4, result: "+2" }),
+      ],
+      [
+        fixture.buildPlayerRow({ section: 1, table: 1, round: 1, direction: "N", number: null, name: null, placeholder: true }),
+        fixture.buildPlayerRow({ section: 1, table: 1, round: 1, direction: "S", number: null, name: null, placeholder: true }),
+        fixture.buildPlayerRow({ section: 1, table: 2, round: 1, direction: "N", number: "3", name: "Alice Example", timeSerial: 46203.5 }),
+        fixture.buildPlayerRow({ section: 1, table: 2, round: 1, direction: "S", number: "4", name: "Bob Example", timeSerial: 46203.5 }),
+      ],
+    ],
+  }), "placeholder-names.BWS");
+  assert.equal(raw.playerNumbers.filter((player) => !player.Name && !player.Number).length, 2);
+  const results = buildResultsAnalysis(raw);
+  const selectedStanding = results.pairStandings.find((standing) => String(standing.key) === "1");
+  assert.equal(selectedStanding.players, "", "placeholder seats must not become a selected-pair name");
+  const report = buildPairImprovementReport(results, "1");
+  assert.equal(report.summary.players, "");
+  assert.match(report.reviewItems[0].diagnosis.explanation, /Alice Example \/ Bob Example/, "fixture should carry a real named peer into report evidence");
+
+  const scenario = assertStableSerializableScenario({ results, report });
+  const serialized = JSON.stringify(scenario);
+  assert.equal(scenario.identity.players, "");
+  assert.doesNotMatch(serialized, /Alice Example|Bob Example|Table\s+\d+/i);
+  assert.ok(scenario.boss.hostileSpeech.every((segment) => segment.claimKind === "fiction"));
+  assert.doesNotMatch(scenario.boss.hostileSpeech.map((segment) => segment.text).join(" "), /Alice|Bob|Table\s+\d+/i);
+  const transformed = scenario.wings
+    .flatMap((wing) => wing.coachFeedback.details)
+    .find((segment) => segment.transform === "player-names-redacted");
+  assert.ok(transformed, "named report evidence should record its redaction transform");
+  assert.match(transformed.text, /Pair 3's/);
+  assert.equal(scenario.representativeHand.source, "practice");
 });
 
 test("neutral coaching redacts peer player names while retaining evidence provenance", () => {

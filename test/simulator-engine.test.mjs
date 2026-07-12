@@ -28,6 +28,21 @@ const SCENARIO = Object.freeze({
   boss: { title: "The Bottom Board" },
 });
 
+function walkTo(state, target, expectedSpaceId, maxTicks = 1200) {
+  for (let tick = 0; tick < maxTicks; tick += 1) {
+    const dx = target.x - state.player.position.x;
+    const dz = target.z - state.player.position.z;
+    if (Math.hypot(dx, dz) <= 0.18 && state.player.spaceId === expectedSpaceId) return;
+    const desiredYaw = Math.atan2(dz, dx);
+    const turn = Math.atan2(
+      Math.sin(desiredYaw - state.player.yaw),
+      Math.cos(desiredYaw - state.player.yaw)
+    );
+    stepSimulation(state, { turn, forward: 1 }, FIXED_DT);
+  }
+  assert.fail(`could not walk to ${expectedSpaceId} at ${target.x},${target.z}`);
+}
+
 test("thirteen card throws always recover through a bounded shuffle", () => {
   const combat = createCombatState({ cards: CARDS, source: "pbn" });
   for (let index = 0; index < 13; index += 1) {
@@ -186,7 +201,29 @@ test("cleared wing interaction awards one persistent Review Slip and fixed Honor
   assert.equal(state.player.honor, 500, "reopening coaching cannot award Honor twice");
 });
 
-test("boss defeat retains slips, unlocks exit, and completes through interaction", () => {
+test("a coaching wing objective exposes remaining opponents and the cleared slip", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  walkTo(state, { x: 12.6, z: 35 }, "club-entrance");
+  walkTo(state, { x: 16.2, z: 35 }, "movement-hall");
+  walkTo(state, { x: 31, z: 35 }, "main-cardroom");
+  walkTo(state, { x: 35, z: 50 }, "wing-a-entry");
+  const wingEnemies = state.enemies.filter((enemy) => enemy.wingId === "a");
+  assert.ok(wingEnemies.length > 1);
+  assert.equal(
+    getSimulationSnapshot(state).objectiveText,
+    `Coaching Wing A: ${wingEnemies.length} opponents remain.`
+  );
+
+  wingEnemies[0].alive = false;
+  assert.equal(
+    getSimulationSnapshot(state).objectiveText,
+    `Coaching Wing A: ${wingEnemies.length - 1} opponents remain.`
+  );
+  wingEnemies.slice(1).forEach((enemy) => { enemy.alive = false; });
+  assert.equal(getSimulationSnapshot(state).objectiveText, "Coaching Wing A clear. Recover its Review Slip.");
+});
+
+test("boss defeat retains slips, reveals the exit, and completes through movement and interaction", () => {
   const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
   state.progress.slips = 1;
   state.progress.collectedSlipIds = ["review-slip-a"];
@@ -213,9 +250,15 @@ test("boss defeat retains slips, unlocks exit, and completes through interaction
   assert.equal(state.progress.bossDefeated, true);
   assert.equal(state.player.honor, completedHonor);
 
-  const exit = state.level.markers.find((marker) => marker.id === "next-round-exit");
-  state.player.position = { ...exit.position };
-  state.player.spaceId = exit.spaceId;
+  assert.equal(getSimulationSnapshot(state).objectiveText, "Follow the open victory gate to Move for the Next Round.");
+  walkTo(state, { x: 59, z: 28 }, "traveler-vault");
+  walkTo(state, { x: 74, z: 28 }, "results-posted");
+  assert.equal(
+    getSimulationSnapshot(state).objectiveText,
+    "Approach Move for the Next Round, then press Interact."
+  );
+  walkTo(state, { x: 79.2, z: 28 }, "results-posted");
+  assert.equal(getSimulationSnapshot(state).objectiveText, "Press Interact at Move for the Next Round.");
   const exitEvents = stepSimulation(state, { interact: true }, FIXED_DT);
   assert.ok(exitEvents.some((event) => event.type === "run-complete"));
   assert.equal(state.status, "complete");

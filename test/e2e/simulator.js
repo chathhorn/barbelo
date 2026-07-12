@@ -5,12 +5,18 @@ const http = require("node:http");
 const path = require("node:path");
 
 const REPO = path.resolve(__dirname, "..", "..");
-let chromium;
+const BROWSER_NAME = String(process.env.PLAYWRIGHT_BROWSER || "chromium").toLowerCase();
+const SUPPORTED_BROWSERS = new Set(["chromium", "firefox", "webkit"]);
+let browserType;
 try {
-  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
+  const playwright = require(path.join(REPO, "node_modules", "playwright"));
+  browserType = playwright[BROWSER_NAME];
 } catch (error) {
   console.log("SKIP: playwright not installed (npm install playwright)");
   process.exit(0);
+}
+if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
+  throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
 }
 
 const MIME = {
@@ -61,7 +67,8 @@ function check(ok, label) {
 (async () => {
   const server = await serve();
   const port = server.address().port;
-  const browser = await chromium.launch();
+  const browser = await browserType.launch();
+  console.log(`BROWSER: ${BROWSER_NAME} ${browser.version()} (Playwright 1.61.1)`);
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
   const requests = [];
@@ -97,6 +104,9 @@ function check(ok, label) {
 
   await page.click('[data-simulator-start="coach"]');
   check(await page.locator(".simulator-coaching-card").count() >= 4, "Coach-only path exposes all checkpoints and practice action");
+  const coachOnlyText = (await page.locator(".simulator-coach-only").innerText()).toLowerCase();
+  check(coachOnlyText.includes("opening orders") && coachOnlyText.includes("metaphorically"), "Coach-only retains the coach's opening bark");
+  check(coachOnlyText.includes("your actual session") && coachOnlyText.includes("fictional"), "Coach-only includes the actual-session debrief and fictional-score boundary");
   await page.click("[data-simulator-back-preflight]");
 
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
@@ -193,6 +203,12 @@ function check(ok, label) {
   await page.keyboard.press("h");
   await page.waitForSelector("#simulator-help-title");
   check((await page.locator(".simulator-modal").innerText()).includes("Throwing hand"), "Help keeps the throwing hand readable");
+  check(await page.locator('[role="dialog"][aria-modal="true"]:visible').count() === 1, "Help keeps one unambiguous modal root");
+  await page.locator("[data-simulator-help-close]").focus();
+  await page.keyboard.press("Tab");
+  check(await page.evaluate(() => document.activeElement?.matches(".bridge-simulator-exit")), "Tab wraps from Help to the outer dialog's Exit control");
+  await page.keyboard.press("Shift+Tab");
+  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-help-close]")), "Shift-Tab wraps back into Help");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => document.querySelector("[data-simulator-modal]").hidden);
 
@@ -246,6 +262,13 @@ function check(ok, label) {
   check(!await page.evaluate(() => document.querySelector(".app-shell").inert), "exit restores app inert state");
   check(await page.evaluate(() => document.activeElement === window.__bridgeSimulatorReturnFocus), "exit restores focus to the launch origin");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.destroyed), "exit destroys the simulator controller");
+  const storedPreferences = await page.evaluate(() => Object.fromEntries(
+    Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+      .filter(Boolean)
+      .map((key) => [key, localStorage.getItem(key)])
+  ));
+  check(Object.keys(storedPreferences).every((key) => key === "barbelo.bridgeSimulator.settings.v1"), "local storage contains preferences only");
+  check(!/AKQJ|PairNS|simulator\.csv/.test(JSON.stringify(storedPreferences)), "uploaded session and hand data are never persisted");
   check(requests.every((url) => new URL(url).origin === `http://127.0.0.1:${port}`), "all requests remain same-origin");
   check(errors.length === 0, `browser run has no console/page errors (${errors.join("; ")})`);
 
@@ -290,12 +313,19 @@ function check(ok, label) {
   await page.keyboard.press("Space");
   await page.waitForFunction(() => window.__bridgeSimulatorFull.state.progress.bossDefeated);
   check(await page.evaluate(() => window.__bridgeSimulatorFull.state.portalStates["vault-to-results"].open), "full level boss unlocks Move for the Next Round");
-  await page.evaluate(() => {
-    const state = window.__bridgeSimulatorFull.state;
-    const exit = state.level.markers.find((marker) => marker.id === state.level.objectives.exitMarkerId);
-    state.player.position = { ...exit.position };
-    state.player.spaceId = exit.spaceId;
-  });
+  check(await page.evaluate(() => {
+    const app = window.__bridgeSimulatorFull;
+    const exitId = app.state.level.objectives.exitMarkerId;
+    return app.renderSnapshot().entities.some((entity) => entity.id === exitId && entity.kind === "exit");
+  }), "Move for the Next Round is a visible rendered exit entity");
+  await page.keyboard.down("w");
+  await page.waitForFunction(() => {
+    const player = window.__bridgeSimulatorFull.state.player;
+    return player.spaceId === "results-posted" && player.position.x >= 79;
+  }, null, { timeout: 6000 });
+  await page.keyboard.up("w");
+  await page.waitForFunction(() => document.querySelector("#simulator-objective")?.textContent.includes("Press Interact"));
+  check((await page.locator("#simulator-objective").innerText()).toLowerCase().includes("press interact"), "exit proximity gives a visible Interact cue");
   await page.locator("canvas.simulator-canvas").focus();
   await page.keyboard.press("e");
   await page.waitForSelector("#simulator-debrief-title");
@@ -324,9 +354,41 @@ function check(ok, label) {
   check(await failurePage.evaluate(() => window.__failureController === null), "lazy-load failure does not leak a controller");
   await failurePage.close();
 
+  // A 1280×800 desktop viewport at 200% zoom is approximately 640×400 CSS
+  // pixels, so this exercises the post-zoom capability route directly.
+  const compactPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  const compactErrors = [];
+  compactPage.on("console", (message) => { if (message.type() === "error") compactErrors.push(message.text()); });
+  compactPage.on("pageerror", (error) => compactErrors.push(error.message));
+  await compactPage.goto(`http://127.0.0.1:${port}/`);
+  await compactPage.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
+  await compactPage.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
+  await compactPage.locator("#clearAppButton").focus();
+  await compactPage.evaluate(async () => {
+    const simulator = await import("/src/ui/simulatorView.js");
+    window.__compactReturnFocus = document.activeElement;
+    window.__compactSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });
+  });
+  await compactPage.waitForSelector(".simulator-preflight");
+  check(await compactPage.locator('[data-simulator-start="standard"]').isDisabled(), "post-zoom viewport below 960×540 disables Standard FPS");
+  check(await compactPage.locator('[data-simulator-start="practice"]').isDisabled(), "post-zoom viewport below 960×540 disables Practice FPS");
+  check(!await compactPage.locator('[data-simulator-start="coach"]').isDisabled(), "compact viewport retains the complete Coach-only route");
+  const compactPreflight = (await compactPage.locator(".simulator-preflight").innerText()).toLowerCase();
+  check(compactPreflight.includes("below the 960 × 540") && compactPreflight.includes("practice deck"), "compact results-only preflight explains routing and Practice Deck provenance");
+  await compactPage.click('[data-simulator-start="coach"]');
+  check(await compactPage.locator(".simulator-coaching-card").count() >= 5, "compact Coach-only mode exposes checkpoints, practice, and debrief");
+  check(await compactPage.locator(".bridge-simulator-overlay").evaluate((element) => element.scrollWidth <= element.clientWidth), "Coach-only remains horizontally readable at a 200% zoom-equivalent viewport");
+  await compactPage.keyboard.press("Escape");
+  await compactPage.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(await compactPage.evaluate(() => document.activeElement === window.__compactReturnFocus), "compact Coach-only exit restores focus");
+  check(compactErrors.length === 0, `compact Coach-only run has no console/page errors (${compactErrors.join("; ")})`);
+  await compactPage.close();
+
   await browser.close();
   server.close();
-  console.log(failures.length ? `\nSIMULATOR E2E FAILED (${failures.length})` : "\nSIMULATOR E2E PASSED");
+  console.log(failures.length
+    ? `\nSIMULATOR E2E FAILED (${BROWSER_NAME}; ${failures.length})`
+    : `\nSIMULATOR E2E PASSED (${BROWSER_NAME})`);
   process.exit(failures.length ? 1 : 0);
 })().catch((error) => {
   console.error("SIMULATOR E2E CRASHED:", error);
