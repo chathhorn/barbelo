@@ -78,6 +78,7 @@ function createCombatState(options = {}) {
       : SHUFFLE_DURATION,
     shotsFired: 0,
     shotsHit: 0,
+    friendlyShots: 0,
     shuffles: 0
   };
 }
@@ -237,6 +238,7 @@ function updateProjectiles(options) {
     entities,
     player,
     obstacles = [],
+    allies = [],
     dt,
     mode = "standard",
     combat
@@ -281,10 +283,15 @@ function updateProjectiles(options) {
         if (time != null) candidates.push({ kind: "obstacle", target: entry, time, priority: 0 });
       });
       if (projectile.owner === "player") {
+        allies.forEach((ally) => {
+          if (!ally || ally.kind !== "coach" || ally.active === false || ally.alive === false || !spaces.has(ally.spaceId)) return;
+          const time = segmentCircleHitTime(ally.position, projectile.radius + (ally.radius || 0), travel);
+          if (time != null) candidates.push({ kind: "ally", target: ally, time, priority: 1 });
+        });
         entities.forEach((entity) => {
           if (entity.kind !== "enemy" || !entity.alive || entity.active === false || !spaces.has(entity.spaceId)) return;
           const time = segmentCircleHitTime(entity.position, projectile.radius + entity.radius, travel);
-          if (time != null) candidates.push({ kind: "enemy", target: entity, time, priority: 1 });
+          if (time != null) candidates.push({ kind: "enemy", target: entity, time, priority: 2 });
         });
       } else if (player && spaces.has(player.spaceId)) {
         const time = segmentCircleHitTime(player.position, projectile.radius + player.radius, travel);
@@ -306,6 +313,14 @@ function updateProjectiles(options) {
           type: "projectile-wall",
           projectileId: projectile.id,
           obstacleId: impact.target.id,
+          position: { ...projectile.position },
+        });
+      } else if (impact.kind === "ally") {
+        if (combat) combat.friendlyShots = (combat.friendlyShots || 0) + 1;
+        events.push({
+          type: "coach-hit",
+          entityId: impact.target.id,
+          friendly: true,
           position: { ...projectile.position },
         });
       } else if (impact.kind === "enemy") {

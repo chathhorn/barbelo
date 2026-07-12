@@ -1,6 +1,7 @@
 // Deterministic fixed-step Bridge Simulator world state. Rendering, browser
 // timing, input listeners, audio, and DOM overlays live outside this module.
 import { createEnemyFromMarker, computeEnemyIntent, resetEnemy } from "./ai.js";
+import { coachEntityFor } from "./coach.js";
 import {
   applyDamageToPlayer,
   collectPickup,
@@ -722,6 +723,7 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
     entities: state.enemies,
     player: state.player,
     obstacles: state.covers,
+    allies: [coachEntityFor(state)].filter(Boolean),
     dt: step,
     mode: state.mode,
     combat: state.combat,
@@ -790,7 +792,9 @@ function simulationStats(state) {
   const elapsed = Math.max(0, state.elapsed);
   const minutes = Math.floor(elapsed / 60);
   const seconds = Math.floor(elapsed % 60);
-  const accuracy = state.combat.shotsFired ? state.combat.shotsHit / state.combat.shotsFired * 100 : 0;
+  const friendlyShots = Math.max(0, Number(state.combat.friendlyShots) || 0);
+  const hostileShotsFired = Math.max(0, state.combat.shotsFired - friendlyShots);
+  const accuracy = hostileShotsFired ? state.combat.shotsHit / hostileShotsFired * 100 : 0;
   return {
     timeSeconds: elapsed,
     timeLabel: `${minutes}:${String(seconds).padStart(2, "0")}`,
@@ -802,6 +806,8 @@ function simulationStats(state) {
     honor: state.player.honor,
     shotsFired: state.combat.shotsFired,
     shotsHit: state.combat.shotsHit,
+    friendlyShots,
+    hostileShotsFired,
   };
 }
 

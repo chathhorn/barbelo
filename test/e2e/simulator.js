@@ -196,6 +196,10 @@ function check(ok, label) {
   ]));
   check(!await page.locator("[data-simulator-damage]").evaluate((element) => element.classList.contains("active")), "Practice Mode suppresses false damage feedback");
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
+    { type: "coach-hit", entityId: "border-collie-coach", friendly: true },
+  ]));
+  check((await page.locator("[data-simulator-caption]").innerText()).includes("Partner! I’m on your side."), "friendly Coach impact has a concise caption");
+  await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
     { type: "player-hit", composureLost: 7, absorbed: 3, practice: false },
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Composure -7"), "damage has a captioned non-color cue");
