@@ -1,0 +1,9 @@
+three.js r184
+release: https://github.com/mrdoob/three.js/releases/tag/r184
+module: https://raw.githubusercontent.com/mrdoob/three.js/r184/build/three.module.js
+module-sha256: 61134198639a10885daf893fb29669ca26386e2a4cde76e8399f51e329f741f2
+core: https://raw.githubusercontent.com/mrdoob/three.js/r184/build/three.core.js
+core-sha256: 368dc78835287709a48939e8eb9a7a61d0732098bdf916e56840d458aae9ccf3
+license: https://raw.githubusercontent.com/mrdoob/three.js/r184/LICENSE
+license-sha256: 8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc
+vendored: 2026-07-12

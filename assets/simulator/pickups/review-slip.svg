@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 56" width="48" height="56" shape-rendering="crispEdges">
+  <title>Review Slip objective pickup</title>
+  <desc>Original cream paper review slip with a folded corner, blue evidence lines, and a gold approval seal.</desc>
+  <metadata>worldHeightMeters=0.5;anchor=bottom-center;pickup=objective</metadata>
+  <ellipse cx="24" cy="52" rx="17" ry="3" fill="#101820" opacity="0.25"/>
+  <path fill="#f2ead8" stroke="#101820" stroke-width="3" stroke-linejoin="miter" d="M8 5h25l8 9v36H8Z"/>
+  <path fill="#d8c7a6" stroke="#101820" stroke-width="2" d="M32 5v11h9Z"/>
+  <g fill="#326a89">
+    <rect x="14" y="16" width="13" height="3"/>
+    <rect x="14" y="23" width="21" height="3"/>
+    <rect x="14" y="30" width="16" height="3"/>
+    <rect x="14" y="37" width="11" height="3"/>
+  </g>
+  <path fill="#d69b3d" stroke="#101820" stroke-width="2" d="m30 34 8 4-2 10-10 0-3-9Z"/>
+  <path fill="#f2ead8" d="m28 39 3 3 5-6 2 3-7 7-5-5Z"/>
+</svg>

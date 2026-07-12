@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" width="96" height="64" shape-rendering="crispEdges">
+  <title>Coach chalkboard panel</title>
+  <desc>Original green chalkboard with gold frame, bridge suit diagrams, arrows, and evidence lines, intended as a billboard terminal.</desc>
+  <metadata>worldWidthMeters=1.8;worldHeightMeters=1.2;anchor=bottom-center;surface=terminal</metadata>
+  <rect width="96" height="64" fill="#101820"/>
+  <path fill="#d69b3d" d="M2 2h92v7H2zM2 55h92v7H2zM2 9h7v46H2zM87 9h7v46h-7z"/>
+  <path fill="#1d4d45" d="M9 9h78v46H9z"/>
+  <path fill="#245d52" d="M13 13h70v38H13z"/>
+  <g fill="#f2ead8" opacity="0.86">
+    <path d="m21 17 6 8-3 4h-2v4h-3v-4h-2l-3-4Z"/>
+    <path d="m42 17 5 6-5 6-5-6Z" fill="#e99a9e"/>
+    <path d="m63 28-7-8 2-4 4-1 2 3 2-3 4 1 2 4Z" fill="#e99a9e"/>
+    <path d="m76 17 4 3-1 4 4 1 2 4-3 4-5-2v4h-3v-4l-5 2-3-4 2-4 4-1-1-4Z"/>
+    <rect x="16" y="41" width="21" height="3"/>
+    <rect x="45" y="41" width="34" height="3"/>
+    <path d="M30 34h22v3H30zM49 31l7 5-7 5Z"/>
+  </g>
+  <path fill="#c74b50" d="M12 52h29v3H12z"/>
+  <path fill="#f2ead8" d="M69 57h15v3H69z"/>
+</svg>

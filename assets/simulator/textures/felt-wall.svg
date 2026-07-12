@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <title>Cardroom felt wall tile</title>
+  <desc>Original seamless-style dark green felt wall panel with blue shadows, gold rails, and subtle geometric tufts.</desc>
+  <metadata>tile=true;tileWidth=64;tileHeight=64;surface=wall</metadata>
+  <rect width="64" height="64" fill="#245d52"/>
+  <path fill="#1d4d45" d="M0 0h64v8H0zM0 56h64v8H0zM0 20h64v4H0zM0 42h64v4H0z"/>
+  <path fill="#326a63" d="M0 9h64v3H0zM0 25h64v2H0zM0 47h64v3H0z"/>
+  <path fill="#d69b3d" d="M0 17h64v3H0zM0 43h64v3H0z"/>
+  <g fill="#1d4d45">
+    <path d="m8 29 4-4 4 4-4 4ZM24 35l4-4 4 4-4 4ZM40 29l4-4 4 4-4 4ZM56 35l4-4 4 4-4 4Z"/>
+    <path d="m0 35 4-4 4 4-4 4Z"/>
+  </g>
+  <g fill="#6aa08d" opacity="0.45">
+    <rect x="12" y="30" width="2" height="2"/>
+    <rect x="28" y="36" width="2" height="2"/>
+    <rect x="44" y="30" width="2" height="2"/>
+    <rect x="60" y="36" width="2" height="2"/>
+  </g>
+</svg>

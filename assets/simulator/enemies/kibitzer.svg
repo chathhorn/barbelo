@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 96" width="64" height="96" shape-rendering="crispEdges">
+  <title>Kibitzer enemy</title>
+  <desc>Original floating paper specter with folded score sheet robes, gold eyes, a pencil, and tally-mark decoration.</desc>
+  <metadata>worldHeightMeters=1.65;anchor=bottom-center;role=standard-ranged</metadata>
+  <ellipse cx="31" cy="91" rx="20" ry="3" fill="#101820" opacity="0.28"/>
+  <g stroke="#101820" stroke-width="3" stroke-linejoin="miter">
+    <path fill="#63757e" d="m19 15 12-8 15 6 6 17-5 15 7 32-9 12-8-8-7 9-7-10-10 7 3-42-6-13Z"/>
+    <path fill="#f2ead8" d="m18 16 13-7 14 6 4 15-6 14 7 31-8 9-6-9-7 10-6-9-7 7 3-40-6-12Z"/>
+    <path fill="#d8c7a6" stroke="none" d="m31 9 14 6-10 5ZM18 17l13-8 0 11ZM21 47l20-2 5 25-18-5Z"/>
+    <path fill="#31404b" stroke="none" d="m18 29 12-7 14 4 2 12-10 8-13-3Z"/>
+    <rect x="23" y="27" width="6" height="6" fill="#d69b3d" stroke="none"/>
+    <rect x="37" y="27" width="6" height="6" fill="#d69b3d" stroke="none"/>
+    <rect x="25" y="29" width="3" height="3" fill="#101820" stroke="none"/>
+    <rect x="38" y="29" width="3" height="3" fill="#101820" stroke="none"/>
+    <path fill="#101820" stroke="none" d="M26 37h15v4H26z"/>
+    <path fill="#f2ead8" d="m17 48-11 9 3 9 13-7ZM45 46l12 7-1 10-12-6Z"/>
+  </g>
+  <g fill="#326a89">
+    <rect x="25" y="51" width="3" height="11"/>
+    <rect x="31" y="50" width="3" height="12"/>
+    <rect x="37" y="49" width="3" height="13"/>
+    <path d="m23 58 20-10 2 3-20 10Z"/>
+  </g>
+  <g id="pencil" stroke="#101820" stroke-width="2" stroke-linejoin="miter">
+    <path fill="#d69b3d" d="m50 49 5-2 8 24-5 2Z"/>
+    <path fill="#f2ead8" d="m58 72 5-1-1 8Z"/>
+    <path fill="#c74b50" d="m48 45 5-2 2 5-5 2Z"/>
+  </g>
+</svg>

@@ -13,6 +13,7 @@ import { buildPairImprovementReport, decisionTypeInfoForCategory, peerDisplayNam
 import { defaultReportPair, rowContractText } from "../core/results.js";
 import { SUITS } from "../core/constants.js";
 import { prepareQuiz, renderQuizLaunch } from "./quizView.js";
+import { prepareBridgeSimulator } from "./simulatorView.js";
 import { assetUrl, renderBoardJump, renderBoardJumpList } from "./dom.js";
 import { STATE } from "./state.js";
 import { annotateTermTooltips, term, tooltipAttrs } from "./terms.js";
@@ -28,6 +29,7 @@ function renderPairImprovementReport(results) {
     body.innerHTML = "";
     panel.classList.add("hidden");
     prepareQuiz(null, null);
+    prepareBridgeSimulator(null, null, null);
     return;
   }
 
@@ -50,9 +52,11 @@ function renderPairImprovementReport(results) {
     body.innerHTML = `<div class="empty-state">Choose a pair with played boards.</div>`;
     panel.classList.remove("hidden");
     prepareQuiz(null, null);
+    prepareBridgeSimulator(null, null, null);
     return;
   }
   prepareQuiz(results, report);
+  prepareBridgeSimulator(STATE.analysis, results, report);
 
   const summary = report.summary;
   caption.textContent = `${summary.players || `Pair ${report.pairNo}`} - ${plural(summary.boards, "board")} reviewed. ${sessionToneSentence(summary, report.reviewItems.length)}`;

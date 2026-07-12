@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 48" width="128" height="48" shape-rendering="crispEdges">
+  <title>Four-suit card projectile strip</title>
+  <desc>Original sprite strip of four cream playing cards: spade, heart, diamond, and club. Each cell is 32 by 48 pixels.</desc>
+  <metadata>atlasCells=4;cellWidth=32;cellHeight=48;order=spade,heart,diamond,club;worldHeightMeters=0.18;anchor=cell-center</metadata>
+  <defs>
+    <g id="card">
+      <path fill="#f2ead8" stroke="#101820" stroke-width="3" stroke-linejoin="miter" d="M4 4h24v40H4z"/>
+      <path fill="#d8c7a6" d="M7 7h18v3H7zM7 38h18v3H7z"/>
+    </g>
+    <g id="spade" fill="#1b2734">
+      <path d="m16 13 8 10-4 6h-3v5h-4v-5h-3l-3-6Z"/>
+    </g>
+    <g id="heart" fill="#c74b50">
+      <path d="m16 33-9-10 2-7 6-2 3 4 3-4 6 2 2 7Z"/>
+    </g>
+    <g id="diamond" fill="#c74b50">
+      <path d="m16 12 9 12-9 12-9-12Z"/>
+    </g>
+    <g id="club" fill="#1b2734">
+      <path d="m16 12 5 3 0 5 5 1 3 5-3 6-6-1v5h-8v-5l-6 1-3-6 3-5 5-1 0-5Z"/>
+    </g>
+  </defs>
+  <g transform="translate(0)"><use href="#card"/><use href="#spade"/></g>
+  <g transform="translate(32)"><use href="#card"/><use href="#heart"/></g>
+  <g transform="translate(64)"><use href="#card"/><use href="#diamond"/></g>
+  <g transform="translate(96)"><use href="#card"/><use href="#club"/></g>
+</svg>

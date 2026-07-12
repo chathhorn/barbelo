@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 48" width="32" height="48" shape-rendering="crispEdges">
+  <title>Bridge card back</title>
+  <desc>Original blue and gold geometric card-back sprite with no logos or copied playing-card artwork.</desc>
+  <metadata>worldHeightMeters=0.18;anchor=center;role=projectile-back</metadata>
+  <path fill="#f2ead8" stroke="#101820" stroke-width="3" stroke-linejoin="miter" d="M4 4h24v40H4z"/>
+  <path fill="#326a89" d="M7 7h18v34H7z"/>
+  <path fill="#1f4d64" d="M10 10h12v28H10z"/>
+  <path fill="#d69b3d" d="m16 12 6 6-6 6-6-6ZM16 24l6 6-6 6-6-6Z"/>
+  <path fill="#f2ead8" d="m16 16 2 2-2 2-2-2ZM16 28l2 2-2 2-2-2Z"/>
+</svg>

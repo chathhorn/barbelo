@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 96" width="72" height="96" shape-rendering="crispEdges">
+  <title>Red-X Sentinel enemy</title>
+  <desc>Original armored convention-card sentinel carrying a red-X shield and sharpened pencil lance.</desc>
+  <metadata>worldHeightMeters=1.8;anchor=bottom-center;role=armored-ranged</metadata>
+  <ellipse cx="36" cy="91" rx="27" ry="3" fill="#101820" opacity="0.3"/>
+  <g stroke="#101820" stroke-width="3" stroke-linejoin="miter">
+    <path fill="#31404b" d="m24 11 22 0 10 12-4 15 8 13-5 32-14 8-24-6-7-28 8-18-4-16Z"/>
+    <path fill="#f2ead8" d="m24 15 19-1 9 10-5 15 7 13-4 27-11 7-18-5-6-23 8-18-5-16Z"/>
+    <path fill="#63757e" stroke="none" d="m22 16 20-2-4 9-15 3ZM21 43l26-2 5 12-31 3ZM22 61l26 0-2 17-20 3Z"/>
+    <path fill="#101820" stroke="none" d="M23 28h9v7h-9zM40 28h9v7h-9z"/>
+    <rect x="26" y="30" width="3" height="3" fill="#d69b3d" stroke="none"/>
+    <rect x="43" y="30" width="3" height="3" fill="#d69b3d" stroke="none"/>
+    <path fill="#101820" stroke="none" d="M29 39h16v4H29z"/>
+    <path fill="#31404b" d="m17 75 13 4-2 12H12ZM40 79l12-5 8 15-19 2Z"/>
+  </g>
+  <g id="shield" stroke="#101820" stroke-width="3" stroke-linejoin="miter">
+    <path fill="#326a89" d="m2 43 27-4 5 12-5 29-13 10L5 78Z"/>
+    <path fill="#1f4d64" stroke="none" d="m6 47 20-4 4 9-4 24-10 9-7-9Z"/>
+    <path fill="#c74b50" stroke="none" d="m8 51 5-4 14 25-5 5ZM25 48l5 5L11 78l-4-5Z"/>
+  </g>
+  <g id="lance" stroke="#101820" stroke-width="2" stroke-linejoin="miter">
+    <path fill="#d69b3d" d="m56 15 5-1 8 58-5 1Z"/>
+    <path fill="#f2ead8" d="m56 15 2-12 5 11Z"/>
+    <path fill="#c74b50" d="m63 72 7-1 1 8-7 1Z"/>
+  </g>
+</svg>

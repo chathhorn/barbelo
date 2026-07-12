@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72" width="64" height="72" shape-rendering="crispEdges">
+  <title>Overtrick Imp enemy</title>
+  <desc>Original small red paper imp with plus-one chest mark, folded horns, fast feet, and a mischievous grin.</desc>
+  <metadata>worldHeightMeters=0.72;anchor=bottom-center;role=fast-close</metadata>
+  <ellipse cx="31" cy="68" rx="21" ry="3" fill="#101820" opacity="0.28"/>
+  <g stroke="#101820" stroke-width="3" stroke-linejoin="miter">
+    <path fill="#c74b50" d="m14 24-8-13 13 5 7-9 6 10 11-9 0 12 12-4-7 14 4 19-9 14-25 0-9-13Z"/>
+    <path fill="#8e343b" stroke="none" d="m8 13 12 5-6 8ZM42 11l0 12 10-5Z"/>
+    <path fill="#e16b70" stroke="none" d="m18 28 11-8 12 7 5 19-8 12-16-2-7-12Z"/>
+    <path fill="#101820" stroke="none" d="m19 26 8 2-2 6-7-2ZM37 27l8-2 1 6-8 3Z"/>
+    <rect x="21" y="28" width="3" height="3" fill="#f2ead8" stroke="none"/>
+    <rect x="40" y="28" width="3" height="3" fill="#f2ead8" stroke="none"/>
+    <path fill="#f2ead8" d="m21 39 22-1-5 9-12 0Z"/>
+    <path fill="#101820" stroke="none" d="M25 40h4v5h-4zM35 40h4v5h-4z"/>
+    <path fill="#c74b50" d="m13 38-10 7 3 7 10-4ZM47 38l12 5-2 8-11-4Z"/>
+    <path fill="#c74b50" d="m20 56 11 1-4 11H15ZM35 57l11-2 5 11-16 2Z"/>
+  </g>
+  <g id="plus-one" fill="#f2ead8">
+    <rect x="25" y="48" width="3" height="9"/>
+    <rect x="22" y="51" width="9" height="3"/>
+    <rect x="35" y="49" width="3" height="8"/>
+    <rect x="33" y="49" width="5" height="3"/>
+    <rect x="33" y="55" width="7" height="3"/>
+  </g>
+  <path fill="#d69b3d" d="M2 29h4v4H2zM55 27h4v4h-4z"/>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 56" width="48" height="56" shape-rendering="crispEdges">
+  <title>System Notes armor pickup</title>
+  <desc>Original blue convention notebook pickup with gold binding and diagrammatic lines.</desc>
+  <metadata>worldHeightMeters=0.48;anchor=bottom-center;pickup=armor</metadata>
+  <ellipse cx="24" cy="52" rx="18" ry="3" fill="#101820" opacity="0.25"/>
+  <g stroke="#101820" stroke-width="3" stroke-linejoin="miter">
+    <path fill="#326a89" d="M8 7h32v42H8z"/>
+    <path fill="#f2ead8" d="M14 10h23v35H14z"/>
+    <path fill="#d69b3d" d="M7 6h8v44H7z"/>
+  </g>
+  <g fill="#63757e">
+    <rect x="18" y="16" width="15" height="3"/>
+    <rect x="18" y="23" width="11" height="3"/>
+    <rect x="23" y="30" width="10" height="3"/>
+    <rect x="18" y="37" width="15" height="3"/>
+    <rect x="18" y="23" width="3" height="17"/>
+  </g>
+  <g fill="#c74b50">
+    <rect x="4" y="13" width="7" height="3"/>
+    <rect x="4" y="24" width="7" height="3"/>
+    <rect x="4" y="35" width="7" height="3"/>
+  </g>
+</svg>
