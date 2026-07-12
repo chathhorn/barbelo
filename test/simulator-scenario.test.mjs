@@ -435,6 +435,79 @@ test("BWS placeholder identities stay blank and named peers never enter scenario
   assert.equal(scenario.representativeHand.source, "practice");
 });
 
+test("changing pairs in one parsed session changes substantive mission content but never hostile identity", () => {
+  const rows = [
+    [1, 1, 1, 2, "3 NT", "="],
+    [2, 2, 1, 2, "2 S", "+1"],
+    [3, 3, 1, 2, "3 H X", "-2"],
+    [4, 1, 3, 4, "3 NT", "+1"],
+    [5, 2, 3, 4, "4 S", "="],
+    [6, 3, 3, 4, "2 S", "="],
+    [7, 1, 5, 6, "3 NT", "+1"],
+    [8, 2, 5, 6, "4 S", "="],
+    [9, 3, 5, 6, "2 S", "+1"],
+    [10, 1, 7, 8, "3 NT", "-1"],
+    [11, 2, 7, 8, "3 S", "+1"],
+    [12, 3, 7, 8, "2 S", "="],
+  ].map(([id, board, pairNS, pairEW, contract, result]) => bwsReceivedRow({
+    id,
+    table: Math.ceil(id / 3),
+    round: board,
+    board,
+    pairNS,
+    pairEW,
+    declarer: pairNS,
+    contract,
+    result,
+  }));
+  const playerRows = [
+    fixture.buildPlayerRow({ section: 1, table: 1, round: 1, direction: "N", number: "101", name: "Nora One", timeSerial: 46203.5 }),
+    fixture.buildPlayerRow({ section: 1, table: 1, round: 1, direction: "S", number: "102", name: "Sam One", timeSerial: 46203.5 }),
+    fixture.buildPlayerRow({ section: 1, table: 4, round: 1, direction: "N", number: "701", name: "Nora Seven", timeSerial: 46203.5 }),
+    fixture.buildPlayerRow({ section: 1, table: 4, round: 1, direction: "S", number: "702", name: "Sam Seven", timeSerial: 46203.5 }),
+  ];
+  const raw = parseBwsBuffer(fixture.buildBwsFile({ pages: [rows, playerRows] }), "pair-personalization.BWS");
+  const results = buildResultsAnalysis(raw);
+  const pairOneReport = buildPairImprovementReport(results, "1");
+  const pairSevenReport = buildPairImprovementReport(results, "7");
+  assert.match(pairOneReport.summary.players, /Nora One/);
+  assert.match(pairSevenReport.summary.players, /Nora Seven/);
+
+  const pairOne = assertStableSerializableScenario({ results, report: pairOneReport });
+  const pairSeven = assertStableSerializableScenario({ results, report: pairSevenReport });
+  assert.notEqual(pairOne.seed, pairSeven.seed);
+  assert.match(pairOne.briefing.fullText.map((segment) => segment.text).join(" "), /penalty \/ double decisions/i);
+  assert.match(pairSeven.briefing.fullText.map((segment) => segment.text).join(" "), /declarer play/i);
+
+  const missionDifferences = [
+    JSON.stringify(pairOne.briefing.fullText) !== JSON.stringify(pairSeven.briefing.fullText),
+    JSON.stringify(pairOne.wings.map((wing) => [wing.themeKey, wing.featuredBoard && wing.featuredBoard.rowIdentity.key])) !==
+      JSON.stringify(pairSeven.wings.map((wing) => [wing.themeKey, wing.featuredBoard && wing.featuredBoard.rowIdentity.key])),
+    JSON.stringify(pairOne.palette) !== JSON.stringify(pairSeven.palette),
+    JSON.stringify(pairOne.representativeHand.cards) !== JSON.stringify(pairSeven.representativeHand.cards),
+  ];
+  assert.ok(missionDifferences.filter(Boolean).length >= 2, "pair selection should change at least two substantive mission systems");
+
+  for (const scenario of [pairOne, pairSeven]) {
+    const selectedIdentity = [scenario.identity.pairLabel, scenario.identity.players]
+      .flatMap((value) => String(value).split(/\s*\/\s*/))
+      .filter(Boolean);
+    const hostileContent = JSON.stringify({
+      wings: scenario.wings.map((wing) => ({ themeKey: wing.themeKey, encounterSkin: wing.encounterSkin })),
+      boss: {
+        key: scenario.boss.key,
+        title: scenario.boss.title,
+        themeKey: scenario.boss.themeKey,
+        encounterSkin: scenario.boss.encounterSkin,
+        hostileSpeech: scenario.boss.hostileSpeech,
+      },
+    });
+    selectedIdentity.forEach((identity) => {
+      assert.ok(!hostileContent.includes(identity), `hostile content leaked selected identity ${JSON.stringify(identity)}`);
+    });
+  }
+});
+
 test("neutral coaching redacts peer player names while retaining evidence provenance", () => {
   const { results, report } = scenarioFor([
     HEADER,

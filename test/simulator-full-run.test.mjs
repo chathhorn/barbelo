@@ -8,7 +8,7 @@ import {
   otherPortalSpace,
   pointInPolygon,
 } from "../src/core/simulator/collision.js";
-import { FULL_LEVEL } from "../src/core/simulator/level.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
 import {
   FIXED_DT,
   createSimulation,
@@ -45,6 +45,23 @@ function inputToward(state, target, options = {}) {
     forward: options.forward == null ? 1 : options.forward,
     strafe: options.strafe || 0,
     fire: !!options.fire,
+  };
+}
+
+function inputAimAndMove(state, aimTarget, moveTarget, fire = false) {
+  const aimDx = aimTarget.x - state.player.position.x;
+  const aimDz = aimTarget.z - state.player.position.z;
+  const yaw = Math.atan2(aimDz, aimDx);
+  const moveDx = moveTarget.x - state.player.position.x;
+  const moveDz = moveTarget.z - state.player.position.z;
+  const moveLength = Math.hypot(moveDx, moveDz) || 1;
+  const worldX = moveDx / moveLength;
+  const worldZ = moveDz / moveLength;
+  return {
+    turn: normalizeAngle(yaw - state.player.yaw),
+    forward: Math.cos(yaw) * worldX + Math.sin(yaw) * worldZ,
+    strafe: -Math.sin(yaw) * worldX + Math.cos(yaw) * worldZ,
+    fire,
   };
 }
 
@@ -199,6 +216,108 @@ function huntEnemies(state, predicate, trace, label, maxTicks = 30000) {
   assert.fail(`bot could not clear ${label}; survivors: ${survivors.join(", ")}`);
 }
 
+function huntEnemiesEvasively(state, predicate, trace, label, maxTicks = 30000) {
+  let orbitSign = 1;
+  let stalledTicks = 0;
+  let previousPosition = { ...state.player.position };
+
+  for (let tick = 0; tick < maxTicks; tick += 1) {
+    const remaining = state.enemies.filter((enemy) => enemy.alive && predicate(enemy));
+    if (!remaining.length) return;
+
+    const sameSpace = remaining
+      .filter((enemy) => enemy.spaceId === state.player.spaceId)
+      .sort((a, b) => distance(a.position, state.player.position) - distance(b.position, state.player.position));
+    let target = sameSpace[0] || null;
+    if (!target) {
+      target = remaining
+        .map((enemy) => ({
+          enemy,
+          path: findSpacePath(
+            state.level,
+            state.player.spaceId,
+            enemy.spaceId,
+            { portals: state.portalStates, lifts: state.lifts },
+            state.player
+          ),
+        }))
+        .filter((entry) => entry.path.length)
+        .sort((a, b) => a.path.length - b.path.length || a.enemy.id.localeCompare(b.enemy.id))[0]?.enemy || null;
+    }
+    assert.ok(target, `no reachable target remained while clearing ${label}`);
+
+    if (target.spaceId !== state.player.spaceId) {
+      advance(state, inputToward(state, nextPortalTarget(state, target.spaceId)), trace);
+      continue;
+    }
+
+    const targetDistance = distance(target.position, state.player.position);
+    const visible = hasLineOfSight(
+      state.level,
+      state.player,
+      target,
+      { portals: state.portalStates, lifts: state.lifts },
+      { y: state.player.position.y + 0.8 }
+    );
+    const desiredDistance = target.archetype === "bottom-board" ? 7
+      : target.melee ? 3.2
+        : 5.5;
+    const distanceError = targetDistance - desiredDistance;
+    const forward = distanceError > 0.7 ? 0.8 : distanceError < -0.7 ? -0.8 : 0;
+    advance(state, inputToward(state, target.position, {
+      forward,
+      strafe: orbitSign,
+      fire: visible,
+    }), trace);
+
+    const moved = distance(previousPosition, state.player.position);
+    stalledTicks = moved < 0.015 ? stalledTicks + 1 : 0;
+    previousPosition = { ...state.player.position };
+    if (stalledTicks > 12) {
+      orbitSign *= -1;
+      stalledTicks = 0;
+    }
+  }
+
+  const survivors = state.enemies.filter((enemy) => enemy.alive && predicate(enemy)).map((enemy) => enemy.id);
+  assert.fail(`evasive bot could not clear ${label}; survivors: ${survivors.join(", ")}`);
+}
+
+function fightFromSafeSpace(state, predicate, trace, label, safeSpaceId, dodgePoints, maxTicks = 12000) {
+  let dodgeIndex = 0;
+  for (let tick = 0; tick < maxTicks; tick += 1) {
+    const remaining = state.enemies.filter((enemy) => enemy.alive && predicate(enemy));
+    if (!remaining.length) return;
+    assert.equal(state.player.spaceId, safeSpaceId, `${label} bot should remain in ${safeSpaceId}`);
+
+    const visible = remaining.filter((enemy) => hasLineOfSight(
+      state.level,
+      state.player,
+      enemy,
+      { portals: state.portalStates, lifts: state.lifts },
+      { y: state.player.position.y + 0.8 }
+    ));
+    const target = (visible.length ? visible : remaining)
+      .sort((a, b) => distance(a.position, state.player.position) - distance(b.position, state.player.position))[0];
+    if (distance(state.player.position, dodgePoints[dodgeIndex]) <= 0.35) {
+      dodgeIndex = (dodgeIndex + 1) % dodgePoints.length;
+    }
+    advance(
+      state,
+      inputAimAndMove(state, target.position, dodgePoints[dodgeIndex], visible.includes(target)),
+      trace
+    );
+  }
+  const survivors = state.enemies.filter((enemy) => enemy.alive && predicate(enemy)).map((enemy) => ({
+    id: enemy.id,
+    spaceId: enemy.spaceId,
+    position: enemy.position,
+    alerted: enemy.alerted,
+    state: enemy.state,
+  }));
+  assert.fail(`safe-space bot could not clear ${label}; survivors: ${JSON.stringify(survivors)}`);
+}
+
 function interactWithMarker(state, markerId, eventType, trace) {
   const marker = state.level.markers.find((entry) => entry.id === markerId);
   assert.ok(marker, `missing authored marker ${markerId}`);
@@ -326,4 +445,86 @@ test("deterministic bot completes the authored full level through real movement 
   );
   assert.ok(trace.events.some((event) => event.type === "boss-defeated"));
   assert.ok(trace.events.some((event) => event.type === "run-complete"));
+});
+
+test("evasive Standard bot survives the authored slice wing and unassisted boss", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "standard" });
+  const trace = createTrace(state);
+
+  moveTo(state, { x: 12.6, z: 35 }, "club-entrance", trace);
+  moveTo(state, { x: 16.2, z: 35 }, "movement-hall", trace);
+  huntEnemiesEvasively(state, (enemy) => enemy.id.startsWith("tutorial-"), trace, "Standard tutorial");
+  interactWithMarker(state, "secret-biscuit", "secret-found", trace);
+  moveTo(state, { x: 31, z: 35 }, "main-cardroom", trace);
+
+  const doorwayDodge = [{ x: 30, z: 44.5 }, { x: 40, z: 44.5 }];
+  moveTo(state, doorwayDodge[0], "main-cardroom", trace);
+  fightFromSafeSpace(
+    state,
+    (enemy) => ["a-enemy-1", "a-enemy-2", "a-enemy-3"].includes(enemy.id),
+    trace,
+    "Standard wing A entrance",
+    "main-cardroom",
+    doorwayDodge
+  );
+
+  moveTo(state, { x: 35, z: 50.2 }, "wing-a-entry", trace);
+  const notes = state.level.markers.find((marker) => marker.id === "notes-a");
+  moveTo(state, notes.position, notes.spaceId, trace, { tolerance: 0.45 });
+  assert.ok(
+    trace.events.some((event) => event.type === "pickup-collected" && event.pickupId === "notes-a"),
+    "the Standard bot should collect authored System Notes before the wing fight"
+  );
+  moveTo(state, { x: 44, z: 54 }, "wing-a-chalkboard", trace);
+  huntEnemiesEvasively(
+    state,
+    (enemy) => ["a-enemy-4", "a-enemy-5"].includes(enemy.id),
+    trace,
+    "Standard wing A chalkboard wave",
+    12000
+  );
+  interactWithMarker(state, "review-slip-a", "review-slip", trace);
+  interactWithMarker(state, "secret-dummy", "secret-found", trace);
+  interactWithMarker(state, "lift-control-wing-a", "lift-called", trace);
+  waitForEvent(state, "lift-ready", trace);
+  moveTo(state, { x: 50, z: 49.1 }, "wing-a-chalkboard", trace);
+  moveTo(state, { x: 50, z: 46.3 }, "main-cardroom", trace);
+
+  if (state.player.composure < state.player.maxComposure) {
+    const coffee = state.level.markers.find((marker) => marker.id === "coffee-hub");
+    moveTo(state, coffee.position, coffee.spaceId, trace, { tolerance: 0.45 });
+  }
+
+  assert.equal(state.progress.rapidDealRemaining, 0, "the slice has no 7NT rapid-deal secret");
+  moveTo(state, { x: 54, z: 28 }, "main-cardroom", trace);
+  moveTo(state, { x: 59, z: 28 }, "traveler-vault", trace);
+  assert.equal(state.progress.bossActive, true);
+  const bossStartedAt = state.elapsed;
+  huntEnemiesEvasively(
+    state,
+    (enemy) => enemy.archetype === "bottom-board",
+    trace,
+    "unassisted Standard boss",
+    45000
+  );
+  const bossSeconds = state.elapsed - bossStartedAt;
+
+  moveTo(state, { x: 70.5, z: 28 }, "traveler-vault", trace);
+  moveTo(state, { x: 74, z: 28 }, "results-posted", trace);
+  interactWithMarker(state, "next-round-exit", "run-complete", trace);
+
+  const resetEvents = trace.events.filter((event) => event.type === "player-defeated" || event.type === "encounter-reset");
+  assert.deepEqual(resetEvents, [], "Standard validation must not pass through a checkpoint defeat/reset");
+  assert.equal(state.status, "complete");
+  assert.ok(state.player.composure > 0, "the Standard bot should survive with positive Composure");
+  assert.ok(bossSeconds >= 45 && bossSeconds <= 75, `unassisted boss took ${bossSeconds.toFixed(1)} seconds`);
+
+  const hitsByEnemy = new Map();
+  trace.events.filter((event) => event.type === "enemy-hit").forEach((event) => {
+    hitsByEnemy.set(event.entityId, (hitsByEnemy.get(event.entityId) || 0) + 1);
+  });
+  state.enemies.filter((enemy) => enemy.archetype !== "bottom-board").forEach((enemy) => {
+    const expectedHits = enemy.archetype === "red-x-sentinel" ? 5 : 2;
+    assert.equal(hitsByEnemy.get(enemy.id), expectedHits, `${enemy.id} ordinary hit budget`);
+  });
 });
