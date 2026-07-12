@@ -6,6 +6,7 @@ import {
   createCombatState,
   tryThrowCard,
   updateCombatTimers,
+  updateProjectiles,
 } from "../src/core/simulator/combat.js";
 import {
   FIXED_DT,
@@ -65,6 +66,75 @@ test("live boss objective uses the personalized scenario title", () => {
   assert.equal(getSimulationSnapshot(state).objectiveText, "Reseat Complacency.");
 });
 
+function testProjectile(position, velocity = { x: 24, y: 0, z: 0 }) {
+  return {
+    id: "test-card",
+    type: "card",
+    owner: "player",
+    ownerId: "player",
+    position: { ...position },
+    spaceId: "club-entrance",
+    velocity,
+    radius: 0.1,
+    height: 0.08,
+    damage: 34,
+    lifetime: 1,
+    alive: true,
+  };
+}
+
+function testEnemy(id, x, z = 35) {
+  return {
+    id,
+    kind: "enemy",
+    archetype: "kibitzer",
+    position: { x, y: 0, z },
+    spaceId: "club-entrance",
+    radius: 0.2,
+    health: 1,
+    maxHealth: 1,
+    alive: true,
+    active: true,
+  };
+}
+
+test("projectile collision selects the nearest actor rather than array order", () => {
+  const near = testEnemy("z-near", 5);
+  const far = testEnemy("a-far", 6);
+  const projectiles = [testProjectile({ x: 4, y: 1, z: 35 })];
+  const events = updateProjectiles({
+    level: SLICE_LEVEL,
+    dynamics: { portals: {} },
+    projectiles,
+    entities: [far, near],
+    obstacles: [],
+    player: null,
+    dt: 0.1,
+    combat: { shotsHit: 0 },
+  });
+  assert.equal(near.alive, false);
+  assert.equal(far.alive, true);
+  assert.ok(events.some((event) => event.type === "enemy-defeated" && event.entityId === near.id));
+});
+
+test("projectile wall impact wins over an actor behind solid geometry", () => {
+  const behindWall = testEnemy("behind-wall", 14.4, 30);
+  const projectiles = [testProjectile({ x: 13, y: 1, z: 30 })];
+  const events = updateProjectiles({
+    level: SLICE_LEVEL,
+    dynamics: { portals: {} },
+    projectiles,
+    entities: [behindWall],
+    obstacles: [],
+    player: null,
+    dt: 0.1,
+    combat: { shotsHit: 0 },
+  });
+  assert.equal(behindWall.alive, true);
+  assert.ok(events.some((event) => event.type === "projectile-wall"));
+  assert.ok(!events.some((event) => event.type === "enemy-hit"));
+});
+
 test("simulation movement is deterministic and yaw zero moves toward +X", () => {
   const first = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const second = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
@@ -75,6 +145,20 @@ test("simulation movement is deterministic and yaw zero moves toward +X", () => 
   assert.deepEqual(getSimulationSnapshot(first), getSimulationSnapshot(second));
   assert.ok(first.player.position.x > first.player.spawnPosition.x);
   assert.equal(first.player.position.z, first.player.spawnPosition.z);
+});
+
+test("render snapshots cannot mutate or drift with live simulation state", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
+  const snapshot = getSimulationSnapshot(state);
+  const originalX = snapshot.player.position.x;
+  stepSimulation(state, { forward: 1 }, FIXED_DT);
+  assert.equal(snapshot.player.position.x, originalX);
+  snapshot.player.position.x = 999;
+  snapshot.progress.completedWings.push("tampered");
+  snapshot.entities[0].position.x = 999;
+  assert.notEqual(state.player.position.x, 999);
+  assert.ok(!state.progress.completedWings.includes("tampered"));
+  assert.notEqual(state.enemies[0].position.x, 999);
 });
 
 test("cleared wing interaction awards one persistent Review Slip and fixed Honor", () => {
@@ -95,6 +179,11 @@ test("cleared wing interaction awards one persistent Review Slip and fixed Honor
   assert.equal(state.reviewSlips[0].collected, true);
   assert.equal(state.player.honor, 500);
   assert.ok(state.enemies.filter((enemy) => enemy.wingId === "a").every((enemy) => !enemy.alive));
+  state.player.position = { ...slip.position };
+  state.player.spaceId = slip.spaceId;
+  const reopenEvents = stepSimulation(state, { interact: true }, FIXED_DT);
+  assert.ok(reopenEvents.some((event) => event.type === "review-slip-reopened"));
+  assert.equal(state.player.honor, 500, "reopening coaching cannot award Honor twice");
 });
 
 test("boss defeat retains slips, unlocks exit, and completes through interaction", () => {
@@ -198,4 +287,83 @@ test("reset after a completed wing preserves completed actors and awards", () =>
   assert.ok(wingEnemies.every((enemy) => !enemy.alive));
   assert.equal(state.progress.slips, 1);
   assert.equal(state.player.honor, wingHonor);
+});
+
+test("checkpoint rollback restores neutral enemies and pickups with global stats", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const wingEnemies = state.enemies.filter((enemy) => enemy.wingId === "a");
+  wingEnemies.forEach((enemy) => { enemy.alive = false; enemy.health = 0; });
+  state.encounter = { ...state.encounter, kind: "wing", wingId: "a" };
+  const slip = state.reviewSlips[0];
+  state.player.position = { ...slip.position };
+  state.player.spaceId = slip.spaceId;
+  stepSimulation(state, { interact: true }, FIXED_DT);
+  const checkpointHonor = state.player.honor;
+
+  const neutralEnemy = state.enemies.find((enemy) => !enemy.wingId && enemy.archetype !== "bottom-board");
+  neutralEnemy.alive = false;
+  neutralEnemy.health = 0;
+  state.player.honor += 100;
+  state.stats.honor = state.player.honor;
+  state.stats.enemiesDefeated += 1;
+  const neutralPickup = state.pickups.find((pickup) => !pickup.wingId);
+  neutralPickup.collected = true;
+  neutralPickup.active = false;
+  state.stats.pickups += 1;
+
+  resetEncounter(state, "global-rollback");
+  assert.equal(neutralEnemy.alive, true);
+  assert.equal(neutralEnemy.health, neutralEnemy.maxHealth);
+  assert.equal(neutralPickup.collected, false);
+  assert.equal(neutralPickup.active, true);
+  assert.equal(state.player.honor, checkpointHonor);
+  assert.equal(state.stats.enemiesDefeated, 0);
+  assert.equal(state.stats.pickups, 0);
+});
+
+test("wing enemies and the boss remain inside their authored encounters", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  state.progress.slips = 1;
+  state.progress.completedWings = ["a"];
+  state.portalStates["hub-to-vault"].open = true;
+  state.player.position = { x: 54, y: 0, z: 28 };
+  state.player.spaceId = "main-cardroom";
+  const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
+  boss.active = true;
+  boss.alerted = true;
+  state.progress.bossActive = true;
+  for (let tick = 0; tick < 350; tick += 1) stepSimulation(state, {}, FIXED_DT);
+  assert.equal(boss.spaceId, "traveler-vault");
+
+  const wingEnemy = state.enemies.find((enemy) => enemy.wingId === "a");
+  wingEnemy.position = { x: 35, y: 0.35, z: 49 };
+  wingEnemy.spaceId = "wing-a-entry";
+  wingEnemy.alerted = true;
+  state.player.position = { x: 35, y: 0, z: 45 };
+  state.player.spaceId = "main-cardroom";
+  for (let tick = 0; tick < 180; tick += 1) stepSimulation(state, {}, FIXED_DT);
+  assert.equal(wingEnemy.spaceId, "wing-a-entry");
+});
+
+test("either lift control calls a timed lift before the shortcut opens", () => {
+  for (const controlId of ["lift-control-hub", "lift-control-wing-a"]) {
+    const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+    state.progress.completedWings = ["a"];
+    state.progress.slips = 1;
+    const portalId = "wing-a-lift-shortcut";
+    stepSimulation(state, {}, FIXED_DT);
+    assert.equal(state.portalStates[portalId].open, false);
+    const control = state.liftControls.find((entry) => entry.id === controlId);
+    state.player.position = { ...control.position };
+    state.player.spaceId = control.spaceId;
+    const callEvents = stepSimulation(state, { interact: true }, FIXED_DT);
+    assert.ok(callEvents.some((event) => event.type === "lift-called"));
+    assert.equal(state.lifts[portalId].moving, true);
+    assert.equal(state.portalStates[portalId].open, false);
+    for (let tick = 0; tick < 30 && !state.lifts[portalId].ready; tick += 1) {
+      stepSimulation(state, {}, FIXED_DT);
+    }
+    assert.equal(state.lifts[portalId].ready, true);
+    assert.equal(state.portalStates[portalId].open, true);
+  }
 });

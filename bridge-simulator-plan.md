@@ -1,6 +1,14 @@
 # Bridge Simulator: Product and Implementation Plan
 
-Status: design proposal only; this task adds no simulator code. Later implementation may proceed through the unlinked development phases below, but no visible Pair Improvement Report launch control should be added until the Phase 8 finalization gate is explicitly satisfied.
+Status: unlinked implementation candidate. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium gates are implemented. Phase 8 finalization still requires the human playtest, real-device performance, and broader browser/Safari gates below, so no visible Pair Improvement Report launch control has been added.
+
+Implementation checkpoint (2026-07-12):
+
+- The complete 12-space, three-wing level, three secrets, 20 ordinary opponents, timed lift shortcut, boss, exit, Standard/Practice/Coach-only modes, and two-part debrief are present.
+- The fixed 35 Hz simulation covers deterministic movement/AI, nearest-impact card combat, held fire, bounded Shuffle, checkpoints without Honor farming, System Notes, lifts, arena containment, and full cleanup.
+- Original simulator art, procedural audio, captions, semantic coaching overlays, reduced effects, high contrast, keyboard fallback, Pointer Lock failure handling, and context-loss recovery are present.
+- Pure/core, source-browser, load-failure, complete-mission, and built-IIFE browser gates use committed synthetic data and keep all requests same-origin.
+- The report loader prepares current pair/session inputs, but the launch control remains intentionally absent pending the explicit finalization decision.
 
 Working subtitle: **The Lost Matchpoints**
 

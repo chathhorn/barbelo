@@ -1,14 +1,18 @@
 // Lazy lifecycle bridge for the unlinked Bridge Simulator. This module is
 // intentionally small enough to live in Barbelo's main bundle: the scenario
 // builder, Three.js renderer, simulation, and assets load only when opened.
-import { deployedVersion } from "./dom.js";
+import { deployedVersion, showToast } from "./dom.js";
 
 let preparedInputs = null;
 let activeController = null;
 let activeOverlay = null;
+let activeOpenPromise = null;
 let loadPromise = null;
 let stylesheetPromise = null;
 let returnFocus = null;
+let openGeneration = 0;
+let appShellPriorInert = null;
+let bodyHadModalOpen = false;
 
 function versionedUrl(path) {
   const url = new URL(path, document.baseURI);
@@ -29,9 +33,17 @@ function ensureStylesheet() {
       .find((link) => link.href === href);
     if (existing) {
       if (existing.sheet) resolve(existing);
-      else {
+      else if (existing.dataset.bridgeSimulatorState === "loading") {
         existing.addEventListener("load", () => resolve(existing), { once: true });
-        existing.addEventListener("error", () => reject(new Error("Simulator styles failed to load.")), { once: true });
+        existing.addEventListener("error", () => {
+          stylesheetPromise = null;
+          existing.remove();
+          reject(new Error("Simulator styles failed to load."));
+        }, { once: true });
+      } else {
+        existing.remove();
+        stylesheetPromise = null;
+        ensureStylesheet().then(resolve, reject);
       }
       return;
     }
@@ -39,8 +51,13 @@ function ensureStylesheet() {
     link.rel = "stylesheet";
     link.href = href;
     link.dataset.bridgeSimulatorStyles = "1";
-    link.addEventListener("load", () => resolve(link), { once: true });
+    link.dataset.bridgeSimulatorState = "loading";
+    link.addEventListener("load", () => {
+      link.dataset.bridgeSimulatorState = "loaded";
+      resolve(link);
+    }, { once: true });
     link.addEventListener("error", () => {
+      link.dataset.bridgeSimulatorState = "error";
       stylesheetPromise = null;
       link.remove();
       reject(new Error("Simulator styles failed to load."));
@@ -65,10 +82,12 @@ function loadBuiltBundle() {
     const src = versionedUrl("assets/bridge-simulator.js");
     let script = [...document.scripts].find((entry) => entry.src === src);
     const failed = () => {
+      if (script) script.dataset.bridgeSimulatorState = "error";
       if (script) script.remove();
       reject(new Error("Simulator code failed to load."));
     };
     const loaded = () => {
+      if (script) script.dataset.bridgeSimulatorState = "loaded";
       if (globalThis.BridgeSimulator && typeof globalThis.BridgeSimulator.launch === "function") {
         resolve(globalThis.BridgeSimulator);
       } else {
@@ -76,14 +95,18 @@ function loadBuiltBundle() {
       }
     };
     if (script) {
-      script.addEventListener("load", loaded, { once: true });
-      script.addEventListener("error", failed, { once: true });
-      return;
+      if (script.dataset.bridgeSimulatorState === "loading") {
+        script.addEventListener("load", loaded, { once: true });
+        script.addEventListener("error", failed, { once: true });
+        return;
+      }
+      script.remove();
     }
     script = document.createElement("script");
     script.defer = true;
     script.src = src;
     script.dataset.bridgeSimulatorBundle = "1";
+    script.dataset.bridgeSimulatorState = "loading";
     script.addEventListener("load", loaded, { once: true });
     script.addEventListener("error", failed, { once: true });
     document.head.appendChild(script);
@@ -132,6 +155,11 @@ function createOverlay() {
 }
 
 function trapOverlayFocus(event) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeBridgeSimulator();
+    return;
+  }
   if (event.key !== "Tab" || !activeOverlay) return;
   const focusable = [...activeOverlay.querySelectorAll(
     'button:not([disabled]), input:not([disabled]), select:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
@@ -157,16 +185,22 @@ function bridgeSimulatorIsOpen() {
   return Boolean(activeOverlay && document.body.contains(activeOverlay));
 }
 
-async function openBridgeSimulator(options = {}) {
-  if (!preparedInputs) throw new Error("Bridge Simulator needs a selected pair report.");
-  if (bridgeSimulatorIsOpen()) return activeController;
-
-  returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+async function openBridgeSimulatorOnce(options) {
+  const generation = ++openGeneration;
+  const quizOverlay = document.getElementById("quizOverlay");
+  if (quizOverlay && !quizOverlay.classList.contains("hidden")) document.getElementById("quizOverlayClose")?.click();
+  const boardOverlay = document.getElementById("boardOverlay");
+  if (boardOverlay && !boardOverlay.classList.contains("hidden")) document.getElementById("boardOverlayClose")?.click();
+  if (!returnFocus) returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   activeOverlay = createOverlay();
   document.body.appendChild(activeOverlay);
+  bodyHadModalOpen = document.body.classList.contains("modal-open");
   document.body.classList.add("modal-open");
   const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = true;
+  if (appShell) {
+    appShellPriorInert = appShell.inert;
+    appShell.inert = true;
+  }
   const exit = activeOverlay.querySelector("[data-simulator-exit]");
   if (exit) exit.focus();
 
@@ -175,10 +209,10 @@ async function openBridgeSimulator(options = {}) {
   const host = activeOverlay.querySelector("[data-simulator-host]");
   try {
     const [, simulator] = await Promise.all([ensureStylesheet(), loadSimulatorModule()]);
-    if (!bridgeSimulatorIsOpen()) return null;
+    if (!bridgeSimulatorIsOpen() || generation !== openGeneration) return null;
     const launch = simulator.launch || (globalThis.BridgeSimulator && globalThis.BridgeSimulator.launch);
     if (typeof launch !== "function") throw new Error("Simulator launch API is unavailable.");
-    activeController = await launch(host, frozenInputs, {
+    const controller = await launch(host, frozenInputs, {
       ...options,
       version: deployedVersion(),
       assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
@@ -187,40 +221,37 @@ async function openBridgeSimulator(options = {}) {
       },
       onRequestClose: closeBridgeSimulator,
     });
+    if (!bridgeSimulatorIsOpen() || generation !== openGeneration) {
+      if (controller && typeof controller.destroy === "function") controller.destroy();
+      return null;
+    }
+    activeController = controller;
     if (status) status.textContent = "Ready";
     return activeController;
   } catch (error) {
-    if (!bridgeSimulatorIsOpen()) return null;
-    if (status) status.textContent = "Simulator unavailable";
-    host.innerHTML = `
-      <section class="bridge-simulator-error" role="alert">
-        <h2>The traveler vault jammed.</h2>
-        <p>${escapeForMarkup(error && error.message ? error.message : "The simulator could not start.")}</p>
-        <button type="button" data-simulator-retry>Try again</button>
-      </section>
-    `;
-    const retry = host.querySelector("[data-simulator-retry]");
-    if (retry) {
-      retry.addEventListener("click", () => {
-        closeBridgeSimulator({ restoreFocus: false });
-        openBridgeSimulator(options);
-      }, { once: true });
-      retry.focus();
-    }
+    if (!bridgeSimulatorIsOpen() || generation !== openGeneration) return null;
+    const message = error && error.message ? error.message : "The simulator could not start.";
+    options.onError?.(error);
+    closeBridgeSimulator();
+    showToast(`Bridge Simulator could not start: ${message}`, "error");
     return null;
   }
 }
 
-function escapeForMarkup(value) {
-  return String(value == null ? "" : value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+async function openBridgeSimulator(options = {}) {
+  if (!preparedInputs) throw new Error("Bridge Simulator needs a selected pair report.");
+  if (bridgeSimulatorIsOpen()) return activeController || activeOpenPromise;
+  const pending = openBridgeSimulatorOnce(options);
+  activeOpenPromise = pending;
+  try {
+    return await pending;
+  } finally {
+    if (activeOpenPromise === pending) activeOpenPromise = null;
+  }
 }
 
-function closeBridgeSimulator({ restoreFocus = true } = {}) {
+function closeBridgeSimulator({ restoreFocus = true, preserveReturnFocus = false } = {}) {
+  openGeneration += 1;
   if (activeController && typeof activeController.destroy === "function") {
     try {
       activeController.destroy();
@@ -233,10 +264,12 @@ function closeBridgeSimulator({ restoreFocus = true } = {}) {
   if (activeOverlay) activeOverlay.remove();
   activeOverlay = null;
   const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = false;
-  document.body.classList.remove("modal-open");
+  if (appShell) appShell.inert = Boolean(appShellPriorInert);
+  appShellPriorInert = null;
+  if (!bodyHadModalOpen) document.body.classList.remove("modal-open");
+  bodyHadModalOpen = false;
   if (restoreFocus && returnFocus && document.contains(returnFocus)) returnFocus.focus();
-  returnFocus = null;
+  if (!preserveReturnFocus) returnFocus = null;
 }
 
 export {

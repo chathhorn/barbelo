@@ -1,7 +1,7 @@
 // Card/shuffle combat and damage arithmetic. This module owns no timers or
 // browser resources; callers advance it explicitly from the fixed simulation.
 
-import { distancePointToSegment, moveActor } from "./collision.js";
+import { moveActor } from "./collision.js";
 
 const SUIT_ORDER = ["S", "H", "D", "C"];
 const RANK_ORDER = "AKQJT98765432";
@@ -10,6 +10,7 @@ const CARD_COOLDOWN = 0.18;
 const SHUFFLE_DURATION = 0.5;
 const CARD_SPEED = 24;
 const CARD_LIFETIME = 1.25;
+const PROJECTILE_MAX_STEP = 0.1;
 
 function canonicalCardKey(card) {
   return `${card && card.suit || ""}${card && card.rank || ""}`;
@@ -199,6 +200,35 @@ function collectPickup(player, pickup) {
   return { collected: true, kind: pickup.pickupKind, amount };
 }
 
+function segmentCircleHitTime(center, radius, segment) {
+  const dx = segment.b.x - segment.a.x;
+  const dz = segment.b.z - segment.a.z;
+  const fx = segment.a.x - center.x;
+  const fz = segment.a.z - center.z;
+  const a = dx * dx + dz * dz;
+  const combined = Math.max(0, Number(radius) || 0);
+  const c = fx * fx + fz * fz - combined * combined;
+  if (c <= 0) return 0;
+  if (a <= 1e-12) return null;
+  const b = 2 * (fx * dx + fz * dz);
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+  const root = Math.sqrt(discriminant);
+  const first = (-b - root) / (2 * a);
+  const second = (-b + root) / (2 * a);
+  if (first >= 0 && first <= 1) return first;
+  if (second >= 0 && second <= 1) return second;
+  return null;
+}
+
+function pointAlong(segment, time, y) {
+  return {
+    x: segment.a.x + (segment.b.x - segment.a.x) * time,
+    y,
+    z: segment.a.z + (segment.b.z - segment.a.z) * time,
+  };
+}
+
 function updateProjectiles(options) {
   const {
     level,
@@ -219,49 +249,81 @@ function updateProjectiles(options) {
       projectile.alive = false;
       continue;
     }
-    const previousPosition = { ...projectile.position };
-    const moved = moveActor(level, {
-      position: projectile.position,
-      spaceId: projectile.spaceId,
-      radius: projectile.radius,
-      height: projectile.height,
-      maxStep: Infinity
-    }, {
-      x: projectile.velocity.x * dt,
-      z: projectile.velocity.z * dt
-    }, dynamics);
-    if (moved.collided) {
-      projectile.alive = false;
-      events.push({ type: "projectile-wall", projectileId: projectile.id, position: { ...moved.position } });
-      continue;
-    }
-    projectile.position = { ...moved.position, y: previousPosition.y + (projectile.velocity.y || 0) * dt };
-    projectile.spaceId = moved.spaceId;
-    const obstacle = obstacles.find((entry) => entry && entry.blocking !== false &&
-      distancePointToSegment(entry.position, { a: previousPosition, b: projectile.position }) <= projectile.radius + (entry.radius || 0));
-    if (obstacle) {
-      projectile.alive = false;
-      events.push({ type: "projectile-wall", projectileId: projectile.id, obstacleId: obstacle.id, position: { ...projectile.position } });
-      continue;
-    }
-    if (projectile.owner === "player") {
-      const travel = { a: previousPosition, b: projectile.position };
-      const hit = entities.find((entity) => entity.kind === "enemy" && entity.alive && entity.active !== false &&
-        distancePointToSegment(entity.position, travel) <= projectile.radius + entity.radius);
-      if (!hit) continue;
-      projectile.alive = false;
-      const result = applyDamageToEntity(hit, projectile.damage);
-      if (combat) combat.shotsHit += 1;
-      events.push({ type: "enemy-hit", entityId: hit.id, damage: result.damage, position: { ...hit.position } });
-      if (result.defeated) {
-        const honor = honorForDefeat(hit);
-        events.push({ type: hit.archetype === "bottom-board" ? "boss-defeated" : "enemy-defeated", entityId: hit.id, honor });
+    const travelDistance = Math.hypot(projectile.velocity.x * dt, projectile.velocity.z * dt);
+    const substeps = Math.max(1, Math.ceil(travelDistance / PROJECTILE_MAX_STEP));
+    const substepDt = dt / substeps;
+    for (let substep = 0; substep < substeps && projectile.alive; substep += 1) {
+      const previousPosition = { ...projectile.position };
+      const priorSpaceId = projectile.spaceId;
+      const moved = moveActor(level, {
+        position: projectile.position,
+        spaceId: projectile.spaceId,
+        radius: projectile.radius,
+        height: projectile.height,
+        maxStep: Infinity
+      }, {
+        x: projectile.velocity.x * substepDt,
+        z: projectile.velocity.z * substepDt
+      }, dynamics);
+      if (moved.collided) {
+        projectile.alive = false;
+        events.push({ type: "projectile-wall", projectileId: projectile.id, position: { ...previousPosition } });
+        break;
       }
-    } else if (player && distancePointToSegment(player.position, { a: previousPosition, b: projectile.position }) <=
-      projectile.radius + player.radius) {
+
+      const nextY = previousPosition.y + (projectile.velocity.y || 0) * substepDt;
+      const travel = { a: previousPosition, b: { ...moved.position, y: nextY } };
+      const spaces = new Set([priorSpaceId, moved.spaceId]);
+      const candidates = [];
+      obstacles.forEach((entry) => {
+        if (!entry || entry.blocking === false || entry.alive === false || !spaces.has(entry.spaceId)) return;
+        const time = segmentCircleHitTime(entry.position, projectile.radius + (entry.radius || 0), travel);
+        if (time != null) candidates.push({ kind: "obstacle", target: entry, time, priority: 0 });
+      });
+      if (projectile.owner === "player") {
+        entities.forEach((entity) => {
+          if (entity.kind !== "enemy" || !entity.alive || entity.active === false || !spaces.has(entity.spaceId)) return;
+          const time = segmentCircleHitTime(entity.position, projectile.radius + entity.radius, travel);
+          if (time != null) candidates.push({ kind: "enemy", target: entity, time, priority: 1 });
+        });
+      } else if (player && spaces.has(player.spaceId)) {
+        const time = segmentCircleHitTime(player.position, projectile.radius + player.radius, travel);
+        if (time != null) candidates.push({ kind: "player", target: player, time, priority: 1 });
+      }
+      candidates.sort((a, b) => a.time - b.time || a.priority - b.priority || a.target.id.localeCompare(b.target.id));
+      const impact = candidates[0];
+      if (!impact) {
+        projectile.position = travel.b;
+        projectile.spaceId = moved.spaceId;
+        continue;
+      }
+
+      projectile.position = pointAlong(travel, impact.time, previousPosition.y + (nextY - previousPosition.y) * impact.time);
+      projectile.spaceId = moved.spaceId;
       projectile.alive = false;
-      const result = applyDamageToPlayer(player, projectile.damage, mode);
-      events.push({ type: "player-hit", sourceId: projectile.ownerId, ...result });
+      if (impact.kind === "obstacle") {
+        events.push({
+          type: "projectile-wall",
+          projectileId: projectile.id,
+          obstacleId: impact.target.id,
+          position: { ...projectile.position },
+        });
+      } else if (impact.kind === "enemy") {
+        const result = applyDamageToEntity(impact.target, projectile.damage);
+        if (combat) combat.shotsHit += 1;
+        events.push({ type: "enemy-hit", entityId: impact.target.id, damage: result.damage, position: { ...impact.target.position } });
+        if (result.defeated) {
+          const honor = honorForDefeat(impact.target);
+          events.push({
+            type: impact.target.archetype === "bottom-board" ? "boss-defeated" : "enemy-defeated",
+            entityId: impact.target.id,
+            honor,
+          });
+        }
+      } else {
+        const result = applyDamageToPlayer(player, projectile.damage, mode);
+        events.push({ type: "player-hit", sourceId: projectile.ownerId, ...result });
+      }
     }
   }
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
@@ -278,6 +340,7 @@ export {
   SHUFFLE_DURATION,
   CARD_SPEED,
   CARD_LIFETIME,
+  PROJECTILE_MAX_STEP,
   canonicalCardKey,
   isValidCard,
   canonicalCardSort,
@@ -291,5 +354,6 @@ export {
   applyDamageToEntity,
   honorForDefeat,
   collectPickup,
+  segmentCircleHitTime,
   updateProjectiles,
 };

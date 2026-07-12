@@ -1,5 +1,6 @@
 import {
   NearestFilter,
+  RepeatWrapping,
   SRGBColorSpace,
   Sprite,
   SpriteMaterial,
@@ -31,11 +32,15 @@ const SPRITE_PATHS = {
   courtyardSky: "textures/courtyard-sky.svg",
 };
 
-function configureTexture(texture) {
+function configureTexture(texture, { tile = false } = {}) {
   texture.colorSpace = SRGBColorSpace;
   texture.magFilter = NearestFilter;
   texture.minFilter = NearestFilter;
   texture.generateMipmaps = false;
+  if (tile) {
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+  }
   texture.needsUpdate = true;
   return texture;
 }
@@ -45,11 +50,18 @@ async function preloadSpriteTextures(assetUrl, onProgress = () => {}) {
   const entries = Object.entries(SPRITE_PATHS);
   let loaded = 0;
   const textures = {};
-  await Promise.all(entries.map(async ([key, path]) => {
-    textures[key] = configureTexture(await loader.loadAsync(assetUrl(path)));
+  const results = await Promise.allSettled(entries.map(async ([key, path]) => {
+    textures[key] = configureTexture(await loader.loadAsync(assetUrl(path)), {
+      tile: key === "carpetSuits" || key === "paperPanel",
+    });
     loaded += 1;
     onProgress(loaded / entries.length, path);
   }));
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) {
+    disposeSpriteTextures(textures);
+    throw new Error("One or more simulator art files failed to load.", { cause: failed.reason });
+  }
   return textures;
 }
 
@@ -68,7 +80,12 @@ function createBillboard(texture, { width = 1, height = 1, opacity = 1, depthTes
 }
 
 function spriteKeyForEntity(entity) {
-  const kind = String(entity && (entity.sprite || entity.kind || entity.type) || "").toLowerCase();
+  const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
+    .filter(Boolean).join(" ").toLowerCase();
+  if (kind.includes("coach") && kind.includes("victory")) return "coachVictory";
+  if (kind.includes("coach") && kind.includes("point")) return "coachPoint";
+  if (kind.includes("coach") && kind.includes("trot-2")) return "coachTrot2";
+  if (kind.includes("coach") && kind.includes("trot")) return "coachTrot1";
   if (kind.includes("coach")) return "coachIdle";
   if (kind.includes("boss") || kind.includes("bottom")) return "boss";
   if (kind.includes("overtrick") || kind.includes("imp")) return "overtrick";
@@ -76,20 +93,24 @@ function spriteKeyForEntity(entity) {
   if (kind.includes("biscuit")) return "biscuit";
   if (kind.includes("coffee")) return "coffee";
   if (kind.includes("system") || kind.includes("armor")) return "systemNotes";
+  if (kind.includes("lift-control")) return "systemNotes";
+  if (entity && entity.kind === "enemy" && kind.includes("score-slip")) return "kibitzer";
+  if (kind.includes("card")) return "cardBack";
   if (kind.includes("slip")) return "reviewSlip";
-  if (kind.includes("card") || kind.includes("projectile")) return "cardBack";
   return "kibitzer";
 }
 
 function spriteSizeForEntity(entity) {
-  const kind = String(entity && (entity.kind || entity.type) || "").toLowerCase();
+  const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
+    .filter(Boolean).join(" ").toLowerCase();
   if (kind.includes("coach")) return { width: 1.35, height: 1.35 };
   if (kind.includes("boss") || kind.includes("bottom")) return { width: 2.8, height: 3.3 };
   if (kind.includes("imp") || kind.includes("overtrick")) return { width: 1.1, height: 1.1 };
+  if (kind.includes("score-slip") || kind.includes("card") || kind.includes("projectile")) return { width: 0.28, height: 0.42 };
   if (kind.includes("pickup") || kind.includes("biscuit") || kind.includes("coffee") || kind.includes("slip")) {
     return { width: 0.65, height: 0.65 };
   }
-  if (kind.includes("card") || kind.includes("projectile")) return { width: 0.28, height: 0.42 };
+  if (kind.includes("lift-control")) return { width: 0.65, height: 0.8 };
   return { width: 1.4, height: 1.65 };
 }
 

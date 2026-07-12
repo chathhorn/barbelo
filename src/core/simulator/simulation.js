@@ -82,6 +82,7 @@ function createReviewSlip(marker) {
     height: 0.7,
     active: true,
     collected: false,
+    reopenable: true,
     blocking: false,
   };
 }
@@ -110,6 +111,28 @@ function initialPortalStates(level) {
     states[portal.id] = { open: portal.initialOpen !== false, announced: false };
   });
   return states;
+}
+
+function initialLiftStates(level) {
+  return Object.fromEntries(level.portals
+    .filter((portal) => portal.kind === "lift")
+    .map((portal) => [portal.id, { ready: false, moving: false, remaining: 0 }]));
+}
+
+function createLiftControl(marker) {
+  return {
+    id: marker.id,
+    kind: "lift-control",
+    type: "liftControl",
+    label: marker.label || "Call lift",
+    position: { ...marker.position },
+    spaceId: marker.spaceId,
+    radius: marker.radius || 0.4,
+    height: 0.8,
+    active: true,
+    alive: true,
+    blocking: false,
+  };
 }
 
 function createSimulation({ scenario, level, mode = "standard" } = {}) {
@@ -144,6 +167,7 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     alive: true,
     blocking: true,
   }));
+  const liftControls = level.markers.filter((marker) => marker.type === "liftControl").map(createLiftControl);
   const state = {
     schemaVersion: SIMULATION_SCHEMA_VERSION,
     scenarioSeed: scenario.seed,
@@ -165,9 +189,10 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     reviewSlips,
     secrets,
     covers,
+    liftControls,
     projectiles: [],
     portalStates: initialPortalStates(level),
-    lifts: {},
+    lifts: initialLiftStates(level),
     progress: {
       slips: 0,
       collectedSlipIds: [],
@@ -197,9 +222,13 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
       rapidDealAtEntry: 0,
       defeatedEnemyIdsAtEntry: [],
       collectedPickupIdsAtEntry: [],
+      enemyStatesAtEntry: [],
+      pickupStatesAtEntry: [],
+      liftStatesAtEntry: {},
     },
     events: [],
   };
+  state.encounter = encounterCheckpoint(state, { kind: "tutorial", wingId: "" });
   updatePortalRequirements(state, []);
   return state;
 }
@@ -227,6 +256,26 @@ function encounterCheckpoint(state, { kind = state.encounter.kind, wingId = stat
     rapidDealAtEntry: state.progress.rapidDealRemaining,
     defeatedEnemyIdsAtEntry: state.enemies.filter((enemy) => !enemy.alive).map((enemy) => enemy.id),
     collectedPickupIdsAtEntry: state.pickups.filter((pickup) => pickup.collected).map((pickup) => pickup.id),
+    enemyStatesAtEntry: state.enemies.map((enemy) => ({
+      id: enemy.id,
+      position: { ...enemy.position },
+      spaceId: enemy.spaceId,
+      health: enemy.health,
+      cooldown: enemy.cooldown,
+      state: enemy.state,
+      alerted: enemy.alerted,
+      active: enemy.active,
+      alive: enemy.alive,
+      phase: enemy.phase,
+      lastSeenTick: enemy.lastSeenTick,
+    })),
+    pickupStatesAtEntry: state.pickups.map((pickup) => ({
+      id: pickup.id,
+      position: { ...pickup.position },
+      collected: pickup.collected,
+      active: pickup.active,
+    })),
+    liftStatesAtEntry: Object.fromEntries(Object.entries(state.lifts).map(([id, lift]) => [id, { ...lift }])),
   };
 }
 
@@ -240,6 +289,7 @@ function updatePortalRequirements(state, events) {
       else if (requirement.type === "slips") shouldOpen = state.progress.slips >= state.level.objectives.requiredSlipCount;
       else if (requirement.type === "bossDefeated") shouldOpen = state.progress.bossDefeated;
     }
+    if (portal.kind === "lift" && shouldOpen) shouldOpen = Boolean(state.lifts[portal.id] && state.lifts[portal.id].ready);
     const runtime = state.portalStates[portal.id] || (state.portalStates[portal.id] = { open: false, announced: false });
     if (shouldOpen && !runtime.open) {
       runtime.open = true;
@@ -301,9 +351,9 @@ function activeWingEnemies(state, wingId) {
   return state.enemies.filter((enemy) => enemy.wingId === wingId && enemy.alive);
 }
 
-function nearestActive(items, player, range = INTERACT_RANGE) {
+function nearestActive(items, player, range = INTERACT_RANGE, { includeCollected = false } = {}) {
   return (items || [])
-    .filter((item) => item.active !== false && !item.collected && item.spaceId === player.spaceId)
+    .filter((item) => item.active !== false && (includeCollected || !item.collected) && item.spaceId === player.spaceId)
     .map((item) => ({ item, distance: distance(item.position, player.position) }))
     .filter((entry) => entry.distance <= range)
     .sort((a, b) => a.distance - b.distance || a.item.id.localeCompare(b.item.id))[0]?.item || null;
@@ -327,7 +377,7 @@ function collectReviewSlip(state, slip, events) {
     return false;
   }
   slip.collected = true;
-  slip.active = false;
+  slip.active = true;
   state.progress.collectedSlipIds.push(slip.id);
   state.progress.slips = state.progress.collectedSlipIds.length;
   if (!state.progress.completedWings.includes(slip.wingId)) state.progress.completedWings.push(slip.wingId);
@@ -359,9 +409,50 @@ function collectSecret(state, secret, events) {
   emit(events, "secret-found", { secretId: secret.secretId, label: secret.label, honor: 250 });
 }
 
+function callLift(state, control, events) {
+  const portal = state.level.portals.find((entry) => entry.kind === "lift" &&
+    (entry.from === control.spaceId || entry.to === control.spaceId));
+  if (!portal) return false;
+  const requirement = portal.requirement;
+  if (requirement && requirement.type === "wingComplete" && !state.progress.completedWings.includes(requirement.wingId)) {
+    emit(events, "interaction-blocked", { reason: "lift-locked", portalId: portal.id });
+    return true;
+  }
+  const runtime = state.lifts[portal.id] || (state.lifts[portal.id] = { ready: false, moving: false, remaining: 0 });
+  if (runtime.ready) {
+    emit(events, "lift-ready", { portalId: portal.id, alreadyReady: true });
+    return true;
+  }
+  if (!runtime.moving) {
+    const from = spaceById(state.level, portal.from);
+    const to = spaceById(state.level, portal.to);
+    const distance = Math.abs((from && from.floor || 0) - (to && to.floor || 0));
+    runtime.moving = true;
+    runtime.remaining = Math.max(0.35, distance / Math.max(0.1, portal.liftSpeed || 1));
+    emit(events, "lift-called", { portalId: portal.id, duration: runtime.remaining });
+  }
+  return true;
+}
+
+function updateLifts(state, dt, events) {
+  Object.entries(state.lifts).forEach(([portalId, lift]) => {
+    if (!lift.moving || lift.ready) return;
+    lift.remaining = Math.max(0, lift.remaining - dt);
+    if (lift.remaining > 0) return;
+    lift.moving = false;
+    lift.ready = true;
+    emit(events, "lift-ready", { portalId, alreadyReady: false });
+    updatePortalRequirements(state, events);
+  });
+}
+
 function handleInteraction(state, events) {
-  const slip = nearestActive(state.reviewSlips, state.player);
+  const slip = nearestActive(state.reviewSlips, state.player, INTERACT_RANGE, { includeCollected: true });
   if (slip) {
+    if (slip.collected) {
+      emit(events, "review-slip-reopened", { slipId: slip.id, wingId: slip.wingId });
+      return;
+    }
     collectReviewSlip(state, slip, events);
     return;
   }
@@ -370,6 +461,8 @@ function handleInteraction(state, events) {
     collectSecret(state, secret, events);
     return;
   }
+  const liftControl = nearestActive(state.liftControls, state.player);
+  if (liftControl && callLift(state, liftControl, events)) return;
   const exit = markerById(state.level, state.level.objectives.exitMarkerId);
   if (exit && state.progress.bossDefeated && exit.spaceId === state.player.spaceId && distance(exit.position, state.player.position) <= 1.5) {
     state.progress.exited = true;
@@ -421,7 +514,11 @@ function updateEnemies(state, dt, events) {
     if (intent.kind === "move") {
       const moved = moveActor(state.level, enemy, intent.move, dynamics);
       const blockers = [state.player, ...living, ...state.covers];
-      if (!positionOverlapsActors(moved.position, enemy.radius, blockers, enemy.id)) {
+      const destinationWing = wingIdForSpace(state.level, moved.spaceId);
+      const staysInEncounter = enemy.archetype === "bottom-board"
+        ? moved.spaceId === enemy.spawnSpaceId
+        : !enemy.wingId || destinationWing === enemy.wingId;
+      if (staysInEncounter && !positionOverlapsActors(moved.position, enemy.radius, blockers, enemy.id)) {
         enemy.position = moved.position;
         enemy.spaceId = moved.spaceId;
       }
@@ -457,17 +554,29 @@ function applyCombatEvents(state, projectileEvents, events) {
   });
 }
 
-function resetEntityGroup(state, predicate) {
+function restoreEncounterEntities(state) {
+  const enemyStates = new Map((state.encounter.enemyStatesAtEntry || []).map((entry) => [entry.id, entry]));
+  const pickupStates = new Map((state.encounter.pickupStatesAtEntry || []).map((entry) => [entry.id, entry]));
   const defeatedAtEntry = new Set(state.encounter.defeatedEnemyIdsAtEntry || []);
   const collectedAtEntry = new Set(state.encounter.collectedPickupIdsAtEntry || []);
-  state.enemies.filter(predicate).forEach((enemy) => {
+  state.enemies.forEach((enemy) => {
+    const saved = enemyStates.get(enemy.id);
+    if (saved) {
+      Object.assign(enemy, saved, { position: { ...saved.position } });
+      return;
+    }
     resetEnemy(enemy);
     if (defeatedAtEntry.has(enemy.id)) {
       enemy.health = 0;
       enemy.alive = false;
     }
   });
-  state.pickups.filter(predicate).forEach((pickup) => {
+  state.pickups.forEach((pickup) => {
+    const saved = pickupStates.get(pickup.id);
+    if (saved) {
+      Object.assign(pickup, saved, { position: { ...saved.position } });
+      return;
+    }
     pickup.position = { ...pickup.spawnPosition };
     pickup.collected = collectedAtEntry.has(pickup.id);
     pickup.active = !pickup.collected;
@@ -497,17 +606,19 @@ function resetEncounter(state, reason = "manual", { queue = true } = {}) {
   state.stats.pickups = encounter.pickupsAtEntry || 0;
   state.stats.biscuits = encounter.biscuitsAtEntry || 0;
   state.progress.rapidDealRemaining = encounter.rapidDealAtEntry || 0;
+  state.lifts = {
+    ...initialLiftStates(state.level),
+    ...Object.fromEntries(Object.entries(encounter.liftStatesAtEntry || {}).map(([id, lift]) => [id, { ...lift }])),
+  };
+  restoreEncounterEntities(state);
   if (encounter.kind === "boss") {
-    resetEntityGroup(state, (entity) => entity.spaceId === "traveler-vault" || entity.archetype === "bottom-board");
     const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
     if (boss) boss.active = false;
     state.progress.bossActive = false;
     positionPlayerAtHub(state, true);
   } else if (encounter.kind === "wing" && encounter.wingId) {
-    resetEntityGroup(state, (entity) => entity.wingId === encounter.wingId);
     positionPlayerAtHub(state, false);
   } else {
-    resetEntityGroup(state, (entity) => !entity.wingId && entity.archetype !== "bottom-board");
     positionPlayerAtHub(state, false);
   }
   state.encounter = encounterCheckpoint(state, {
@@ -547,6 +658,7 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
   state.elapsed += step;
   if (state.progress.rapidDealRemaining > 0) state.progress.rapidDealRemaining = Math.max(0, state.progress.rapidDealRemaining - step);
   updateCombatTimers(state.combat, step);
+  updateLifts(state, step, events);
   movePlayer(state, input, step);
   collectNearbyPickups(state, events);
   if (input.interact) handleInteraction(state, events);
@@ -583,8 +695,14 @@ function renderEntities(state) {
     ...state.pickups,
     ...state.reviewSlips,
     ...state.secrets,
+    ...state.liftControls,
     ...state.projectiles.map((projectile) => ({ ...projectile, kind: projectile.type })),
-  ];
+  ].map((entity) => ({
+    ...entity,
+    position: entity.position ? { ...entity.position } : undefined,
+    velocity: entity.velocity ? { ...entity.velocity } : undefined,
+    card: entity.card ? { ...entity.card } : undefined,
+  }));
 }
 
 function getSimulationSnapshot(state) {
@@ -592,17 +710,22 @@ function getSimulationSnapshot(state) {
     tick: state.tick,
     elapsed: state.elapsed,
     status: state.status,
-    player: state.player,
+    player: { ...state.player, position: { ...state.player.position }, spawnPosition: { ...state.player.spawnPosition } },
     weapon: {
       cardIndex: state.combat.nextCardIndex,
       shuffling: state.combat.shuffleRemaining > 0,
       shuffleRemaining: state.combat.shuffleRemaining,
     },
     entities: renderEntities(state),
-    portalStates: state.portalStates,
-    progress: state.progress,
+    portalStates: Object.fromEntries(Object.entries(state.portalStates).map(([id, portal]) => [id, { ...portal }])),
+    progress: {
+      ...state.progress,
+      collectedSlipIds: [...state.progress.collectedSlipIds],
+      completedWings: [...state.progress.completedWings],
+      secrets: [...state.progress.secrets],
+    },
     objectives: { slips: state.progress.slips },
-    stats: state.stats,
+    stats: { ...state.stats },
     objectiveText: objectiveText(state),
   };
 }

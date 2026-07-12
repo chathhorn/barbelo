@@ -2,6 +2,15 @@ function createAudioController({ volume = 0.45, muted = false } = {}) {
   let context = null;
   let master = null;
   let destroyed = false;
+  const timers = new Set();
+
+  function schedule(callback, delay) {
+    const timer = window.setTimeout(() => {
+      timers.delete(timer);
+      if (!destroyed) callback();
+    }, delay);
+    timers.add(timer);
+  }
 
   function ensureContext() {
     if (destroyed) return null;
@@ -69,7 +78,7 @@ function createAudioController({ volume = 0.45, muted = false } = {}) {
       case "shuffle": noise({ duration: 0.18, gain: 0.045 }); break;
       case "victory":
         tone({ frequency: 392, endFrequency: 523, duration: 0.18, type: "triangle", gain: 0.08 });
-        window.setTimeout(() => tone({ frequency: 523, endFrequency: 784, duration: 0.25, type: "triangle", gain: 0.08 }), 150);
+        schedule(() => tone({ frequency: 523, endFrequency: 784, duration: 0.25, type: "triangle", gain: 0.08 }), 150);
         break;
       default: break;
     }
@@ -95,8 +104,10 @@ function createAudioController({ volume = 0.45, muted = false } = {}) {
 
   function destroy() {
     destroyed = true;
+    timers.forEach((timer) => window.clearTimeout(timer));
+    timers.clear();
     if (master) master.disconnect();
-    if (context && context.state !== "closed") context.close();
+    if (context && context.state !== "closed") Promise.resolve(context.close()).catch(() => {});
     master = null;
     context = null;
   }

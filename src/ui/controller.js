@@ -110,6 +110,7 @@ function renderAll() {
   if (!analysis && !results) {
     dashboard.classList.add("hidden");
     renderTaskNav(null, null);
+    renderPairImprovementReport(null);
     return;
   }
 

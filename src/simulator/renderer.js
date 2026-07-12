@@ -28,7 +28,8 @@ function entityId(entity, index) {
 }
 
 function entityAlive(entity) {
-  return entity && entity.visible !== false && entity.active !== false && entity.alive !== false && entity.defeated !== true && entity.collected !== true;
+  return entity && entity.visible !== false && entity.active !== false && entity.alive !== false && entity.defeated !== true &&
+    (entity.collected !== true || entity.reopenable === true);
 }
 
 function snapshotEntities(snapshot) {
@@ -55,7 +56,7 @@ function playerView(snapshot) {
   };
 }
 
-function createSimulatorRenderer({ canvas, level, textures, fov = 72, reducedEffects = false, highContrast = false } = {}) {
+function createSimulatorRenderer({ canvas, level, textures, palette = null, fov = 72, reducedEffects = false, highContrast = false } = {}) {
   const renderer = new WebGLRenderer({
     canvas,
     antialias: false,
@@ -69,8 +70,13 @@ function createSimulatorRenderer({ canvas, level, textures, fov = 72, reducedEff
   renderer.sortObjects = true;
 
   const scene = new Scene();
-  scene.background = new Color(highContrast ? 0x000000 : 0x101815);
-  scene.fog = new FogExp2(highContrast ? 0x000000 : 0x111b18, reducedEffects ? 0.009 : 0.014);
+  const paletteKey = String(palette && palette.key || "felt-green");
+  const paletteColor = paletteKey.includes("blue") ? 0x0c1727
+    : paletteKey.includes("gold") ? 0x2a2110
+      : paletteKey.includes("red") ? 0x28100f
+        : 0x101815;
+  scene.background = new Color(highContrast ? 0x000000 : paletteColor);
+  scene.fog = new FogExp2(highContrast ? 0x000000 : paletteColor, reducedEffects ? 0.009 : 0.014);
   const camera = new PerspectiveCamera(Math.max(55, Math.min(90, Number(fov) || 72)), 320 / 200, 0.05, 140);
   camera.rotation.order = "YXZ";
   scene.add(camera);
@@ -104,6 +110,7 @@ function createSimulatorRenderer({ canvas, level, textures, fov = 72, reducedEff
       const height = entry.sprite.scale.y;
       entry.sprite.position.set(position.x, position.y + height / 2, position.z);
       if (entity.opacity != null) entry.sprite.material.opacity = Math.max(0, Math.min(1, entity.opacity));
+      if (entity.tint != null) entry.sprite.material.color.set(entity.tint);
       entry.sprite.visible = true;
     });
     sprites.forEach((entry, id) => {
@@ -118,7 +125,9 @@ function createSimulatorRenderer({ canvas, level, textures, fov = 72, reducedEff
     if (destroyed || !snapshot) return;
     const player = playerView(snapshot);
     camera.position.set(player.x, player.y + player.eyeHeight, player.z);
-    camera.rotation.set(0, Math.PI - player.yaw, 0);
+    // Simulation yaw 0 faces +X (matching card-projectile velocity); Three's
+    // camera faces -Z at zero rotation.
+    camera.rotation.set(0, -Math.PI / 2 - player.yaw, 0);
     syncEntities(snapshot);
     levelMeshes.updatePortals(snapshot.portalStates || snapshot.portals || {});
   }
@@ -143,13 +152,13 @@ function createSimulatorRenderer({ canvas, level, textures, fov = 72, reducedEff
     };
   }
 
-  function destroy({ loseContext = false } = {}) {
+  function destroy({ loseContext = false, disposeTextures = false } = {}) {
     if (destroyed) return;
     destroyed = true;
     sprites.forEach((entry) => entry.sprite.material.dispose());
     sprites.clear();
     levelMeshes.destroy();
-    disposeSpriteTextures(textures);
+    if (disposeTextures) disposeSpriteTextures(textures);
     renderer.dispose();
     if (loseContext && typeof renderer.forceContextLoss === "function") renderer.forceContextLoss();
   }

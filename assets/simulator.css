@@ -93,6 +93,12 @@
   border-color: var(--sim-gold);
 }
 
+.bridge-simulator-overlay button.primary {
+  border-color: #e1b43f;
+  background: #695122;
+  color: #fff5d6;
+}
+
 .bridge-simulator-overlay button:focus-visible,
 .bridge-simulator-overlay input:focus-visible,
 .bridge-simulator-overlay select:focus-visible,
@@ -353,6 +359,11 @@
   cursor: crosshair;
 }
 
+.simulator-canvas:focus-visible {
+  outline: 4px solid var(--sim-blue);
+  outline-offset: -4px;
+}
+
 .simulator-crosshair {
   position: absolute;
   left: 50%;
@@ -392,6 +403,28 @@
 
 .simulator-objective-banner { top: 12px; font-size: 12px; text-transform: uppercase; }
 .simulator-caption { bottom: 14px; font-family: Georgia, serif; font-size: 16px; }
+
+.simulator-boss-meter {
+  position: absolute;
+  left: 50%;
+  top: 54px;
+  width: min(520px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  transform: translateX(-50%);
+  border: 2px solid #c77b54;
+  padding: 5px 8px;
+  background: rgba(20, 3, 2, .9);
+  color: #fff0c8;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.simulator-boss-meter[hidden] { display: none; }
+.simulator-boss-meter progress { width: 100%; accent-color: #c94a3c; }
 
 .simulator-damage-flash {
   position: absolute;
@@ -439,8 +472,12 @@
   image-rendering: pixelated;
 }
 
-.simulator-card-hand {
+.simulator-hand-wrap {
   min-width: 0;
+  position: relative;
+}
+
+.simulator-card-hand {
   display: flex;
   justify-content: center;
   align-items: end;
@@ -469,6 +506,9 @@
 
 .simulator-shuffle-label {
   position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   color: var(--sim-gold);
   font-family: Impact, "Arial Black", sans-serif;
   font-size: 24px;
@@ -574,12 +614,61 @@
 .simulator-debrief-panel dt { color: var(--sim-muted); }
 .simulator-debrief-panel dd { margin: 0; font-weight: 700; text-align: right; }
 
+.simulator-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .bridge-simulator-overlay.high-contrast {
   --sim-ink: #fff;
   --sim-muted: #fff;
   --sim-paper: #fff;
   --sim-gold: #ffdf00;
   --sim-blue: #00e5ff;
+}
+
+.bridge-simulator-overlay.high-contrast .bridge-simulator-frame,
+.bridge-simulator-overlay.high-contrast .bridge-simulator-framebar,
+.bridge-simulator-overlay.high-contrast .simulator-preflight,
+.bridge-simulator-overlay.high-contrast .simulator-preflight-panel,
+.bridge-simulator-overlay.high-contrast .simulator-provenance,
+.bridge-simulator-overlay.high-contrast .simulator-hud,
+.bridge-simulator-overlay.high-contrast .simulator-modal,
+.bridge-simulator-overlay.high-contrast .simulator-chalkboard,
+.bridge-simulator-overlay.high-contrast .simulator-coach-card,
+.bridge-simulator-overlay.high-contrast .simulator-coach-only,
+.bridge-simulator-overlay.high-contrast .simulator-debrief,
+.bridge-simulator-overlay.high-contrast .simulator-coaching-card,
+.bridge-simulator-overlay.high-contrast .simulator-debrief-panel {
+  border-color: #fff;
+  background: #000;
+  color: #fff;
+}
+
+.bridge-simulator-overlay.high-contrast button,
+.bridge-simulator-overlay.high-contrast select {
+  border-color: #fff;
+  background: #000;
+  color: #fff;
+}
+
+.bridge-simulator-overlay.high-contrast .simulator-objective-banner,
+.bridge-simulator-overlay.high-contrast .simulator-caption,
+.bridge-simulator-overlay.high-contrast .simulator-boss-meter {
+  border-color: #ffdf00;
+  background: #000;
+  color: #fff;
+}
+
+.bridge-simulator-overlay.high-contrast .simulator-canvas {
+  filter: contrast(1.35) brightness(1.15);
 }
 
 .bridge-simulator-overlay.reduced-effects * {
@@ -617,6 +706,7 @@
   .simulator-settings,
   .simulator-debrief-grid { grid-template-columns: 1fr; }
   .simulator-hud { grid-template-columns: repeat(4, 1fr); padding-inline: 6px; }
-  .simulator-card-hand { grid-column: 1 / -1; grid-row: 1; height: 54px; }
+  .simulator-hand-wrap { grid-column: 1 / -1; grid-row: 1; }
+  .simulator-card-hand { height: 54px; }
   .simulator-hud-coach { width: 52px; height: 52px; }
 }

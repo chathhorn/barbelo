@@ -62,12 +62,14 @@ function createMaterialCache(textures) {
   function get(key, light, surface = "wall") {
     const id = materialKey(key, light, surface);
     if (!cache.has(id)) {
-      cache.set(id, new MeshBasicMaterial({
+      const map = textureForMaterial(textures, key, surface);
+      const options = {
         color: scaledColor(MATERIAL_COLORS[key] || MATERIAL_COLORS["club-wall"], light),
-        map: textureForMaterial(textures, key, surface),
         side: DoubleSide,
         fog: true,
-      }));
+      };
+      if (map) options.map = map;
+      cache.set(id, new MeshBasicMaterial(options));
     }
     return cache.get(id);
   }
@@ -143,8 +145,21 @@ function horizontalMesh(space, height, material, ceiling = false) {
   });
   shape.closePath();
   const geometry = new ShapeGeometry(shape);
+  const positions = geometry.attributes.position;
+  const uvs = geometry.attributes.uv;
+  const tileSize = 4;
+  if (positions && uvs) {
+    for (let index = 0; index < positions.count; index += 1) {
+      uvs.setXY(index, positions.getX(index) / tileSize, positions.getY(index) / tileSize);
+    }
+    uvs.needsUpdate = true;
+  }
   const mesh = new Mesh(geometry, material);
-  mesh.rotation.x = ceiling ? -Math.PI / 2 : Math.PI / 2;
+  // ShapeGeometry stores authored (x, z) coordinates in local (x, y).
+  // Rotating either horizontal surface +90° maps local +y to world +z. The
+  // material is double-sided, so ceilings do not need the mirrored -90°
+  // rotation that would place them over negative-Z phantom rooms.
+  mesh.rotation.x = Math.PI / 2;
   mesh.position.y = height;
   mesh.userData.kind = ceiling ? "ceiling" : "floor";
   return mesh;
@@ -169,6 +184,7 @@ function portalDoorMesh(level, portal, material) {
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.userData.kind = "portal";
   mesh.userData.portalId = portal.id;
+  mesh.userData.initialOpen = portal.initialOpen;
   return mesh;
 }
 
@@ -212,7 +228,11 @@ function createLevelMeshes(level, textures) {
   function updatePortals(portalStates) {
     portalMeshes.forEach((mesh, id) => {
       const state = portalStates instanceof Map ? portalStates.get(id) : portalStates && portalStates[id];
-      const open = typeof state === "boolean" ? state : Boolean(state && (state.open || state.isOpen));
+      const open = state == null
+        ? Boolean(mesh.userData.initialOpen)
+        : typeof state === "boolean"
+          ? state
+          : Boolean(state.open || state.isOpen);
       mesh.visible = !open;
     });
   }

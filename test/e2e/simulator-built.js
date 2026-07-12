@@ -1,0 +1,145 @@
+"use strict";
+
+const fs = require("node:fs");
+const http = require("node:http");
+const path = require("node:path");
+
+const REPO = path.resolve(__dirname, "..", "..");
+const SERVE_ROOT = path.resolve(process.env.SERVE_ROOT || path.join(REPO, "_site"));
+let chromium;
+try {
+  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
+} catch (error) {
+  console.log("SKIP: playwright not installed (npm install playwright)");
+  process.exit(0);
+}
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".json": "application/json",
+  ".md": "text/markdown; charset=utf-8",
+};
+
+function serve() {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const pathname = decodeURIComponent(new URL(request.url, "http://local").pathname);
+      const file = path.join(SERVE_ROOT, pathname === "/" ? "index.html" : pathname);
+      if (!file.startsWith(SERVE_ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+        response.writeHead(404); response.end("not found"); return;
+      }
+      response.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+      response.end(fs.readFileSync(file));
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve(server));
+  });
+}
+
+const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
+1,1,2,N,3 NT,=
+1,3,4,N,3 NT,+1
+1,5,6,N,3 NT,+1
+2,1,2,N,2 S,+1
+2,3,4,N,4 S,=
+2,5,6,N,4 S,=
+3,1,2,N,3 H X,-2
+3,3,4,N,2 S,=
+3,5,6,N,2 S,+1`;
+const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
+const PBN = [1, 2, 3].map((board) => `[Board "${board}"]\n[Deal "${DEAL}"]`).join("\n\n");
+
+const failures = [];
+function check(ok, label) {
+  console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
+  if (!ok) failures.push(label);
+}
+
+(async () => {
+  if (!fs.existsSync(path.join(SERVE_ROOT, "assets", "barbelo.js")) ||
+    !fs.existsSync(path.join(SERVE_ROOT, "assets", "bridge-simulator.js"))) {
+    if (!process.env.SERVE_ROOT) {
+      console.log("SKIP: built site not prepared (set SERVE_ROOT to require this gate)");
+      process.exit(0);
+    }
+    throw new Error(`Built site not found at ${SERVE_ROOT}`);
+  }
+  const server = await serve();
+  const port = server.address().port;
+  const origin = `http://127.0.0.1:${port}`;
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const errors = [];
+  const requests = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => requests.push(request.url()));
+
+  await page.goto(`${origin}/`);
+  await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
+  check(!await page.locator("[data-simulator-open]").count(), "built report still has no simulator launch control");
+  check(!await page.evaluate(() => Boolean(window.BridgeSimulator)), "simulator global is absent before the lazy bundle loads");
+  await page.addStyleTag({ url: "/assets/simulator.css?v=built-e2e" });
+  await page.addScriptTag({ url: "/assets/bridge-simulator.js?v=built-e2e" });
+  check(await page.evaluate(() => typeof window.BridgeSimulator.launch === "function"), "built IIFE exposes the narrow launch API");
+
+  await page.evaluate(async ({ csv, pbn }) => {
+    const api = window.PBNAnalyzer;
+    const analysis = api.buildAnalysis(api.parsePbn(pbn, "built-simulator.pbn"));
+    const results = api.buildResultsAnalysis(api.parseResultsCsv(csv, "built-simulator.csv", csv.length), analysis);
+    const report = api.buildPairImprovementReport(results, "1");
+    const overlay = document.createElement("div");
+    overlay.className = "bridge-simulator-overlay";
+    const host = document.createElement("div");
+    host.className = "bridge-simulator-host";
+    host.style.height = "100%";
+    overlay.appendChild(host);
+    document.body.appendChild(overlay);
+    window.__builtSimulatorOverlay = overlay;
+    window.__builtSimulator = await window.BridgeSimulator.launch(host, { analysis, results, report }, {
+      levelId: "slice",
+      assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
+      version: "built-e2e",
+    });
+  }, { csv: CSV, pbn: PBN });
+  await page.waitForSelector(".simulator-preflight");
+  check(await page.locator(".simulator-preflight").count() === 1, "built bundle reaches mission preflight");
+  await page.click('[data-simulator-start="coach"]');
+  check(await page.locator(".simulator-coaching-card").count() >= 4, "built Coach-only path retains all coaching checkpoints");
+  await page.click("[data-simulator-back-preflight]");
+  await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
+  await page.check('[data-simulator-setting="skipTutorial"]');
+  await page.click('[data-simulator-start="practice"]');
+  await page.locator("canvas.simulator-canvas").focus();
+  const startX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
+  await page.keyboard.down("w");
+  await page.waitForTimeout(250);
+  await page.keyboard.up("w");
+  const endX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
+  check(endX > startX, "built simulator runs the fixed-step keyboard game loop");
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(80);
+  check(await page.evaluate(() => window.__builtSimulator.state.combat.shotsFired) === 1, "built simulator throws a card");
+
+  await page.evaluate(() => {
+    window.__builtSimulator.destroy();
+    window.__builtSimulatorOverlay.remove();
+  });
+  check(await page.evaluate(() => window.__builtSimulator.destroyed), "built simulator destroys its resources");
+  check(requests.every((url) => new URL(url).origin === origin), "built run makes same-origin requests only");
+  check(!requests.some((url) => /PairNS|AKQJ|built-simulator\.csv/.test(decodeURIComponent(url))), "built run puts no session data in request URLs");
+  check(errors.length === 0, `built run has no console/page errors (${errors.join("; ")})`);
+
+  await browser.close();
+  server.close();
+  console.log(failures.length ? `\nBUILT SIMULATOR E2E FAILED (${failures.length})` : "\nBUILT SIMULATOR E2E PASSED");
+  process.exit(failures.length ? 1 : 0);
+})().catch((error) => {
+  console.error("BUILT SIMULATOR E2E CRASHED:", error);
+  process.exit(2);
+});
