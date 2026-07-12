@@ -1,9 +1,9 @@
 # Architecture
 
-Barbelo is a no-build static webapp: ES modules served as-is during
-development, bundled by esbuild only in CI for the GitHub Pages deploy.
-The analysis core is dependency-free and DOM-free; the UI layer renders
-HTML strings from its output into `index.html`'s fixed skeleton.
+Barbelo is a static webapp: ES modules served as-is during development, bundled
+by esbuild only in CI for the GitHub Pages deploy.  The analysis core is
+dependency-free and DOM-free; the UI layer renders HTML strings from its output
+into `index.html`'s fixed skeleton.
 
 The Bridge Simulator is an intentionally isolated runtime exception. Its
 scenario and rules remain dependency-free, while its renderer uses one pinned,
