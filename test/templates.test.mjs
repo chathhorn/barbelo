@@ -128,7 +128,7 @@ test("board card composes placard, par chip, and sections", () => {
   assert.match(html, /Board 4/);
   assert.match(html, /Dealer <b>West<\/b>/);
   assert.match(html, /vul-chip vul/);
-  assert.match(html, /Traveler - 4 results/);
+  assert.match(html, /Traveler — 4 results · board top 3 MP/);
   assert.match(html, /Raw PBN tags/);
 });
 

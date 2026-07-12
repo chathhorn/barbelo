@@ -150,7 +150,7 @@ function renderBoardCard(board, options = {}) {
   const vul = vulSides(board.vulnerable);
   const boardTop = resultSummary ? Math.max(0, ...resultSummary.rows.map((row) => row.boardTop || 0)) : 0;
   const travelerLabel = resultSummary
-    ? `Traveler - ${plural(resultSummary.resultCount, "result")}${boardTop ? `, top ${formatMp(boardTop)}` : ""}`
+    ? `Traveler — ${plural(resultSummary.resultCount, "result")}${boardTop ? ` · board top ${formatMp(boardTop)} MP` : ""}`
     : "";
   return `
     <article class="board-card${escapeHtml(className)}" id="${escapeHtml(cardId)}" data-board-no="${escapeHtml(board.boardNo)}" tabindex="-1">
