@@ -66,7 +66,7 @@ function renderPreflight(host, scenario, settings, assetUrl, {
         </div>
         <span class="simulator-mission-chip">${escapeHtml(pair.pairLabel || "Selected pair")} · ${escapeHtml(mode)}</span>
         <article class="simulator-coach-card">
-          <img src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Full-body Border Collie Bridge Coach">
+          <img src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Upright Border Collie Bridge Coach wearing a trenchcoat">
           <div>
             <strong>Border Collie Bridge Coach</strong>
             <p>${escapeHtml(bark || "The traveler is in the vault. Fetch.")}</p>
@@ -145,7 +145,7 @@ function createGameShell(host, scenario, assetUrl) {
           <div class="simulator-card-hand" data-hud-hand role="group" aria-label="Throwing hand: ${escapeHtml(handLabel(cards))}">${renderHand(cards)}</div>
           <span class="simulator-shuffle-label" data-hud-shuffle hidden>Shuffle</span>
         </div>
-        <img class="simulator-hud-coach" src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Coach status: attentive">
+        <img class="simulator-hud-coach" src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Coach status: upright and attentive in a trenchcoat">
         <div class="simulator-hud-stat"><span>Honor · Slips</span><strong><span data-hud-honor>0</span> · <span data-hud-slips>0</span></strong></div>
       </div>
       <div class="simulator-modal-backdrop" data-simulator-modal hidden></div>
@@ -339,7 +339,7 @@ function renderCoachOnly(host, scenario, assetUrl) {
     <section class="simulator-coach-only" aria-labelledby="simulator-coach-only-title">
       <h2 id="simulator-coach-only-title" tabindex="-1">Coach-only mission review</h2>
       <article class="simulator-coach-card">
-        <img src="${escapeHtml(assetUrl("coach/coach-point.svg"))}" alt="Border Collie Bridge Coach pointing at the review">
+        <img src="${escapeHtml(assetUrl("coach/coach-point.svg"))}" alt="Upright trench-coated Border Collie Bridge Coach pointing at the review">
         <div>
           <strong>Opening orders</strong>
           <p>${escapeHtml(bark || briefing)}</p>
@@ -380,7 +380,7 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
     <section class="simulator-debrief" aria-labelledby="simulator-debrief-title">
       <h2 id="simulator-debrief-title" tabindex="-1">Honor simulated. Evidence preserved.</h2>
       <article class="simulator-coach-card">
-        <img src="${escapeHtml(assetUrl("coach/coach-victory.svg"))}" alt="Victorious Border Collie Bridge Coach">
+        <img src="${escapeHtml(assetUrl("coach/coach-victory.svg"))}" alt="Victorious upright Border Collie Bridge Coach in a trenchcoat">
         <div><strong>Coach's verdict</strong><p>You cannot outgun a bad auction. Fortunately, this was a simulator.</p></div>
       </article>
       <div class="simulator-debrief-grid">

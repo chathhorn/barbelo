@@ -28,7 +28,7 @@ function coachEntityFor(state) {
     position: { ...marker.position },
     spaceId: marker.spaceId,
     radius: marker.radius || 0.45,
-    height: 1.35,
+    height: 1.8,
     active: true,
     alive: true,
     blocking: false,

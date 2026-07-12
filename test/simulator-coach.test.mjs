@@ -134,5 +134,6 @@ test("Coach derivation retains authored checkpoint placement and remains non-blo
   const victoryCoach = coachEntityFor(state);
   assert.equal(victoryCoach.spaceId, "results-posted");
   assert.equal(victoryCoach.sprite, "coach-victory");
+  assert.equal(victoryCoach.height, 1.8);
   assert.equal(victoryCoach.blocking, false);
 });

@@ -104,7 +104,10 @@ function spriteKeyForEntity(entity) {
 function spriteSizeForEntity(entity) {
   const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
     .filter(Boolean).join(" ").toLowerCase();
-  if (kind.includes("coach")) return { width: 1.35, height: 1.35 };
+  if (kind.includes("coach") && (kind.includes("point") || kind.includes("victory"))) {
+    return { width: 1.35, height: 1.8 };
+  }
+  if (kind.includes("coach")) return { width: 1.15, height: 1.8 };
   if (kind.includes("boss") || kind.includes("bottom")) return { width: 2.8, height: 3.3 };
   if (kind.includes("next-round") || kind.includes("exit")) return { width: 1.6, height: 2.4 };
   if (kind.includes("imp") || kind.includes("overtrick")) return { width: 1.1, height: 1.1 };

@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
   <title>Cardroom suit carpet tile</title>
-  <desc>Original repeating navy carpet motif with abstract spade, heart, diamond, and club shapes.</desc>
+  <desc>Original repeating medium-navy carpet motif with abstract spade, heart, diamond, and club shapes.</desc>
   <metadata>tile=true;tileWidth=64;tileHeight=64;surface=floor</metadata>
-  <rect width="64" height="64" fill="#182433"/>
-  <path fill="#223746" d="M0 0h32v32H0zM32 32h32v32H32z"/>
+  <rect width="64" height="64" fill="#30465a"/>
+  <path fill="#3d5869" d="M0 0h32v32H0zM32 32h32v32H32z"/>
   <path fill="#326a63" d="M0 30h64v4H0zM30 0h4v64H30z"/>
   <g fill="#d69b3d">
     <path d="m16 7 7 9-4 6h-2v5h-4v-5h-2l-4-6Z"/>

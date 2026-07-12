@@ -41,9 +41,19 @@ const MATERIAL_COLORS = {
   "next-round-door": 0x8b763f,
 };
 
-function scaledColor(hex, light = 1) {
+const SURFACE_WHITE_MIX = Object.freeze({
+  wall: 0.45,
+  floor: 0.55,
+  ceiling: 0.14,
+});
+
+function scaledColor(hex, light = 1, surface = "wall") {
   const color = new Color(hex == null ? 0x555555 : hex);
   color.multiplyScalar(Math.max(0.25, Math.min(1.15, light)));
+  // Texture pixels multiply this tint in MeshBasicMaterial. Lifting the tint
+  // after room lighting keeps authored hue/contrast while preventing the dark
+  // felt and carpet art from being multiplied almost to black.
+  color.lerp(new Color(0xffffff), SURFACE_WHITE_MIX[surface] ?? SURFACE_WHITE_MIX.wall);
   return color;
 }
 
@@ -67,7 +77,7 @@ function createMaterialCache(textures) {
     if (!cache.has(id)) {
       const map = textureForMaterial(textures, key, surface);
       const options = {
-        color: scaledColor(MATERIAL_COLORS[key] || MATERIAL_COLORS["club-wall"], light),
+        color: scaledColor(MATERIAL_COLORS[key] || MATERIAL_COLORS["club-wall"], light, surface),
         side: DoubleSide,
         fog: true,
       };
