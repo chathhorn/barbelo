@@ -171,10 +171,8 @@ jobs:
             echo "Three.js or game payload leaked into the main Barbelo artifact." >&2
             exit 1
           fi
-          if grep -q 'openBridgeSimulator' src/ui/reportView.js src/ui/io.js; then
-            echo "Bridge Simulator must remain unlinked from the Pair Improvement Report until finalization." >&2
-            exit 1
-          fi
+          grep -q 'data-simulator-open' src/ui/reportView.js
+          grep -q 'handleBridgeSimulatorClick' src/ui/io.js
           if grep -q "__BARBELO_VERSION__" _site/index.html; then
             echo "Version placeholder survived static-site preparation." >&2
             exit 1

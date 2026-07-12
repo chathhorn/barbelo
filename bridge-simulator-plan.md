@@ -1,6 +1,6 @@
 # Bridge Simulator: Product and Implementation Plan
 
-Status: unlinked implementation candidate. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium/Firefox/WebKit gates are implemented. Phase 8 finalization still requires the structured human playtest, a slower-device performance spot check, and the real-Safari manual gate below, so no visible Pair Improvement Report launch control has been added.
+Status: Phase 9 report integration authorized and implemented. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium/Firefox/WebKit gates are implemented. The structured human playtest, a slower-device performance spot check, and the real-Safari manual gate below remain recorded release-readiness work; they were not represented as complete when the launch control was explicitly authorized.
 
 Implementation checkpoint (2026-07-12):
 
@@ -12,7 +12,7 @@ Implementation checkpoint (2026-07-12):
 - Pure/core, source-browser, resize/zoom, load-failure, complete-mission, and built-IIFE browser gates use committed synthetic data and keep all requests same-origin. The 2026-07-12 local gate used Playwright 1.61.1 with Chromium 149.0.7827.55, Firefox 151.0, and WebKit 26.5; macOS 26.5.2 reports real Safari 26.5.2. The opt-in real-Safari smoke is ready, but Safari Remote Automation is disabled locally and the required observed full Safari run remains pending.
 - The current production simulator bundle, CSS, and required assets total 1,510,309 bytes against the 3 MiB gate. Sustained visible/active rendering below 24 FPS now pauses once after roughly four seconds and explicitly offers Reduced Effects without changing game rules.
 - The named real-device baseline is a MacBook Pro `Mac16,5` with Apple M4 Max (14-core CPU, 32-core GPU), 36 GB RAM, and macOS 26.5.2. Headed Chromium 149/Metal measurements passed over 30 seconds each in ordinary gameplay and the authored boss arena: the slower cold start was 621.8 ms, both samples sustained about 120 FPS, p95 frame time was at most 9.2 ms, and the scenes used at most 36 draw calls. A slower-device spot check remains pending; headless numbers are not counted as this evidence.
-- The report loader prepares current pair/session inputs, but the launch control remains intentionally absent pending the explicit finalization decision.
+- The Pair Improvement Report now presents a launch control directly below Table Time. It opens the simulator with the current pair/session inputs while keeping the game bundle and Three.js lazy until activation.
 
 Working subtitle: **The Lost Matchpoints**
 
@@ -82,7 +82,7 @@ The joke must point at bridge concepts and the fictional Field, not at identifia
 - A continuously pathfinding companion. The Coach can use scripted waypoints and “director-only movement” between checkpoints.
 - Touch-first gameplay in the initial release. Mobile and unsuitable devices get the complete Coach-only coaching path rather than a broken FPS.
 - Persisting uploaded data or a resumable run.
-- Adding the report launch control before the final gate.
+- Exposing the report launch control without an explicit product decision.
 
 ## 4. Core game loop
 
@@ -872,19 +872,18 @@ Review the feature as a product, not merely as working code:
 - Are download size and performance acceptable for the analyzer?
 - Are assets and licenses complete?
 
-Only an explicit “finalized” decision advances to Phase 9.
+An explicit product decision advances to Phase 9. The report launch was authorized directly on 2026-07-12 while the remaining manual release-readiness evidence stayed documented as outstanding.
 
 ### Phase 9 — Add the Pair Improvement Report launch control
 
-Only now:
+Completed on 2026-07-12:
 
-- Add the launch control directly below Table Time in `renderThisWeek()`.
-- Add the corresponding delegated click route under `#pairReportBody` in `src/ui/io.js` (currently routed through `handleQuizClick` only), invoking the thin simulator loader without disturbing quiz handling or key-handler precedence.
-- Suggested title: **Bridge Simulator — reclaim your matchpoints ›**
-- Suggested note: **One personalized 1990s-style mission built from this pair's session.**
-- Lazy-load the simulator only on activation.
-- Add production smoke/a11y checks for the real launch path.
-- Keep a graceful Coach-only path when the browser lacks WebGL. Practice Deck is a normal FPS launch with a nonblocking provenance note, not an unavailable state.
+- Added the launch control directly below Table Time in `renderThisWeek()`.
+- Added the corresponding delegated click route under `#pairReportBody` in `src/ui/io.js`, invoking the thin simulator loader without disturbing quiz handling or key-handler precedence.
+- Used the title **Bridge Simulator — reclaim your matchpoints ›** and note **One personalized 1990s-style mission built from this pair's session.**
+- Kept the simulator lazy-loaded until activation.
+- Added production smoke/accessibility coverage for the real launch path, focus restoration, pair changes, and built-bundle loading.
+- Retained the graceful Coach-only path when the browser lacks WebGL. Practice Deck remains a normal FPS launch with a nonblocking provenance note, not an unavailable state.
 
 ## 21. Final acceptance criteria
 
@@ -922,7 +921,7 @@ The feature is not finalized until all are true:
 - Asset provenance and dependency licenses are complete.
 - Unit, integration, browser, accessibility, reachability, cleanup, source, built-site, and existing Barbelo regression suites pass in CI with committed synthetic fixtures.
 - In a gate of at least five new players, at least four identify the objective and finish without help, median completion is 8-12 minutes, no more than one flags any named pacing blocker, and all five distinguish Honor from real matchpoints.
-- The Pair Improvement Report has no simulator launch control before the Phase 8 finalization decision.
+- The Pair Improvement Report had no simulator launch control before the explicit Phase 9 authorization.
 
 ## 22. Open decisions for the first implementation review
 

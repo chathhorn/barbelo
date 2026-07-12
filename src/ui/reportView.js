@@ -115,7 +115,6 @@ function sessionToneSentence(summary, shownCount) {
 function renderThisWeek(report) {
   const priorities = (report.practicePriorities || []).slice(0, 3);
   const focus = report.profile ? report.profile.focus : "";
-  if (!focus && !priorities.length) return "";
   const list = priorities.length ? `
     <ol class="this-week-list">
       ${priorities.map((priority) => `
@@ -133,7 +132,17 @@ function renderThisWeek(report) {
       ${renderLossAdvice(focus)}
       ${list}
       ${renderQuizLaunch()}
+      ${renderBridgeSimulatorLaunch()}
     </section>
+  `;
+}
+
+function renderBridgeSimulatorLaunch() {
+  return `
+    <button type="button" class="quiz-launch simulator-launch" data-simulator-open>
+      <span class="quiz-launch-title simulator-launch-title">Bridge Simulator &mdash; reclaim your matchpoints <span aria-hidden="true">&rsaquo;</span></span>
+      <span class="quiz-launch-note simulator-launch-note">One personalized 1990s-style mission built from this pair's session.</span>
+    </button>
   `;
 }
 

@@ -80,7 +80,36 @@ function check(ok, label) {
   await page.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
   await page.setInputFiles("#pbnFile", { name: "simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
   await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  check(!await page.locator("[data-simulator-open]").count(), "Pair Improvement Report still has no simulator launch control");
+  const reportLaunch = page.locator("[data-simulator-open]");
+  check(await reportLaunch.count() === 1, "Pair Improvement Report exposes one Bridge Simulator launch control");
+  check(await reportLaunch.evaluate((button) => button.previousElementSibling?.matches("[data-quiz-open]")), "Bridge Simulator launch sits directly below Table Time");
+  check(!requests.some((url) => /src\/simulator\/index\.js|vendor\/three\//.test(url)), "game engine remains unloaded before report activation");
+  check(!await page.locator('link[href*="assets/simulator.css"]').count(), "simulator stylesheet remains unloaded before report activation");
+  await reportLaunch.click();
+  await page.waitForSelector(".simulator-preflight");
+  check(await page.evaluate(() => document.querySelector(".app-shell").inert), "real report launch makes the app shell inert");
+  check(requests.some((url) => /src\/simulator\/index\.js/.test(url)), "real report launch lazy-loads the simulator module");
+  check(await page.locator('link[href*="assets/simulator.css"]').count() === 1, "real report launch lazy-loads simulator styles");
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-open]")), "real report launch restores focus to its control");
+
+  const originalPair = await page.inputValue("#reportPairSelect");
+  const selectedPair = await page.evaluate(() => {
+    const select = document.getElementById("reportPairSelect");
+    const next = [...select.options].find((option) => option.value !== select.value);
+    return next ? { value: next.value, pairNo: next.textContent.match(/^Pair\s+([^\s(]+)/)?.[1] || "" } : null;
+  });
+  if (selectedPair) {
+    await page.selectOption("#reportPairSelect", selectedPair.value);
+    await page.click("[data-simulator-open]");
+    await page.waitForSelector(".simulator-preflight");
+    const missionChip = await page.locator(".simulator-mission-chip").textContent();
+    check(missionChip.includes(`Pair ${selectedPair.pairNo}`), `pair change refreshes the real launch scenario (${missionChip})`);
+    await page.click(".bridge-simulator-exit");
+    await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+    await page.selectOption("#reportPairSelect", originalPair);
+  }
   await page.locator("#clearAppButton").focus();
 
   await page.evaluate(async () => {

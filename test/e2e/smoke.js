@@ -18,7 +18,7 @@ try {
 }
 const SERVE_ROOT = process.env.SERVE_ROOT || REPO;
 
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg" };
+const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg" };
 
 function serve() {
   return new Promise((resolve) => {
@@ -47,8 +47,10 @@ function check(condition, label) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const consoleErrors = [];
+  const requests = [];
   page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
   page.on("pageerror", (error) => consoleErrors.push(`pageerror: ${error.message}`));
+  page.on("request", (request) => requests.push(request.url()));
 
   // 1. Load
   await page.goto(`http://127.0.0.1:${port}/`);
@@ -125,6 +127,26 @@ function check(condition, label) {
     };
   });
   check(quizCheck.ok, `quiz overlay: answer, navigate, persist, close (${quizCheck.why})`);
+
+  const simulatorBefore = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
+  await page.click("[data-simulator-open]");
+  await page.waitForSelector(".simulator-preflight");
+  const simulatorLaunchCheck = await page.evaluate(() => ({
+    overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
+    inert: document.querySelector(".app-shell").inert,
+    focused: document.querySelector(".bridge-simulator-overlay").contains(document.activeElement),
+  }));
+  const simulatorAfter = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
+  check(
+    simulatorBefore === 0 && simulatorAfter > simulatorBefore && simulatorLaunchCheck.overlay && simulatorLaunchCheck.inert && simulatorLaunchCheck.focused,
+    `real simulator launch is lazy and modal (${JSON.stringify(simulatorLaunchCheck)})`
+  );
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(
+    await page.evaluate(() => document.activeElement?.matches("[data-simulator-open]") && !document.querySelector(".app-shell").inert),
+    "simulator exit restores report launch focus"
+  );
 
   // 4. All views
   for (const view of ["overview", "improve", "boards", "results", "export", "diagnostics"]) {

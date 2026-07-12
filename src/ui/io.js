@@ -23,6 +23,7 @@ import { applyActiveView, renderTaskNav } from "./dashboard.js";
 import { showToast } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
 import { handleQuizClick, handleQuizKeydown } from "./quizView.js";
+import { handleBridgeSimulatorClick } from "./simulatorView.js";
 import { STATE } from "./state.js";
 
 function decodeTextBuffer(buffer) {
@@ -195,7 +196,10 @@ function setupEvents() {
     STATE.reportPair = event.target.value;
     renderPairImprovementReport(STATE.results);
   });
-  document.getElementById("pairReportBody").addEventListener("click", handleQuizClick);
+  document.getElementById("pairReportBody").addEventListener("click", (event) => {
+    if (handleQuizClick(event)) return;
+    handleBridgeSimulatorClick(event);
+  });
   document.getElementById("quizOverlay").addEventListener("click", (event) => {
     if (handleQuizClick(event)) return;
     // Board jumps inside the quiz reveal open the board preview on top.

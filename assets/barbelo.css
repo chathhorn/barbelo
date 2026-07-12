@@ -2355,6 +2355,11 @@ details.board-details summary {
   border-color: var(--green);
 }
 
+.quiz-launch:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
 .quiz-launch-title {
   font-weight: 800;
   font-size: 14.5px;

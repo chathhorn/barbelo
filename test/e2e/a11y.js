@@ -15,7 +15,14 @@ try {
   console.log("SKIP: playwright not installed (npm install playwright)");
   process.exit(0);
 }
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
+const MIME = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+};
 function serve() {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
@@ -100,6 +107,58 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   await page.waitForTimeout(200);
   const selVisible = await page.evaluate(() => document.getElementById("reportPairSelect").getBoundingClientRect().height > 0);
   check(selVisible, "pair select still visible in header");
+
+  // real Bridge Simulator launch path: semantic trigger, modal focus, cleanup
+  await page.locator("[data-quiz-open]").focus();
+  await page.keyboard.press("Tab");
+  const simulatorLaunch = await page.evaluate(() => {
+    const button = document.querySelector("[data-simulator-open]");
+    const quiz = document.querySelector("[data-quiz-open]");
+    if (!button) return { present: false };
+    const style = getComputedStyle(button);
+    return {
+      present: true,
+      tag: button.tagName,
+      type: button.getAttribute("type"),
+      followsQuiz: button.previousElementSibling === quiz,
+      focused: document.activeElement === button,
+      name: button.innerText,
+      outline: style.outlineStyle,
+    };
+  });
+  check(
+    simulatorLaunch.present && simulatorLaunch.tag === "BUTTON" && simulatorLaunch.type === "button" &&
+      simulatorLaunch.followsQuiz && simulatorLaunch.focused && /Bridge Simulator/.test(simulatorLaunch.name) &&
+      simulatorLaunch.outline !== "none",
+    `simulator launch is semantic, ordered, and focus-visible (${JSON.stringify(simulatorLaunch)})`
+  );
+  await page.click("[data-simulator-open]");
+  await page.waitForSelector(".simulator-preflight");
+  const simulatorModal = await page.evaluate(() => ({
+    visibleModals: [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
+      .filter((element) => element.getClientRects().length).length,
+    appInert: document.querySelector(".app-shell").inert,
+    focusInside: document.querySelector(".bridge-simulator-overlay").contains(document.activeElement),
+  }));
+  check(
+    simulatorModal.visibleModals === 1 && simulatorModal.appInert && simulatorModal.focusInside,
+    `simulator launch owns one modal and focus (${JSON.stringify(simulatorModal)})`
+  );
+  let simulatorFocusEscaped = false;
+  for (let i = 0; i < 30; i += 1) {
+    await page.keyboard.press("Tab");
+    if (!await page.evaluate(() => document.querySelector(".bridge-simulator-overlay").contains(document.activeElement))) {
+      simulatorFocusEscaped = true;
+      break;
+    }
+  }
+  check(!simulatorFocusEscaped, "tab stays inside the simulator overlay");
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(
+    await page.evaluate(() => !document.querySelector(".app-shell").inert && document.activeElement?.matches("[data-simulator-open]")),
+    "simulator exit restores app interactivity and launch focus"
+  );
 
   // report headings descend both semantically and visually
   const headingHierarchy = await page.evaluate(() => {

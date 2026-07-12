@@ -220,7 +220,6 @@ function check(ok, label) {
 
   await page.goto(`${origin}/`, { waitUntil: "load" });
   await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
-  check(!await page.locator("[data-simulator-open]").count(), "production baseline leaves the report launch control absent");
   check(!await page.evaluate(() => Boolean(window.BridgeSimulator)), "simulator production global is cold before measurement");
 
   await page.evaluate(({ csv, pbn }) => {

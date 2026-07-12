@@ -1,6 +1,6 @@
 # Bridge Simulator Finalization Playtest
 
-Status: not yet run. This gate does not authorize adding the Pair Improvement Report launch control.
+Status: not yet run. The Pair Improvement Report launch was authorized separately on 2026-07-12; this protocol remains the outstanding structured human release-readiness gate.
 
 Use this protocol for the Phase 8 decision in [bridge-simulator-plan.md](bridge-simulator-plan.md). Keep the raw notes local; do not commit participant names or uploaded session data.
 
@@ -27,19 +27,9 @@ Do not coach controls beyond what the preflight and Help screens say. Record a h
 
    Then open `http://127.0.0.1:8000/`.
 2. Open the analyzer, load the intended PBN/results, and select the pair to test.
-3. Confirm the Pair Improvement Report contains no Bridge Simulator launch control.
-4. Open the browser developer console and run this local-development command:
-
-   ```js
-   (async () => {
-     const { openBridgeSimulator } = await import("./src/ui/simulatorView.js");
-     await openBridgeSimulator();
-   })();
-   ```
-
-   `renderPairImprovementReport()` has already prepared the current pair/session in memory. This command mounts that frozen scenario without adding a shipped link or putting session data in a URL.
-5. Close developer tools before handing control to the participant.
-6. Use a fresh browser profile or clear only `barbelo.bridgeSimulator.settings.v1` between participants so saved Skip Tutorial, input, or Reduced Effects choices do not bias the next run.
+3. Confirm the Pair Improvement Report contains the Bridge Simulator launch control directly below Table Time.
+4. Have the participant activate **Bridge Simulator — reclaim your matchpoints ›**. The current pair/session remains in memory and is not placed in a URL.
+5. Use a fresh browser profile or clear only `barbelo.bridgeSimulator.settings.v1` between participants so saved Skip Tutorial, input, or Reduced Effects choices do not bias the next run.
 
 Use at least two materially different selected pairs across the five runs. Include one results-only/Practice Deck run if that is a supported launch case for the intended release.
 
@@ -134,5 +124,5 @@ The 2026-07-12 named-baseline run passed both scenes on Chromium 149.0.7827.55 w
 
 Summarize aggregate counts and the median time, list every defect found, and explicitly choose one:
 
-- **Not finalized:** keep the report link absent and return to implementation/playtesting.
-- **Finalized:** all acceptance criteria pass; authorize Phase 9 as a separate change that adds the report launch control and its production smoke/accessibility coverage.
+- **Not release-ready:** keep the launch available only under the current product decision, record the blockers, and return to implementation/playtesting.
+- **Release-ready:** all acceptance criteria pass and the remaining manual gates can be marked complete.

@@ -1,6 +1,6 @@
-// Lazy lifecycle bridge for the unlinked Bridge Simulator. This module is
-// intentionally small enough to live in Barbelo's main bundle: the scenario
-// builder, Three.js renderer, simulation, and assets load only when opened.
+// Lazy lifecycle bridge for Bridge Simulator. This module is intentionally
+// small enough to live in Barbelo's main bundle: the scenario builder,
+// Three.js renderer, simulation, and assets load only when opened.
 import { deployedVersion, showToast } from "./dom.js";
 
 let preparedInputs = null;
@@ -250,6 +250,18 @@ async function openBridgeSimulator(options = {}) {
   }
 }
 
+function handleBridgeSimulatorClick(event) {
+  const trigger = event.target instanceof Element ? event.target.closest("[data-simulator-open]") : null;
+  if (!trigger) return false;
+  event.preventDefault();
+  trigger.focus();
+  openBridgeSimulator().catch((error) => {
+    const message = error && error.message ? error.message : "The simulator could not start.";
+    showToast(`Bridge Simulator could not start: ${message}`, "error");
+  });
+  return true;
+}
+
 function closeBridgeSimulator({ restoreFocus = true, preserveReturnFocus = false } = {}) {
   openGeneration += 1;
   if (activeController && typeof activeController.destroy === "function") {
@@ -274,6 +286,7 @@ function closeBridgeSimulator({ restoreFocus = true, preserveReturnFocus = false
 
 export {
   prepareBridgeSimulator,
+  handleBridgeSimulatorClick,
   openBridgeSimulator,
   closeBridgeSimulator,
   bridgeSimulatorIsOpen,

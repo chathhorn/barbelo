@@ -89,11 +89,21 @@ function check(ok, label) {
 
   await page.goto(`${origin}/`);
   await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
-  check(!await page.locator("[data-simulator-open]").count(), "built report still has no simulator launch control");
+  await page.setInputFiles("#resultsFile", { name: "built-simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
+  await page.setInputFiles("#pbnFile", { name: "built-simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
+  await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
+  const reportLaunch = page.locator("[data-simulator-open]");
+  check(await reportLaunch.count() === 1, "built report exposes the simulator launch control");
   check(!await page.evaluate(() => Boolean(window.BridgeSimulator)), "simulator global is absent before the lazy bundle loads");
-  await page.addStyleTag({ url: "/assets/simulator.css?v=built-e2e" });
-  await page.addScriptTag({ url: "/assets/bridge-simulator.js?v=built-e2e" });
-  check(await page.evaluate(() => typeof window.BridgeSimulator.launch === "function"), "built IIFE exposes the narrow launch API");
+  check(!requests.some((url) => /bridge-simulator\.js/.test(url)), "built game bundle is absent before report activation");
+  await reportLaunch.click();
+  await page.waitForSelector(".simulator-preflight");
+  check(await page.evaluate(() => typeof window.BridgeSimulator.launch === "function"), "real built launch loads the narrow IIFE API");
+  check(requests.some((url) => /assets\/bridge-simulator\.js/.test(url)), "real built launch requests the lazy game bundle");
+  check(await page.evaluate(() => document.querySelector(".app-shell").inert), "real built launch makes the app shell inert");
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-open]")), "real built launch restores focus to the report control");
 
   await page.evaluate(async ({ csv, pbn }) => {
     const api = window.PBNAnalyzer;

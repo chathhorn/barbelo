@@ -112,10 +112,11 @@ PLAYWRIGHT_BROWSER=webkit SERVE_ROOT=_site node test/e2e/simulator-built.js
 When upgrading Playwright, update both explicit version references and the CI
 version check together.
 
-The Pair Improvement Report launch control remains intentionally absent until
-the simulator is finalized. This test asserts that absence, then imports the
-internal simulator lifecycle module directly as a development harness; passing
-the test does not expose a user-facing launch path.
+The Pair Improvement Report exposes the simulator directly below Table Time.
+The source and built tests exercise that real launch path, verify that the game
+payload remains lazy until activation, and check modal/focus cleanup. The full
+source harness also imports the internal lifecycle module for lower-level game
+states that would be unnecessarily slow to reach through the UI.
 
 The existing app browser checks remain available separately:
 
@@ -138,11 +139,12 @@ SIMULATOR_REAL_SAFARI=1 node test/e2e/simulator-safari.js
 
 The harness starts `safaridriver` and a loopback source server, records the real
 Safari version/user agent, loads synthetic PBN/results entirely in memory, and
-opens the still-unlinked simulator through its internal development lifecycle.
-It smoke-tests WebGL preflight, Coach-only, Keyboard Look movement and arrow
-turning without Pointer Lock, cleanup, same-origin requests, session-data
-non-persistence, and captured console/page errors. It deletes the WebDriver
-session and terminates the driver and server on success or failure.
+opens the simulator through the real Pair Improvement Report launch control
+before using its internal lifecycle for focused game states. It smoke-tests
+WebGL preflight, launch focus restoration, Coach-only, Keyboard Look movement
+and arrow turning without Pointer Lock, cleanup, same-origin requests,
+session-data non-persistence, and captured console/page errors. It deletes the
+WebDriver session and terminates the driver and server on success or failure.
 
 The command clearly self-skips when it is not explicitly opted in, when run
 off macOS, when `safaridriver` is unavailable, or when Safari Remote Automation

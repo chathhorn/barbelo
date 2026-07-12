@@ -92,7 +92,7 @@ async function stopAnimationLoopForSamples(page) {
     buffer: Buffer.from(CSV),
   });
   await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  check(!await page.locator("[data-simulator-open]").count(), "performance harness does not expose the report launch control");
+  check(await page.locator("[data-simulator-open]").count() === 1, "performance harness retains the report launch control");
   await page.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
     window.__performanceSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });

@@ -283,7 +283,18 @@ async function run() {
       load("#pbnFile", "safari-smoke.pbn", "text/plain", arguments[1]);
     `, [CSV, PBN]);
     await waitFor(client, "the Pair Improvement Report", "document.querySelectorAll('.priority-card').length > 0");
-    check(!await client.execute("return Boolean(document.querySelector('[data-simulator-open]'));"), "real Safari report remains unlinked");
+    check(await client.execute("return Boolean(document.querySelector('[data-simulator-open]'));"), "real Safari report exposes the simulator launch control");
+
+    await client.execute(`
+      const trigger = document.querySelector('[data-simulator-open]');
+      trigger.focus();
+      trigger.click();
+    `);
+    await waitFor(client, "the report-launched simulator preflight", "document.querySelector('.simulator-preflight')");
+    check(await client.execute("return document.querySelector('.app-shell').inert && Boolean(document.querySelector('.bridge-simulator-overlay'));"), "real Safari report launch opens the modal and inerts the app shell");
+    await client.execute("document.querySelector('.bridge-simulator-exit').click();");
+    await waitFor(client, "report-launch cleanup", "!document.querySelector('.bridge-simulator-overlay')");
+    check(await client.execute("return document.activeElement === document.querySelector('[data-simulator-open]');"), "real Safari report launch restores focus");
 
     const opened = await client.executeAsync(`
       const done = arguments[arguments.length - 1];
