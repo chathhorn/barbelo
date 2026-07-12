@@ -97,14 +97,16 @@ PLAYWRIGHT_BROWSER=firefox SIMULATOR_SCREENSHOT=/tmp/bridge-simulator-firefox.pn
 ```
 
 CI performs the same ephemeral pinned install, verifies Playwright `1.61.1`,
-and runs three parallel browser legs. Each leg installs only its selected
-browser, runs the focused responsive and slow-frame gates plus the full source
-harness, builds both production IIFEs, and runs `test/e2e/simulator-built.js`
-against the generated static site. Simulator harnesses force Firefox's software
-WebGL preference so GPU-less CI runners exercise the renderer deterministically;
-separate failure-path coverage still verifies the Coach-only fallback when
-WebGL is unavailable. To run the built gate locally after preparing `_site`
-with the Pages workflow commands:
+and runs Chromium and WebKit legs. Each leg installs only its selected browser,
+runs the focused responsive and slow-frame gates plus the full source harness,
+builds both production IIFEs, and runs `test/e2e/simulator-built.js` against the
+generated static site. Firefox remains supported by the local harnesses, but
+the GPU-less GitHub Ubuntu runner exposes no Firefox WebGL context even with
+`webgl.force-enabled`; CI therefore leaves that renderer leg disabled instead
+of treating missing runner hardware as an application failure. Separate
+failure-path coverage still verifies the Coach-only fallback when WebGL is
+unavailable. To run the built gate locally after preparing `_site` with the
+Pages workflow commands:
 
 ```sh
 PLAYWRIGHT_BROWSER=chromium SERVE_ROOT=_site node test/e2e/simulator-built.js

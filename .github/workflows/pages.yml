@@ -41,7 +41,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        # GitHub's GPU-less Ubuntu runner currently exposes no WebGL context to
+        # Playwright Firefox 151, even with webgl.force-enabled. Keep Firefox
+        # available in the local harness; CI renderer coverage runs in the two
+        # engines that provide deterministic software WebGL here.
+        browser: [chromium, webkit]
     env:
       PLAYWRIGHT_VERSION: 1.61.1
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
@@ -63,7 +67,7 @@ jobs:
       - name: Verify Playwright pin
         run: node -e "const actual=require('playwright/package.json').version; if (actual !== process.env.PLAYWRIGHT_VERSION) throw new Error('Expected Playwright ' + process.env.PLAYWRIGHT_VERSION + ', got ' + actual)"
 
-      # Playwright 1.61.1 pins Chromium v1228, Firefox v1532, and WebKit v2311.
+      # Playwright 1.61.1 pins Chromium v1228 and WebKit v2311 for these legs.
       # Each matrix leg installs only its browser and matching Linux libraries.
       - name: Install pinned browser
         run: npx --no-install playwright install --with-deps "$PLAYWRIGHT_BROWSER"
