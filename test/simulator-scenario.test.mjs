@@ -116,6 +116,31 @@ test("seed helpers and scenario output are deterministic, immutable, and seriali
   assert.doesNotThrow(() => structuredClone(first));
 });
 
+test("missing or blank summary metrics remain unavailable instead of becoming zero", () => {
+  const { results, report } = scenarioFor(RICH_SESSION);
+  const missingSummary = {
+    ...report,
+    summary: {
+      ...report.summary,
+      percent: null,
+      mpVsAverage: "   ",
+    },
+  };
+  const missingScenario = buildBridgeSimulatorScenario({ results, report: missingSummary });
+  assert.equal(missingScenario.debrief.sessionFacts[0].segments[0].text, "Session percentage is not available for this session.");
+  assert.equal(missingScenario.debrief.sessionFacts[0].segments[0].claimKind, "static");
+  assert.equal(missingScenario.debrief.sessionFacts[1].segments[0].text, "MP versus average is not available for this session.");
+  assert.equal(missingScenario.debrief.sessionFacts[1].segments[0].claimKind, "static");
+
+  const zeroSummary = {
+    ...report,
+    summary: { ...report.summary, percent: "0", mpVsAverage: 0 },
+  };
+  const zeroScenario = buildBridgeSimulatorScenario({ results, report: zeroSummary });
+  assert.equal(zeroScenario.debrief.sessionFacts[0].segments[0].text, "Session percentage: 0%.");
+  assert.equal(zeroScenario.debrief.sessionFacts[1].segments[0].text, "MP versus average: 0.");
+});
+
 test("normal sessions fill three wings with unique board evidence and per-segment provenance", () => {
   const { scenario } = scenarioFor(RICH_SESSION);
   assert.equal(scenario.wings.length, 3);

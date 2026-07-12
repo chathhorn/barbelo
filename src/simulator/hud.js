@@ -316,13 +316,19 @@ function renderHelp(modal, { requiredSlips = 3, bossTitle = "The Bottom Board", 
 }
 
 function renderCoachOnly(host, scenario, assetUrl) {
+  const bark = segmentText(scenario.briefing && scenario.briefing.bark);
   const briefing = segmentText(scenario.briefing && scenario.briefing.fullText);
+  const sessionFacts = scenario.debrief && scenario.debrief.sessionFacts || [];
   host.innerHTML = `
     <section class="simulator-coach-only" aria-labelledby="simulator-coach-only-title">
       <h2 id="simulator-coach-only-title" tabindex="-1">Coach-only mission review</h2>
       <article class="simulator-coach-card">
         <img src="${escapeHtml(assetUrl("coach/coach-point.svg"))}" alt="Border Collie Bridge Coach pointing at the review">
-        <div><strong>Briefing</strong><p>${escapeHtml(briefing || segmentText(scenario.briefing && scenario.briefing.bark))}</p></div>
+        <div>
+          <strong>Opening orders</strong>
+          <p>${escapeHtml(bark || briefing)}</p>
+          ${briefing && briefing !== bark ? `<strong>Briefing</strong><p>${escapeHtml(briefing)}</p>` : ""}
+        </div>
       </article>
       <div class="simulator-coaching-list">
         ${(scenario.wings || []).map((wing) => `
@@ -337,6 +343,11 @@ function renderCoachOnly(host, scenario, assetUrl) {
         <h3>Practice action</h3>
         ${renderSegments(scenario.debrief && scenario.debrief.practiceAction)}
       </article>
+      <article class="simulator-coaching-card">
+        <h3>Your Actual Session</h3>
+        ${sessionFacts.map((fact) => renderSegments(fact.segments)).join("")}
+      </article>
+      <p class="simulator-provenance">Coach-only mode skips fictional game statistics. Honor Reclaimed is fictional and does not change or restore real matchpoints.</p>
       <div class="simulator-modal-actions">
         <button type="button" data-simulator-back-preflight>Back to preflight</button>
         <button type="button" class="primary" data-simulator-close>Return to report</button>

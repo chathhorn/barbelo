@@ -135,6 +135,9 @@ function createLiftControl(marker) {
   };
 }
 
+/**
+ * @param {{ scenario?: any, level?: any, mode?: string }} [options]
+ */
 function createSimulation({ scenario, level, mode = "standard" } = {}) {
   if (!scenario || !level) throw new Error("Simulator scenario and level are required.");
   const player = createPlayer(level);
