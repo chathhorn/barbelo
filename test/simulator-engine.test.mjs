@@ -56,6 +56,15 @@ test("System Notes absorb half of damage and Practice Mode is invulnerable", () 
   assert.equal(practice.composure, 100);
 });
 
+test("live boss objective uses the personalized scenario title", () => {
+  const state = createSimulation({
+    scenario: { ...SCENARIO, boss: { title: "Complacency" } },
+    level: SLICE_LEVEL,
+  });
+  state.progress.bossActive = true;
+  assert.equal(getSimulationSnapshot(state).objectiveText, "Reseat Complacency.");
+});
+
 test("simulation movement is deterministic and yaw zero moves toward +X", () => {
   const first = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const second = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
@@ -71,6 +80,7 @@ test("simulation movement is deterministic and yaw zero moves toward +X", () => 
 test("cleared wing interaction awards one persistent Review Slip and fixed Honor", () => {
   const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   state.enemies.filter((enemy) => enemy.wingId === "a").forEach((enemy) => { enemy.alive = false; });
+  state.encounter = { ...state.encounter, kind: "wing", wingId: "a" };
   const slip = state.reviewSlips[0];
   state.player.position = { ...slip.position };
   state.player.spaceId = slip.spaceId;
@@ -80,12 +90,11 @@ test("cleared wing interaction awards one persistent Review Slip and fixed Honor
   assert.equal(state.player.honor, 500);
   assert.equal(state.portalStates["hub-to-vault"].open, true);
 
-  state.encounter = { kind: "wing", wingId: "a", honorAtEntry: 500, enemiesDefeatedAtEntry: 0 };
   resetEncounter(state, "test");
   assert.equal(state.progress.slips, 1);
   assert.equal(state.reviewSlips[0].collected, true);
   assert.equal(state.player.honor, 500);
-  assert.ok(state.enemies.filter((enemy) => enemy.wingId === "a").every((enemy) => enemy.alive));
+  assert.ok(state.enemies.filter((enemy) => enemy.wingId === "a").every((enemy) => !enemy.alive));
 });
 
 test("boss defeat retains slips, unlocks exit, and completes through interaction", () => {
@@ -96,6 +105,7 @@ test("boss defeat retains slips, unlocks exit, and completes through interaction
   state.portalStates["hub-to-vault"].open = true;
   state.player.position = { x: 62, y: -0.2, z: 28 };
   state.player.spaceId = "traveler-vault";
+  state.encounter = { ...state.encounter, kind: "boss", wingId: "" };
   const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
   boss.health = 1;
   boss.maxHealth = 1;
@@ -108,6 +118,11 @@ test("boss defeat retains slips, unlocks exit, and completes through interaction
   assert.ok(events.some((event) => event.type === "boss-defeated"));
   assert.equal(state.progress.slips, 1);
   assert.equal(state.portalStates["vault-to-results"].open, true);
+  const completedHonor = state.player.honor;
+  resetEncounter(state, "post-boss");
+  assert.equal(boss.alive, false);
+  assert.equal(state.progress.bossDefeated, true);
+  assert.equal(state.player.honor, completedHonor);
 
   const exit = state.level.markers.find((marker) => marker.id === "next-round-exit");
   state.player.position = { ...exit.position };
@@ -128,4 +143,59 @@ test("Restart Run clears all progress and encounter state", () => {
   assert.equal(state.progress.slips, 0);
   assert.deepEqual(state.progress.completedWings, []);
   assert.equal(state.mode, "standard");
+});
+
+test("persistent checkpoints cannot respawn banked enemies or farm Honor", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL, mode: "practice" });
+  const first = state.enemies.find((enemy) => enemy.wingId === "a");
+  const second = state.enemies.find((enemy) => enemy.wingId === "a" && enemy.id !== first.id);
+  state.player.spaceId = "wing-a-chalkboard";
+  state.player.position = { x: 50, y: 0.35, z: 54 };
+  state.encounter.kind = "wing";
+  state.encounter.wingId = "a";
+  first.alive = false;
+  first.health = 0;
+  state.player.honor = 100;
+  state.stats.honor = 100;
+  state.stats.enemiesDefeated = 1;
+
+  const secret = state.secrets.find((entry) => entry.secretId === "dummys-hand");
+  state.player.position = { ...secret.position };
+  stepSimulation(state, { interact: true }, FIXED_DT);
+  assert.equal(state.player.honor, 350);
+
+  second.alive = false;
+  second.health = 0;
+  state.player.honor += 100;
+  state.stats.honor = state.player.honor;
+  state.stats.enemiesDefeated += 1;
+  resetEncounter(state, "test");
+
+  assert.equal(first.alive, false, "enemy defeated before the persistent checkpoint stays down");
+  assert.equal(second.alive, true, "enemy defeated after the checkpoint is restored");
+  assert.equal(state.player.honor, 350);
+  assert.equal(state.stats.enemiesDefeated, 1);
+  assert.equal(secret.collected, true);
+});
+
+test("reset after a completed wing preserves completed actors and awards", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const wingEnemies = state.enemies.filter((enemy) => enemy.wingId === "a");
+  wingEnemies.forEach((enemy) => {
+    enemy.alive = false;
+    enemy.health = 0;
+    state.player.honor += 100;
+    state.stats.enemiesDefeated += 1;
+  });
+  state.stats.honor = state.player.honor;
+  state.encounter = { ...state.encounter, kind: "wing", wingId: "a" };
+  const slip = state.reviewSlips[0];
+  state.player.position = { ...slip.position };
+  state.player.spaceId = slip.spaceId;
+  stepSimulation(state, { interact: true }, FIXED_DT);
+  const wingHonor = state.player.honor;
+  resetEncounter(state, "test-wing");
+  assert.ok(wingEnemies.every((enemy) => !enemy.alive));
+  assert.equal(state.progress.slips, 1);
+  assert.equal(state.player.honor, wingHonor);
 });

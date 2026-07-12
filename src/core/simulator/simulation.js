@@ -192,6 +192,11 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
       wingId: "",
       honorAtEntry: 0,
       enemiesDefeatedAtEntry: 0,
+      pickupsAtEntry: 0,
+      biscuitsAtEntry: 0,
+      rapidDealAtEntry: 0,
+      defeatedEnemyIdsAtEntry: [],
+      collectedPickupIdsAtEntry: [],
     },
     events: [],
   };
@@ -209,6 +214,20 @@ function emit(events, type, detail = {}) {
 
 function completedWingSet(state) {
   return new Set(state.progress.completedWings);
+}
+
+function encounterCheckpoint(state, { kind = state.encounter.kind, wingId = state.encounter.wingId } = {}) {
+  return {
+    kind,
+    wingId,
+    honorAtEntry: state.player.honor,
+    enemiesDefeatedAtEntry: state.stats.enemiesDefeated,
+    pickupsAtEntry: state.stats.pickups,
+    biscuitsAtEntry: state.stats.biscuits,
+    rapidDealAtEntry: state.progress.rapidDealRemaining,
+    defeatedEnemyIdsAtEntry: state.enemies.filter((enemy) => !enemy.alive).map((enemy) => enemy.id),
+    collectedPickupIdsAtEntry: state.pickups.filter((pickup) => pickup.collected).map((pickup) => pickup.id),
+  };
 }
 
 function updatePortalRequirements(state, events) {
@@ -240,21 +259,17 @@ function wingIdForSpace(level, spaceId) {
 function beginEncounterForPosition(state, priorSpaceId) {
   const wingId = wingIdForSpace(state.level, state.player.spaceId);
   const priorWingId = wingIdForSpace(state.level, priorSpaceId);
-  if (wingId && wingId !== priorWingId && !state.progress.completedWings.includes(wingId)) {
-    state.encounter = {
-      kind: "wing",
-      wingId,
-      honorAtEntry: state.player.honor,
-      enemiesDefeatedAtEntry: state.stats.enemiesDefeated,
-    };
+  const enteringUnfinishedWing = wingId && wingId !== priorWingId && !state.progress.completedWings.includes(wingId);
+  const sameEncounter = state.encounter.kind === "wing" && state.encounter.wingId === wingId;
+  if (enteringUnfinishedWing && !sameEncounter) {
+    state.encounter = encounterCheckpoint(state, { kind: "wing", wingId });
+  }
+  if (!wingId && priorWingId && state.progress.completedWings.includes(priorWingId) &&
+    state.player.spaceId !== "traveler-vault" && state.player.spaceId !== "results-posted") {
+    state.encounter = encounterCheckpoint(state, { kind: "hub", wingId: "" });
   }
   if (state.player.spaceId === "traveler-vault" && !state.progress.bossDefeated && state.encounter.kind !== "boss") {
-    state.encounter = {
-      kind: "boss",
-      wingId: "",
-      honorAtEntry: state.player.honor,
-      enemiesDefeatedAtEntry: state.stats.enemiesDefeated,
-    };
+    state.encounter = encounterCheckpoint(state, { kind: "boss", wingId: "" });
   }
 }
 
@@ -318,8 +333,7 @@ function collectReviewSlip(state, slip, events) {
   if (!state.progress.completedWings.includes(slip.wingId)) state.progress.completedWings.push(slip.wingId);
   state.player.honor += 500;
   state.stats.honor = state.player.honor;
-  state.encounter.honorAtEntry = state.player.honor;
-  state.encounter.enemiesDefeatedAtEntry = state.stats.enemiesDefeated;
+  state.encounter = encounterCheckpoint(state);
   emit(events, "review-slip", { slipId: slip.id, wingId: slip.wingId, slips: state.progress.slips, honor: 500 });
   updatePortalRequirements(state, events);
   return true;
@@ -338,6 +352,10 @@ function collectSecret(state, secret, events) {
     state.stats.biscuits += 1;
   }
   if (secret.secretId === "seven-nt-room") state.progress.rapidDealRemaining = 20;
+  // Secrets persist through an encounter reset. Capture the rest of the
+  // encounter at the same instant so previously defeated actors and consumed
+  // pickups cannot respawn while their Honor/stat awards remain banked.
+  state.encounter = encounterCheckpoint(state);
   emit(events, "secret-found", { secretId: secret.secretId, label: secret.label, honor: 250 });
 }
 
@@ -432,6 +450,7 @@ function applyCombatEvents(state, projectileEvents, events) {
         state.progress.bossActive = false;
         state.progress.bossDefeated = true;
         updatePortalRequirements(state, events);
+        state.encounter = encounterCheckpoint(state);
       }
     }
     if (event.type === "enemy-hit") state.stats.shotsHit = state.combat.shotsHit;
@@ -439,11 +458,19 @@ function applyCombatEvents(state, projectileEvents, events) {
 }
 
 function resetEntityGroup(state, predicate) {
-  state.enemies.filter(predicate).forEach(resetEnemy);
+  const defeatedAtEntry = new Set(state.encounter.defeatedEnemyIdsAtEntry || []);
+  const collectedAtEntry = new Set(state.encounter.collectedPickupIdsAtEntry || []);
+  state.enemies.filter(predicate).forEach((enemy) => {
+    resetEnemy(enemy);
+    if (defeatedAtEntry.has(enemy.id)) {
+      enemy.health = 0;
+      enemy.alive = false;
+    }
+  });
   state.pickups.filter(predicate).forEach((pickup) => {
     pickup.position = { ...pickup.spawnPosition };
-    pickup.collected = false;
-    pickup.active = true;
+    pickup.collected = collectedAtEntry.has(pickup.id);
+    pickup.active = !pickup.collected;
   });
 }
 
@@ -461,12 +488,15 @@ function positionPlayerAtHub(state, boss = false) {
   state.projectiles.length = 0;
 }
 
-function resetEncounter(state, reason = "manual") {
+function resetEncounter(state, reason = "manual", { queue = true } = {}) {
   const events = [];
   const encounter = state.encounter;
   state.player.honor = encounter.honorAtEntry;
   state.stats.honor = state.player.honor;
   state.stats.enemiesDefeated = encounter.enemiesDefeatedAtEntry;
+  state.stats.pickups = encounter.pickupsAtEntry || 0;
+  state.stats.biscuits = encounter.biscuitsAtEntry || 0;
+  state.progress.rapidDealRemaining = encounter.rapidDealAtEntry || 0;
   if (encounter.kind === "boss") {
     resetEntityGroup(state, (entity) => entity.spaceId === "traveler-vault" || entity.archetype === "bottom-board");
     const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
@@ -480,14 +510,12 @@ function resetEncounter(state, reason = "manual") {
     resetEntityGroup(state, (entity) => !entity.wingId && entity.archetype !== "bottom-board");
     positionPlayerAtHub(state, false);
   }
-  state.encounter = {
+  state.encounter = encounterCheckpoint(state, {
     kind: encounter.kind === "boss" ? "boss" : "hub",
     wingId: encounter.wingId || "",
-    honorAtEntry: state.player.honor,
-    enemiesDefeatedAtEntry: state.stats.enemiesDefeated,
-  };
+  });
   emit(events, "encounter-reset", { reason, kind: encounter.kind, wingId: encounter.wingId || "" });
-  state.events.push(...events);
+  if (queue) state.events.push(...events);
   return events;
 }
 
@@ -503,7 +531,7 @@ function restartRun(state) {
 function objectiveText(state) {
   if (state.status === "complete") return "Move for the next round complete.";
   if (state.progress.bossDefeated) return "Exit through Move for the Next Round.";
-  if (state.progress.bossActive) return "Reseat The Bottom Board.";
+  if (state.progress.bossActive) return `Reseat ${state.scenario.boss && state.scenario.boss.title || "The Bottom Board"}.`;
   const required = state.level.objectives.requiredSlipCount;
   if (state.progress.slips < required) return `Recover Review Slips (${state.progress.slips}/${required}).`;
   return "Enter the Traveler Vault.";
@@ -542,7 +570,7 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
   state.stats.honor = state.player.honor;
   if (state.player.composure <= 0) {
     emit(events, "player-defeated", { encounter: state.encounter.kind, wingId: state.encounter.wingId || "" });
-    resetEncounter(state, "defeat");
+    events.push(...resetEncounter(state, "defeat", { queue: false }));
   }
   updatePortalRequirements(state, events);
   state.events.push(...events);
