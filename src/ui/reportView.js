@@ -9,7 +9,7 @@ import {
   plural,
   sum,
 } from "../core/format.js";
-import { buildPairImprovementReport, decisionTypeInfoForCategory, dominantBoardLoss, peerDisplayName } from "../core/report.js";
+import { buildPairImprovementReport, decisionTypeInfoForCategory, peerDisplayName } from "../core/report.js";
 import { defaultReportPair, rowContractText } from "../core/results.js";
 import { SUITS } from "../core/constants.js";
 import { prepareQuiz, renderQuizLaunch } from "./quizView.js";
@@ -192,17 +192,6 @@ function renderLossThemes(report) {
   const tieNote = ledger.tieCount
     ? ` ${plural(ledger.tieCount, "tied comparison")} counted as shared results, not losses.`
     : "";
-  // One home per board: a board lists under the theme that carried its
-  // biggest loss. Replayed boards keep one dominant per play, so a
-  // board number may legitimately be home to two themes.
-  const dominantByBoard = new Map();
-  (ledger.boardItems || []).forEach((item) => {
-    const dominant = dominantBoardLoss(item);
-    if (!dominant) return;
-    const key = String(item.boardNo);
-    if (!dominantByBoard.has(key)) dominantByBoard.set(key, new Set());
-    dominantByBoard.get(key).add(dominant.key);
-  });
   const summary = `
     <span class="subsection-note">${escapeHtml(formatMp(conceded))} MP conceded to same-direction tables that beat this pair, across ${escapeHtml(plural(ledger.outrightBoardCount != null ? ledger.outrightBoardCount : ledger.boardCount, "board"))}.${escapeHtml(tieNote)}</span>
   `;
@@ -212,17 +201,10 @@ function renderLossThemes(report) {
           const width = conceded ? (type.totalLoss / conceded) * 100 : 0;
           const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(conceded)} MP conceded in this report (${width.toFixed(0)}%). One MP for each same-direction table that beat this pair.`;
           const categories = categoriesByType.get(type.key) || [];
-          const categoryKeys = new Set(categories.map((category) => category.key));
-          const homeBoards = type.boards.filter((boardNo) => {
-            const dominants = dominantByBoard.get(String(boardNo));
-            return dominants && [...dominants].some((key) => categoryKeys.has(key));
-          });
-          const sharedCount = type.boards.length - homeBoards.length;
-          const boardsLine = homeBoards.length
-            ? `<div class="cell-note">Boards: ${renderBoardJumpList(homeBoards, 8)}${sharedCount ? `<span class="muted-note"> +${escapeHtml(plural(sharedCount, "board"))} shared with other themes</span>` : ""}</div>`
-            : sharedCount
-              ? `<div class="cell-note"><span class="muted-note">No board has this as its main story; ${escapeHtml(plural(sharedCount, "shared board"))} contributed.</span></div>`
-              : "";
+          const boards = type.boards || [];
+          const boardsLine = boards.length
+            ? `<div class="cell-note">Boards: ${renderBoardJumpList(boards, boards.length)}</div>`
+            : "";
           return `
             <article class="decision-type-card ${escapeHtml(type.tone || "")}">
               <div class="decision-type-head">

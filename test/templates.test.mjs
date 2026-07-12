@@ -211,11 +211,11 @@ test("opening leads format with suit glyphs and survive odd input", async () => 
   assert.equal(formatLeadHtml("??"), "??");
 });
 
-test("each board lists under one theme only, with a shared note elsewhere", async () => {
+test("each loss theme lists all of its boards, including boards shared with other themes", async () => {
   const { buildPairImprovementReport } = await import("../src/core/report.js");
   const { renderLossThemes } = await import("../src/ui/reportView.js");
   // Board 1 loses once to a missed game (delta 450) and once to a
-  // same-contract overtrick (delta 30): bidding judgment is the home.
+  // same-contract overtrick (delta 30), so it contributes to both themes.
   const csv = csvFrom([
     ["Board", "PairNS", "PairEW", "NS/EW", "Contract", "Result"],
     ["1", "1", "2", "N", "3 S", "+1"],
@@ -226,14 +226,41 @@ test("each board lists under one theme only, with a shared note elsewhere", asyn
   const report = buildPairImprovementReport(results, "1");
   const html = renderLossThemes(report);
   // Compare only the scan-level "Boards:" lines (cell-note before the
-  // collapsed evidence details), which is where duplication hurt.
+  // collapsed evidence details).
   const biddingCard = /Bidding Judgment[\s\S]*?<\/article>/.exec(html);
   const declarerCard = /Declarer Play[\s\S]*?<\/article>/.exec(html);
   assert.ok(biddingCard && declarerCard, "expected both theme cards");
   const scanPart = (card) => card.split("<details")[0];
-  assert.match(scanPart(biddingCard[0]), /data-board-jump="1"/, "home theme lists the board");
-  assert.doesNotMatch(scanPart(declarerCard[0]), /data-board-jump="1"/, "secondary theme must not list the board in its Boards line");
-  assert.match(scanPart(declarerCard[0]), /shared/);
+  assert.match(scanPart(biddingCard[0]), /data-board-jump="1"/, "bidding theme lists the board");
+  assert.match(scanPart(declarerCard[0]), /data-board-jump="1"/, "declarer theme also lists the shared board");
+  assert.doesNotMatch(html, /shared with other themes/);
+});
+
+test("loss theme board lists are not truncated", async () => {
+  const { renderLossThemes } = await import("../src/ui/reportView.js");
+  const boards = Array.from({ length: 11 }, (_, index) => String(index + 1));
+  const html = renderLossThemes({
+    decisionTypes: [{
+      key: "biddingJudgment",
+      label: "Bidding Judgment",
+      tone: "gold",
+      advice: "Review the auction.",
+      totalLoss: 11,
+      boardCount: boards.length,
+      comparisonCount: boards.length,
+      boards
+    }],
+    lossLedger: {
+      outrightLoss: 11,
+      outrightBoardCount: boards.length,
+      boardCount: boards.length,
+      tieCount: 0,
+      categories: [],
+      boardItems: []
+    }
+  });
+  boards.forEach((boardNo) => assert.match(html, new RegExp(`data-board-jump="${boardNo}"`)));
+  assert.doesNotMatch(html, /\+\d+ more/);
 });
 
 test("coaching prose and quiz reveals render suit glyphs, never letter abbreviations", async () => {
