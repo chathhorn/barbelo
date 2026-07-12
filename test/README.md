@@ -125,3 +125,30 @@ node test/e2e/a11y.js
 ```
 
 Set `SERVE_ROOT=_site` when running `smoke.js` against a prepared Pages build.
+
+## Real Safari smoke on macOS
+
+The dependency-free real-Safari harness is intentionally opt-in because it
+opens the installed Safari application. On macOS, enable Safari's developer
+features and **Develop → Allow Remote Automation**, then run:
+
+```sh
+SIMULATOR_REAL_SAFARI=1 node test/e2e/simulator-safari.js
+```
+
+The harness starts `safaridriver` and a loopback source server, records the real
+Safari version/user agent, loads synthetic PBN/results entirely in memory, and
+opens the still-unlinked simulator through its internal development lifecycle.
+It smoke-tests WebGL preflight, Coach-only, Keyboard Look movement and arrow
+turning without Pointer Lock, cleanup, same-origin requests, session-data
+non-persistence, and captured console/page errors. It deletes the WebDriver
+session and terminates the driver and server on success or failure.
+
+The command clearly self-skips when it is not explicitly opted in, when run
+off macOS, when `safaridriver` is unavailable, or when Safari Remote Automation
+is disabled. It installs no package and is not part of CI.
+
+This automated smoke is not the required human real-Safari gate. Finalization
+still needs a person to complete and assess the mission in Safari—including
+control feel, keyboard-turn fallback, audio/captions, readability, performance,
+and comfort—on the recorded macOS hardware/browser baseline.
