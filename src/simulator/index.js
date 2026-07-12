@@ -20,9 +20,11 @@ import {
   renderHelp,
   renderPause,
   renderPreflight,
+  renderReducedEffectsOffer,
   updateHud,
 } from "./hud.js";
 import { createInputController } from "./input.js";
+import { createSlowFrameMonitor } from "./performance.js";
 import { createSimulatorRenderer } from "./renderer.js";
 import { disposeSpriteTextures, preloadSpriteTextures } from "./sprites.js";
 
@@ -172,6 +174,7 @@ class SimulatorApp {
     this.helpReturnKind = "";
     this.timers = new Set();
     this.capabilityTimer = 0;
+    this.slowFrameMonitor = createSlowFrameMonitor();
     this.boundClick = (event) => this.handleClick(event);
     this.boundChange = (event) => this.handleSettingChange(event);
     this.boundKeydown = (event) => this.handleKeydown(event);
@@ -316,6 +319,14 @@ class SimulatorApp {
       this.resume();
       return;
     }
+    if (event.target.closest("[data-simulator-enable-reduced-effects]")) {
+      this.resolveReducedEffectsOffer(true);
+      return;
+    }
+    if (event.target.closest("[data-simulator-keep-effects]")) {
+      this.resolveReducedEffectsOffer(false);
+      return;
+    }
     if (event.target.closest("[data-simulator-help]")) {
       this.showHelp({ returnToPause: this.modalKind === "pause" });
       return;
@@ -342,6 +353,7 @@ class SimulatorApp {
     }
     if (event.target.closest("[data-simulator-restart]")) {
       if (this.state) {
+        this.slowFrameMonitor.resetRun();
         restartRun(this.state);
         drainSimulationEvents(this.state);
         if (this.elements) this.resume();
@@ -378,6 +390,7 @@ class SimulatorApp {
     if (this.pauseReason === "context-lost") return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (this.modalKind === "reduced-effects") return;
     if (this.modalKind === "help" && this.helpReturnKind === "pause") {
       this.helpReturnKind = "";
       this.showPause();
@@ -393,6 +406,7 @@ class SimulatorApp {
       return;
     }
     this.stopGame();
+    this.slowFrameMonitor.resetRun();
     try {
       this.state = createSimulation({ scenario: this.scenario, level: this.level, mode });
       this.elements = createGameShell(this.host, this.scenario, this.assetUrl);
@@ -455,8 +469,10 @@ class SimulatorApp {
   frame(now) {
     if (this.destroyed || !this.state || !this.renderer) return;
     this.raf = 0;
-    const delta = Math.min(MAX_FRAME_DELTA, Math.max(0, (now - this.lastFrame) / 1000));
+    const frameDelta = Math.max(0, (now - this.lastFrame) / 1000);
+    const delta = Math.min(MAX_FRAME_DELTA, frameDelta);
     this.lastFrame = now;
+    if (this.recordFramePerformance(frameDelta)) return;
     if (!this.paused && this.state.status === "running") {
       this.accumulator = Math.min(MAX_FRAME_DELTA, this.accumulator + delta);
       while (this.accumulator >= FIXED_DT && !this.paused && this.state.status === "running") {
@@ -474,6 +490,19 @@ class SimulatorApp {
     if (!this.destroyed && !this.paused && this.state && this.renderer) {
       this.raf = requestAnimationFrame((time) => this.frame(time));
     }
+  }
+
+  recordFramePerformance(deltaSeconds) {
+    if (this.settings.reducedEffects) {
+      this.slowFrameMonitor.resetStreak();
+      return false;
+    }
+    const shouldOffer = this.slowFrameMonitor.sample(deltaSeconds, {
+      active: Boolean(!this.paused && this.state && this.state.status === "running"),
+      visible: !document.hidden,
+    });
+    if (shouldOffer) this.showReducedEffectsOffer();
+    return shouldOffer;
   }
 
   processEvents(events) {
@@ -559,6 +588,39 @@ class SimulatorApp {
     });
   }
 
+  showReducedEffectsOffer() {
+    if (!this.state || !this.elements || this.paused || this.settings.reducedEffects) return;
+    this.paused = true;
+    this.pauseReason = "sustained-slow-frames";
+    this.input?.clear();
+    this.input?.releasePointerLock();
+    this.audio?.suspend();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.modalKind = "reduced-effects";
+    this.modalReturnFocus = this.elements.canvas;
+    this.setGameInert(true);
+    renderReducedEffectsOffer(this.elements.modal);
+    this.options.onStatus?.("Reduced Effects available");
+    this.elements.live.textContent = "Sustained slow rendering detected. Reduced Effects is available. Simulation paused; game rules are unchanged.";
+  }
+
+  resolveReducedEffectsOffer(enable) {
+    if (this.modalKind !== "reduced-effects" || !this.elements) return;
+    if (enable) {
+      this.settings.reducedEffects = true;
+      this.renderer?.setReducedEffects(true);
+      this.applyDisplaySettings();
+      saveSettings(this.settings);
+    }
+    this.resume();
+    if (this.elements) {
+      this.elements.live.textContent = enable
+        ? "Reduced Effects enabled. Simulation resumed; combat and game rules are unchanged."
+        : "Current effects kept. Simulation resumed; combat and game rules are unchanged.";
+    }
+  }
+
   showHelp({ returnToPause = false } = {}) {
     if (!this.state || !this.elements) return;
     this.paused = true;
@@ -578,6 +640,7 @@ class SimulatorApp {
 
   pause(reason = "pause", { force = false } = {}) {
     if (!this.state || (!force && this.paused) || this.state.status !== "running") return;
+    this.slowFrameMonitor.resetStreak();
     this.paused = true;
     this.pauseReason = reason;
     this.input?.clear();
@@ -592,6 +655,7 @@ class SimulatorApp {
 
   resume() {
     if (!this.state || !this.elements || this.state.status !== "running") return;
+    this.slowFrameMonitor.resetStreak();
     this.closeModal({ resume: false });
     this.paused = false;
     this.pauseReason = "";
@@ -663,6 +727,7 @@ class SimulatorApp {
   }
 
   stopGame({ keepState = false } = {}) {
+    this.slowFrameMonitor.resetStreak();
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.timers.forEach((timer) => window.clearTimeout(timer));

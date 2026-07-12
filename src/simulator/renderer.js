@@ -143,6 +143,10 @@ function createSimulatorRenderer({ canvas, level, textures, palette = null, fov 
     camera.updateProjectionMatrix();
   }
 
+  function setReducedEffects(enabled) {
+    if (scene.fog) scene.fog.density = enabled ? 0.009 : 0.014;
+  }
+
   function resourceInfo() {
     return {
       calls: renderer.info.render.calls,
@@ -163,7 +167,7 @@ function createSimulatorRenderer({ canvas, level, textures, palette = null, fov 
     if (loseContext && typeof renderer.forceContextLoss === "function") renderer.forceContextLoss();
   }
 
-  return { renderer, scene, camera, sync, render, setFov, resourceInfo, destroy };
+  return { renderer, scene, camera, sync, render, setFov, setReducedEffects, resourceInfo, destroy };
 }
 
 export { createSimulatorRenderer, snapshotEntities, playerView };

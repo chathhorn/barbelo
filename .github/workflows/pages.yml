@@ -71,6 +71,9 @@ jobs:
       - name: Run responsive capability browser test
         run: node test/e2e/simulator-responsive.js
 
+      - name: Run sustained slow-frame offer test
+        run: node test/e2e/simulator-performance.js
+
       - name: Run simulator browser test
         run: node test/e2e/simulator.js
 

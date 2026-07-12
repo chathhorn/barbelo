@@ -266,6 +266,22 @@ function renderChalkboard(modal, wing, { reopened = false } = {}) {
   if (close) close.focus();
 }
 
+function renderReducedEffectsOffer(modal) {
+  modal.hidden = false;
+  modal.innerHTML = `
+    <section class="simulator-modal" aria-labelledby="simulator-reduced-effects-title" aria-describedby="simulator-reduced-effects-copy">
+      <h2 id="simulator-reduced-effects-title">Smooth out the cardroom?</h2>
+      <p id="simulator-reduced-effects-copy">Rendering has stayed below the smooth-play target for about four seconds.</p>
+      <p><strong>Reduced Effects changes presentation only.</strong> It shortens visual effects and lightens fog. Card timing, movement, opponents, damage, scoring, and all game rules stay exactly the same.</p>
+      <div class="simulator-modal-actions">
+        <button type="button" class="primary" data-simulator-enable-reduced-effects>Enable Reduced Effects</button>
+        <button type="button" data-simulator-keep-effects>Keep Current Effects</button>
+      </div>
+    </section>
+  `;
+  modal.querySelector("[data-simulator-enable-reduced-effects]").focus();
+}
+
 function renderPause(modal, { muted = false, cards = [], reason = "pause" } = {}) {
   const contextLost = reason === "context-lost";
   const contextNote = contextLost
@@ -405,6 +421,7 @@ export {
   createGameShell,
   updateHud,
   renderChalkboard,
+  renderReducedEffectsOffer,
   renderPause,
   renderHelp,
   renderCoachOnly,

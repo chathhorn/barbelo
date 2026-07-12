@@ -10,6 +10,8 @@ Implementation checkpoint (2026-07-12):
 - A deterministic Practice bot completes the real map through movement, portals, lift timing, combat, all slips/secrets, boss, and exit without state teleports; it visits all 12 spaces and earns the exact 5,250 Honor total.
 - A deterministic Standard bot completes the authored slice without position/health mutation or checkpoint reset, finishing at 45 Composure; ordinary opponents take two hits, the armored Red-X Sentinel takes five, and the unassisted boss lasts 48.54 simulated seconds.
 - Pure/core, source-browser, resize/zoom, load-failure, complete-mission, and built-IIFE browser gates use committed synthetic data and keep all requests same-origin. The 2026-07-12 local gate used Playwright 1.61.1 with Chromium 149.0.7827.55, Firefox 151.0, and WebKit 26.5; macOS 26.5.2 reports real Safari 26.5.2, whose manual gate remains pending.
+- The current production simulator bundle, CSS, and required assets total 1,509,040 bytes against the 3 MiB gate. Sustained visible/active rendering below 24 FPS now pauses once after roughly four seconds and explicitly offers Reduced Effects without changing game rules.
+- The named candidate real-device baseline is a MacBook Pro `Mac16,5` with Apple M4 Max (14-core CPU, 32-core GPU), 36 GB RAM, and macOS 26.5.2. Headed sustained-FPS/cold-start measurement on that baseline and a slower-device spot check remain pending; headless automation is not counted as that evidence.
 - The report loader prepares current pair/session inputs, but the launch control remains intentionally absent pending the explicit finalization decision.
 
 Working subtitle: **The Lost Matchpoints**

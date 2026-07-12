@@ -56,6 +56,23 @@ compact resize: resize/zoom does not erase progress or tear down WebGL in the
 middle of play. The newly measured capability applies when the player next
 returns to preflight or attempts another launch.
 
+The sustained slow-frame offer has a separate deterministic gate:
+
+```sh
+PLAYWRIGHT_BROWSER=chromium node test/e2e/simulator-performance.js
+PLAYWRIGHT_BROWSER=firefox node test/e2e/simulator-performance.js
+PLAYWRIGHT_BROWSER=webkit node test/e2e/simulator-performance.js
+```
+
+It feeds measured frame samples directly rather than depending on host-machine
+load. A frame qualifies only while the run is active and visible, between
+41.7 ms and 200 ms. The offer requires 90 consecutive qualifying frames and at
+least four accumulated seconds; normal frames, pauses, hidden tabs, and large
+resume stalls reset the streak. The offer appears at most once per run. Both
+actions resume the identical simulation state, and enabling Reduced Effects
+persists only the existing `reducedEffects` preference—never frame history or
+game/session data.
+
 On Debian/Ubuntu, use the following browser-install command if the required
 system libraries are not already present (it may request elevated privileges):
 
@@ -81,10 +98,10 @@ PLAYWRIGHT_BROWSER=firefox SIMULATOR_SCREENSHOT=/tmp/bridge-simulator-firefox.pn
 
 CI performs the same ephemeral pinned install, verifies Playwright `1.61.1`,
 and runs three parallel browser legs. Each leg installs only its selected
-browser, runs the focused responsive gate and full source harness, builds both
-production IIFEs, and runs `test/e2e/simulator-built.js` against the generated
-static site. To run the built gate locally after preparing `_site` with the
-Pages workflow commands:
+browser, runs the focused responsive and slow-frame gates plus the full source
+harness, builds both production IIFEs, and runs `test/e2e/simulator-built.js`
+against the generated static site. To run the built gate locally after
+preparing `_site` with the Pages workflow commands:
 
 ```sh
 PLAYWRIGHT_BROWSER=chromium SERVE_ROOT=_site node test/e2e/simulator-built.js
