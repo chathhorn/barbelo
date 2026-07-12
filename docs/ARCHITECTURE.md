@@ -5,6 +5,11 @@ development, bundled by esbuild only in CI for the GitHub Pages deploy.
 The analysis core is dependency-free and DOM-free; the UI layer renders
 HTML strings from its output into `index.html`'s fixed skeleton.
 
+The Bridge Simulator is an intentionally isolated runtime exception. Its
+scenario and rules remain dependency-free, while its renderer uses one pinned,
+locally vendored Three.js build. Three.js, game code, simulator styles, and
+simulator assets are not eagerly loaded with the analyzer.
+
 ## Data flow
 
 ```
@@ -30,6 +35,39 @@ The shapes passed across these boundaries are documented as JSDoc
 typedefs in `src/core/types.js` and type-checked in CI
 (`tsc -p jsconfig.json --noEmit`, covering `src/core` and `src/parsers`).
 
+## Lazy simulator boundary
+
+The selected pair's `{ analysis, results, report }` snapshot crosses a narrow
+loader boundary in `src/ui/simulatorView.js`. The loader retains those inputs
+but does not import the scenario builder, simulation, renderer, or Three.js.
+Only an explicit development harness or, after finalization, the report launch
+control asks it to load the game. There is deliberately no visible Pair
+Improvement Report launch control yet.
+
+Source development remains no-build. When served from the repository root,
+the loader dynamically imports `src/simulator/index.js`; normal ESM imports
+then load the dependency-free simulator core and the vendored Three.js module.
+The source tree must be served over local HTTP rather than opened with
+`file://`, because module loading, Pointer Lock, WebGL assets, and Web Audio
+need a normal browser origin. No application server is involved.
+
+GitHub Pages uses two classic-script IIFE artifacts:
+
+- `_site/assets/barbelo.js` contains the analyzer and the small lifecycle
+  loader, but no `src/simulator`, `src/core/simulator`, or Three.js modules.
+- `_site/assets/bridge-simulator.js` exposes the lazy
+  `BridgeSimulator.launch(...)` API and contains the game plus its pinned
+  renderer dependency.
+
+The Pages build recursively copies `assets/simulator/`, the separately loaded
+`assets/simulator.css`, and `vendor/three/{LICENSE,VERSION}` into the same
+paths below `_site`. The simulator receives a same-origin asset base URL from
+the loader, so source and built modes resolve the same asset names without a
+CDN. Uploaded session data stays in memory and is passed directly into
+`launch`; it is never placed in a URL or sent over the network. CI checks the
+two esbuild dependency graphs, retained legal notice, copied assets/licenses,
+and the still-absent report launch route.
+
 ## Module map
 
 | Module | Responsibility |
@@ -45,6 +83,7 @@ typedefs in `src/core/types.js` and type-checked in CI
 | `src/core/report.js` | Pair Improvement Report engine: per-pair views, loss ledger, diagnoses, priorities, field context. |
 | `src/core/cohorts.js` | Same-contract cohort analyses: bidding scorecard, declared/defended scorecards, overtrick meter. |
 | `src/core/exercises.js` | Table Time quiz generator: deterministic, self-checking exercises from the pair's own session. |
+| `src/core/simulator/` | Dependency-free deterministic scenario, level, collision, and combat rules for the simulator. |
 | `src/core/types.js` | JSDoc typedefs only; no runtime code. |
 | `src/parsers/pbn.js` | PBN text to directives and per-board tag records; deal/par/double-dummy tag parsing. |
 | `src/parsers/bws.js` | Bridgemate `.BWS` (Jet3 database) binary scan to raw result and player rows. |
@@ -57,11 +96,16 @@ typedefs in `src/core/types.js` and type-checked in CI
 | `src/ui/boardsView.js` | Board explorer: list, filters, deal diagram, traveler, double dummy, board overlay. |
 | `src/ui/reportView.js` | Renders the Pair Improvement Report sections. |
 | `src/ui/quizView.js` | Renders and drives the Table Time quiz cards (reveal spine, biscuit jar). |
+| `src/ui/simulatorView.js` | Small, eager lifecycle bridge that prepares session inputs and lazy-loads the source module or built simulator IIFE. |
 | `src/ui/csvExport.js` | CSV column definitions per row mode, preview, and download. |
 | `src/ui/controller.js` | Load/clear actions and the top-level `renderAll()` render pass. |
 | `src/ui/io.js` | File reading and decoding, drag-and-drop, and all DOM event wiring. |
 | `index.html` | Static panel skeleton; the UI fills its `id`-addressed containers. |
 | `assets/barbelo.css` | All styling, organized in layered sections (tokens → base → views). |
+| `src/simulator/` | Lazy game presentation/runtime entry, renderer adapter, input, audio, sprites, and level meshes. |
+| `assets/simulator.css` | Lazily loaded, simulator-scoped overlay and game styling. |
+| `assets/simulator/` | Original same-origin simulator sprites, textures, effects, and attribution record. |
+| `vendor/three/` | Pinned Three.js ESM source plus upstream MIT license and provenance/version record. |
 | `test/` | `node --test` suite plus golden fixtures; no dependencies. |
 | `tools/generate-golden-fixtures.mjs` | Regenerates the golden fixtures from `samples/`. |
 

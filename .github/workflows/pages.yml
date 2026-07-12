@@ -52,10 +52,24 @@ jobs:
       - name: Prepare static site
         run: |
           set -euo pipefail
-          mkdir -p _site/assets
+          mkdir -p _site/assets _site/vendor/three
           cp index.html _site/index.html
-          cp assets/*.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
-          npx --yes esbuild@0.25.5 src/main.js --bundle --format=iife --outfile=_site/assets/barbelo.js
+          cp assets/barbelo.css assets/simulator.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
+          cp -R assets/simulator _site/assets/
+          cp vendor/three/LICENSE vendor/three/VERSION _site/vendor/three/
+          npx --yes esbuild@0.25.5 src/main.js \
+            --bundle \
+            --format=iife \
+            --legal-comments=eof \
+            --metafile=/tmp/barbelo-meta.json \
+            --outfile=_site/assets/barbelo.js
+          npx --yes esbuild@0.25.5 src/simulator/index.js \
+            --bundle \
+            --format=iife \
+            --global-name=BridgeSimulator \
+            --legal-comments=eof \
+            --metafile=/tmp/bridge-simulator-meta.json \
+            --outfile=_site/assets/bridge-simulator.js
           short_sha="${GITHUB_SHA::7}"
           sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
           sed -i "s|<script type=\"module\" src=\"src/main.js?v=${short_sha}\"></script>|<script defer src=\"assets/barbelo.js?v=${short_sha}\"></script>|" _site/index.html
@@ -67,6 +81,27 @@ jobs:
             exit 1
           fi
           test -s _site/assets/barbelo.js
+          test -s _site/assets/bridge-simulator.js
+          test -s _site/assets/simulator.css
+          test -s _site/assets/simulator/ATTRIBUTIONS.md
+          test -s _site/assets/simulator/coach/coach-idle-talk.svg
+          test -s _site/vendor/three/LICENSE
+          test -s _site/vendor/three/VERSION
+          grep -q 'var BridgeSimulator' _site/assets/bridge-simulator.js
+          grep -q 'SPDX-License-Identifier: MIT' _site/assets/bridge-simulator.js
+          grep -q 'vendor/three/three.core.js' /tmp/bridge-simulator-meta.json
+          if grep -Eq 'src/(core/)?simulator/|vendor/three/' /tmp/barbelo-meta.json; then
+            echo "Simulator or Three.js modules leaked into the main Barbelo bundle." >&2
+            exit 1
+          fi
+          if grep -Eq 'Three\.js Authors|WebGLRenderer|buildBridgeSimulatorScenario|createSimulatorRenderer' _site/assets/barbelo.js; then
+            echo "Three.js or game payload leaked into the main Barbelo artifact." >&2
+            exit 1
+          fi
+          if grep -q 'openBridgeSimulator' src/ui/reportView.js src/ui/io.js; then
+            echo "Bridge Simulator must remain unlinked from the Pair Improvement Report until finalization." >&2
+            exit 1
+          fi
           if grep -q "__BARBELO_VERSION__" _site/index.html; then
             echo "Version placeholder survived static-site preparation." >&2
             exit 1
