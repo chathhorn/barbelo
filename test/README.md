@@ -100,8 +100,11 @@ CI performs the same ephemeral pinned install, verifies Playwright `1.61.1`,
 and runs three parallel browser legs. Each leg installs only its selected
 browser, runs the focused responsive and slow-frame gates plus the full source
 harness, builds both production IIFEs, and runs `test/e2e/simulator-built.js`
-against the generated static site. To run the built gate locally after
-preparing `_site` with the Pages workflow commands:
+against the generated static site. Simulator harnesses force Firefox's software
+WebGL preference so GPU-less CI runners exercise the renderer deterministically;
+separate failure-path coverage still verifies the Coach-only fallback when
+WebGL is unavailable. To run the built gate locally after preparing `_site`
+with the Pages workflow commands:
 
 ```sh
 PLAYWRIGHT_BROWSER=chromium SERVE_ROOT=_site node test/e2e/simulator-built.js

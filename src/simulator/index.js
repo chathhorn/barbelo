@@ -127,7 +127,10 @@ class SimulatorApp {
     this.assetUrl = assetUrl;
     this.options = options;
     this.settings = loadSettings();
-    this.capability = fpsCapability();
+    // showPreflight() measures capability after the app is fully wired. Keep
+    // construction side-effect free so Firefox does not create and discard two
+    // WebGL probe contexts back-to-back during startup.
+    this.capability = null;
     this.state = null;
     this.elements = null;
     this.renderer = null;

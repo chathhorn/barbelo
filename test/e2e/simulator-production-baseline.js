@@ -36,6 +36,9 @@ try {
 if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
   throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
 }
+const BROWSER_LAUNCH_OPTIONS = BROWSER_NAME === "firefox"
+  ? { firefoxUserPrefs: { "webgl.force-enabled": true } }
+  : {};
 if (!SUPPORTED_SCENES.has(BASELINE_SCENE)) {
   throw new Error(`Unsupported SIMULATOR_BASELINE_SCENE ${JSON.stringify(BASELINE_SCENE)}; use ordinary or boss.`);
 }
@@ -210,7 +213,7 @@ function check(ok, label) {
   server = await serve();
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;
-  browser = await browserType.launch({ headless: !HEADED });
+  browser = await browserType.launch({ ...BROWSER_LAUNCH_OPTIONS, headless: !HEADED });
   context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   page = await context.newPage();
   page.setDefaultTimeout(30000);

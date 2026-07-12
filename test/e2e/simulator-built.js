@@ -19,6 +19,9 @@ try {
 if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
   throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
 }
+const BROWSER_LAUNCH_OPTIONS = BROWSER_NAME === "firefox"
+  ? { firefoxUserPrefs: { "webgl.force-enabled": true } }
+  : {};
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -78,7 +81,7 @@ function check(ok, label) {
   const server = await serve();
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;
-  const browser = await browserType.launch();
+  const browser = await browserType.launch(BROWSER_LAUNCH_OPTIONS);
   console.log(`BROWSER: ${BROWSER_NAME} ${browser.version()} (Playwright 1.61.1)`);
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
