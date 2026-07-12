@@ -103,6 +103,8 @@ function check(ok, label) {
   await page.check('[data-simulator-setting="skipTutorial"]');
   await page.click('[data-simulator-start="practice"]');
   await page.waitForSelector("canvas.simulator-canvas");
+  const renderInfo = await page.evaluate(() => window.__bridgeSimulatorTest.renderer.resourceInfo());
+  check(renderInfo.calls < 100, `retro renderer stays below 100 draw calls (${renderInfo.calls})`);
   const startX = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.position.x);
   await page.locator("canvas.simulator-canvas").focus();
   await page.keyboard.down("w");
@@ -257,6 +259,8 @@ function check(ok, label) {
   await page.check('[data-simulator-setting="skipTutorial"]');
   await page.click('[data-simulator-start="practice"]');
   await page.waitForSelector("canvas.simulator-canvas");
+  const fullRenderInfo = await page.evaluate(() => window.__bridgeSimulatorFull.renderer.resourceInfo());
+  check(fullRenderInfo.calls < 100, `full level stays below 100 draw calls (${fullRenderInfo.calls})`);
   for (const wingId of ["a", "b", "c"]) {
     await page.evaluate((wing) => {
       const state = window.__bridgeSimulatorFull.state;

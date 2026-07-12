@@ -141,6 +141,13 @@ jobs:
           test -s _site/assets/simulator/coach/coach-idle-talk.svg
           test -s _site/vendor/three/LICENSE
           test -s _site/vendor/three/VERSION
+          simulator_asset_bytes=$(find _site/assets/simulator -type f -exec stat -c '%s' {} \; | awk '{ total += $1 } END { print total + 0 }')
+          simulator_payload_bytes=$(( $(stat -c '%s' _site/assets/bridge-simulator.js) + $(stat -c '%s' _site/assets/simulator.css) + simulator_asset_bytes ))
+          echo "Required Bridge Simulator payload: ${simulator_payload_bytes} bytes"
+          if (( simulator_payload_bytes > 3145728 )); then
+            echo "Bridge Simulator required payload exceeds the 3 MiB budget." >&2
+            exit 1
+          fi
           grep -q 'var BridgeSimulator' _site/assets/bridge-simulator.js
           grep -q 'SPDX-License-Identifier: MIT' _site/assets/bridge-simulator.js
           grep -q 'vendor/three/three.core.js' /tmp/bridge-simulator-meta.json

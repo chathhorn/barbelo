@@ -1,12 +1,15 @@
 import {
   BoxGeometry,
+  BufferGeometry,
   Color,
   DoubleSide,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
   Shape,
   ShapeGeometry,
+  Vector3,
 } from "../../vendor/three/three.module.js";
 
 const MATERIAL_COLORS = {
@@ -137,6 +140,43 @@ function wallMesh(segment, bottom, top, material) {
   return mesh;
 }
 
+function mergeWallMeshes(meshes, material) {
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+  const point = new Vector3();
+  let vertexOffset = 0;
+  meshes.forEach((mesh) => {
+    mesh.updateMatrix();
+    const geometry = mesh.geometry;
+    const position = geometry.attributes.position;
+    const uv = geometry.attributes.uv;
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position, index).applyMatrix4(mesh.matrix);
+      positions.push(point.x, point.y, point.z);
+      if (uv) uvs.push(uv.getX(index), uv.getY(index));
+      else uvs.push(0, 0);
+    }
+    if (geometry.index) {
+      for (let index = 0; index < geometry.index.count; index += 1) {
+        indices.push(vertexOffset + geometry.index.getX(index));
+      }
+    } else {
+      for (let index = 0; index < position.count; index += 1) indices.push(vertexOffset + index);
+    }
+    vertexOffset += position.count;
+    geometry.dispose();
+  });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeBoundingSphere();
+  const merged = new Mesh(geometry, material);
+  merged.userData.kind = "wall-batch";
+  return merged;
+}
+
 function horizontalMesh(space, height, material, ceiling = false) {
   const shape = new Shape();
   space.polygon.forEach((point, index) => {
@@ -193,6 +233,7 @@ function createLevelMeshes(level, textures) {
   root.name = "bridge-level";
   const materials = createMaterialCache(textures);
   const portalMeshes = new Map();
+  const wallMeshesByMaterial = new Map();
 
   level.spaces.forEach((space) => {
     root.add(horizontalMesh(space, space.floor, materials.get(space.floorMaterial, space.light, "floor")));
@@ -202,10 +243,13 @@ function createLevelMeshes(level, textures) {
   level.walls.forEach((wall) => {
     const space = level.spaces.find((entry) => entry.id === wall.spaceId);
     const light = space ? space.light : 0.75;
+    const material = materials.get(wall.material, light, "wall");
+    if (!wallMeshesByMaterial.has(material)) wallMeshesByMaterial.set(material, []);
     solidWallSegments(level, wall).forEach((segment) => {
-      root.add(wallMesh(segment, wall.bottom, wall.top, materials.get(wall.material, light, "wall")));
+      wallMeshesByMaterial.get(material).push(wallMesh(segment, wall.bottom, wall.top, material));
     });
   });
+  wallMeshesByMaterial.forEach((meshes, material) => root.add(mergeWallMeshes(meshes, material)));
 
   level.portals.forEach((portal) => {
     if (portal.kind === "open" || portal.kind === "stairs") return;

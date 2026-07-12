@@ -49,8 +49,9 @@ npx --no-install playwright install --with-deps chromium
 The script starts its own static server on an ephemeral loopback port, loads
 synthetic PBN/results through the real app, and exercises source-mode loading,
 Coach-only coaching, keyboard play, all three checkpoints, the boss/debrief,
-failure recovery, cleanup, and same-origin requests. A passing run ends with
-`SIMULATOR E2E PASSED`. To retain a gameplay screenshot from the run:
+failure recovery, renderer draw-call budget, cleanup, and same-origin requests.
+A passing run ends with `SIMULATOR E2E PASSED`. To retain a gameplay screenshot
+from the run:
 
 ```sh
 SIMULATOR_SCREENSHOT=/tmp/bridge-simulator.png node test/e2e/simulator.js

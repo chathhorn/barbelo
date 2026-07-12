@@ -15,8 +15,10 @@ test("floor and ceiling meshes occupy the same authored X/Z rooms", () => {
   const meshes = createLevelMeshes(SLICE_LEVEL, {});
   const floors = meshes.root.children.filter((child) => child.userData.kind === "floor");
   const ceilings = meshes.root.children.filter((child) => child.userData.kind === "ceiling");
+  const wallBatches = meshes.root.children.filter((child) => child.userData.kind === "wall-batch");
   assert.equal(floors.length, SLICE_LEVEL.spaces.length);
   assert.equal(ceilings.length, floors.length);
+  assert.ok(wallBatches.length < SLICE_LEVEL.walls.length, "static walls are batched by material");
 
   floors.forEach((floor, index) => {
     const floorBounds = worldBounds(floor);
