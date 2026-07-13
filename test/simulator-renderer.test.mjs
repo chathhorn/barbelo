@@ -97,6 +97,21 @@ test("shared room boundaries become one thick physical wall without covering por
   meshes.destroy();
 });
 
+test("closed stair shortcuts render a barrier until their requirement opens", () => {
+  const gateTexture = {};
+  const meshes = createLevelMeshes(FULL_LEVEL, { vaultDoor: gateTexture });
+  const shortcut = meshes.portalMeshes.get("wing-c-shortcut");
+
+  assert.ok(shortcut, "the Lead Mines shortcut should have a rendered portal mesh");
+  assert.equal(shortcut.visible, true, "the closed Lead Mines shortcut barrier should be visible");
+  assert.equal(shortcut.material.map, gateTexture, "the closed shortcut should use the door texture");
+  assert.equal(meshes.portalMeshes.has("hub-to-wing-c"), false, "permanently open stairs should not allocate a hidden barrier");
+
+  meshes.updatePortals({ "wing-c-shortcut": { open: true } });
+  assert.equal(shortcut.visible, false, "collecting the slip should remove the shortcut barrier");
+  meshes.destroy();
+});
+
 test("wall and floor tints preserve readable ambient brightness", () => {
   const meshes = createLevelMeshes(SLICE_LEVEL, {});
   const walls = meshes.root.children.filter((child) => child.userData.kind === "wall-batch");

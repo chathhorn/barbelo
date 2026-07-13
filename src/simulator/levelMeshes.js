@@ -391,7 +391,7 @@ function createLevelMeshes(level, textures) {
   root.add(mergeWallMeshes(physicalWalls));
 
   level.portals.forEach((portal) => {
-    if (portal.kind === "open" || portal.kind === "stairs") return;
+    if (portal.kind === "open" || (portal.kind === "stairs" && portal.initialOpen !== false)) return;
     const mesh = portalDoorMesh(level, portal, materials.get(portal.material, 0.82, "wall"));
     mesh.visible = !portal.initialOpen;
     portalMeshes.set(portal.id, mesh);

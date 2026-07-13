@@ -384,6 +384,17 @@ function check(ok, label) {
   await page.waitForSelector("canvas.simulator-canvas");
   const fullRenderInfo = await page.evaluate(() => window.__bridgeSimulatorFull.renderer.resourceInfo());
   check(fullRenderInfo.calls < 100, `full level stays below 100 draw calls (${fullRenderInfo.calls})`);
+  const leadMinesBarrier = await page.evaluate(() => {
+    let mesh = null;
+    window.__bridgeSimulatorFull.renderer.scene.traverse((object) => {
+      if (object.userData?.portalId === "wing-c-shortcut") mesh = object;
+    });
+    return { present: Boolean(mesh), visible: Boolean(mesh?.visible), textured: Boolean(mesh?.material?.map) };
+  });
+  check(
+    leadMinesBarrier.present && leadMinesBarrier.visible && leadMinesBarrier.textured,
+    `Lead Mines shortcut starts with a visible textured barrier (${JSON.stringify(leadMinesBarrier)})`
+  );
   for (const wingId of ["a", "b", "c"]) {
     await page.evaluate((wing) => {
       const state = window.__bridgeSimulatorFull.state;
@@ -401,6 +412,13 @@ function check(ok, label) {
     await page.click("[data-simulator-chalkboard-close]");
   }
   check(await page.evaluate(() => window.__bridgeSimulatorFull.state.progress.slips) === 3, "full level awards all three distinct Review Slips");
+  check(await page.evaluate(() => {
+    let mesh = null;
+    window.__bridgeSimulatorFull.renderer.scene.traverse((object) => {
+      if (object.userData?.portalId === "wing-c-shortcut") mesh = object;
+    });
+    return window.__bridgeSimulatorFull.state.portalStates["wing-c-shortcut"].open && mesh && !mesh.visible;
+  }), "Lead Mines slip opens the shortcut and removes its rendered barrier");
   await page.evaluate(() => {
     const state = window.__bridgeSimulatorFull.state;
     const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
