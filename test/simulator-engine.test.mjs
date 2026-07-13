@@ -395,19 +395,27 @@ test("checkpoint rollback restores neutral enemies and pickups with global stats
   assert.equal(state.stats.pickups, 0);
 });
 
-test("wing enemies and the boss remain inside their authored encounters", () => {
+test("wing enemies stay authored while the boss pursues through the vault gate", () => {
   const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
   state.progress.slips = 1;
   state.progress.completedWings = ["a"];
   state.portalStates["hub-to-vault"].open = true;
-  state.player.position = { x: 54, y: 0, z: 28 };
+  state.player.position = { x: 43, y: 0, z: 28 };
   state.player.spaceId = "main-cardroom";
   const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
   boss.active = true;
   boss.alerted = true;
   state.progress.bossActive = true;
-  for (let tick = 0; tick < 350; tick += 1) stepSimulation(state, {}, FIXED_DT);
-  assert.equal(boss.spaceId, "traveler-vault");
+  let crossedGate = false;
+  let returnedFire = false;
+  for (let tick = 0; tick < 600; tick += 1) {
+    const events = stepSimulation(state, {}, FIXED_DT);
+    crossedGate ||= boss.spaceId === "main-cardroom";
+    returnedFire ||= events.some((event) => event.type === "enemy-fired" && event.entityId === boss.id);
+    if (crossedGate && returnedFire) break;
+  }
+  assert.equal(crossedGate, true, "the boss should leave its spawn room to close a ranged dead zone");
+  assert.equal(returnedFire, true, "the pursuing boss should resume fire after closing to attack range");
 
   const wingEnemy = state.enemies.find((enemy) => enemy.wingId === "a");
   wingEnemy.position = { x: 35, y: 0.35, z: 49 };

@@ -423,6 +423,17 @@ test("deterministic bot completes the authored full level through real movement 
   assert.equal(state.progress.bossActive, true);
   assert.equal(state.portalStates["vault-to-results"].open, false);
   const bossFightStartedAt = state.elapsed;
+  const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
+  moveTo(state, { x: 43, z: 28 }, "main-cardroom", trace);
+  let bossCrossedGate = boss.spaceId === "main-cardroom";
+  let bossReturnedFire = false;
+  for (let tick = 0; tick < 600 && !(bossCrossedGate && bossReturnedFire); tick += 1) {
+    const events = advance(state, inputToward(state, boss.position, { forward: 0, fire: true }), trace);
+    bossCrossedGate ||= boss.spaceId === "main-cardroom";
+    bossReturnedFire ||= events.some((event) => event.type === "enemy-fired" && event.entityId === boss.id);
+  }
+  assert.equal(bossCrossedGate, true, "the boss should pursue a ranged player out of the Traveler Vault");
+  assert.equal(bossReturnedFire, true, "the old cardroom safe spot should now draw return fire");
   huntEnemies(state, (enemy) => enemy.archetype === "bottom-board", trace, "Traveler Vault boss", 45000);
   const bossFightSeconds = state.elapsed - bossFightStartedAt;
   assert.equal(state.progress.bossDefeated, true);

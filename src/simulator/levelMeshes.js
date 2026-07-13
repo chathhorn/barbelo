@@ -54,6 +54,7 @@ const SURFACE_WHITE_MIX = Object.freeze({
 });
 
 const WALL_DEPTH = 0.24;
+const WALL_TILE_SIZE = 4;
 const WALL_LINE_TOLERANCE = 1e-5;
 
 function scaledColor(hex, light = 1, surface = "wall") {
@@ -257,12 +258,52 @@ function wallFaceMaterials(physical, materialForWall, spaceById) {
   return [fallback, fallback, fallback, fallback, positive || fallback, negative || fallback];
 }
 
+function tileWallGeometry(geometry, segment, bottom) {
+  const dx = segment.b.x - segment.a.x;
+  const dz = segment.b.z - segment.a.z;
+  const length = Math.hypot(dx, dz);
+  if (!length) return;
+  const ux = dx / length;
+  const uz = dz / length;
+  const nx = -uz;
+  const nz = ux;
+  const alongStart = segment.a.x * ux + segment.a.z * uz;
+  const acrossLine = segment.a.x * nx + segment.a.z * nz;
+  const position = geometry.attributes.position;
+  const uvs = geometry.attributes.uv;
+  if (!position || !uvs) return;
+
+  // BoxGeometry uses four unshared vertices for each of its six faces. Anchor
+  // every face to world dimensions rather than mapping 0..1 across every
+  // differently sized span. Portal cutouts therefore retain the same pattern
+  // phase on either side, while narrow reveals show a narrow texture crop
+  // instead of squeezing a full panel into the wall depth.
+  geometry.groups.forEach((group, faceIndex) => {
+    for (let index = group.start; index < group.start + group.count; index += 1) {
+      const vertexIndex = geometry.index.getX(index);
+      const along = alongStart + position.getX(vertexIndex) + length / 2;
+      const across = acrossLine + position.getZ(vertexIndex);
+      const worldY = bottom + position.getY(vertexIndex) + (geometry.parameters.height / 2);
+      if (faceIndex < 2) {
+        uvs.setXY(vertexIndex, across / WALL_TILE_SIZE, worldY / WALL_TILE_SIZE);
+      } else if (faceIndex < 4) {
+        uvs.setXY(vertexIndex, along / WALL_TILE_SIZE, across / WALL_TILE_SIZE);
+      } else {
+        uvs.setXY(vertexIndex, along / WALL_TILE_SIZE, worldY / WALL_TILE_SIZE);
+      }
+    }
+  });
+  uvs.needsUpdate = true;
+}
+
 function wallMesh(segment, bottom, top, faceMaterials) {
   const dx = segment.b.x - segment.a.x;
   const dz = segment.b.z - segment.a.z;
   const length = Math.hypot(dx, dz);
   const height = Math.max(0.1, top - bottom);
-  const mesh = new Mesh(new BoxGeometry(length, height, WALL_DEPTH), faceMaterials);
+  const geometry = new BoxGeometry(length, height, WALL_DEPTH);
+  tileWallGeometry(geometry, segment, bottom);
+  const mesh = new Mesh(geometry, faceMaterials);
   mesh.position.set((segment.a.x + segment.b.x) / 2, bottom + height / 2, (segment.a.z + segment.b.z) / 2);
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.userData.kind = "wall";
@@ -522,4 +563,4 @@ function createLevelMeshes(level, textures) {
   return { root, portalMeshes, updatePortals, destroy };
 }
 
-export { WALL_DEPTH, createLevelMeshes, physicalWallSegments, solidWallSegments };
+export { WALL_DEPTH, WALL_TILE_SIZE, createLevelMeshes, physicalWallSegments, solidWallSegments };

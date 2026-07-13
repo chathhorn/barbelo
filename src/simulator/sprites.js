@@ -36,6 +36,18 @@ const SPRITE_PATHS = {
   courtyardSky: "textures/courtyard-sky.svg",
 };
 
+const TILED_TEXTURE_KEYS = new Set([
+  "feltWall",
+  "auctionWall",
+  "trickworksWall",
+  "leadMineWall",
+  "paperPanel",
+  "carpetSuits",
+  "ceilingTile",
+  "chalkboard",
+  "vaultDoor",
+]);
+
 function configureTexture(texture, { tile = false } = {}) {
   texture.colorSpace = SRGBColorSpace;
   texture.magFilter = NearestFilter;
@@ -56,7 +68,7 @@ async function preloadSpriteTextures(assetUrl, onProgress = () => {}) {
   const textures = {};
   const results = await Promise.allSettled(entries.map(async ([key, path]) => {
     textures[key] = configureTexture(await loader.loadAsync(assetUrl(path)), {
-      tile: key === "carpetSuits" || key === "ceilingTile" || key === "paperPanel",
+      tile: TILED_TEXTURE_KEYS.has(key),
     });
     loaded += 1;
     onProgress(loaded / entries.length, path);
@@ -132,6 +144,7 @@ function disposeSpriteTextures(textures) {
 
 export {
   SPRITE_PATHS,
+  TILED_TEXTURE_KEYS,
   preloadSpriteTextures,
   createBillboard,
   spriteKeyForEntity,

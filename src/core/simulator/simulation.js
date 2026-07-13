@@ -501,9 +501,10 @@ function updateEnemies(state, dt, events) {
       const moved = moveActor(state.level, enemy, intent.move, dynamics);
       const blockers = [state.player, ...living, ...state.covers];
       const destinationWing = wingIdForSpace(state.level, moved.spaceId);
-      const staysInEncounter = enemy.archetype === "bottom-board"
-        ? moved.spaceId === enemy.spawnSpaceId
-        : !enemy.wingId || destinationWing === enemy.wingId;
+      // Wing encounters stay self-contained, but the active boss must be able
+      // to pursue a player through the open vault gate. Keeping it inside its
+      // spawn space creates a one-way ranged exploit from the cardroom.
+      const staysInEncounter = !enemy.wingId || destinationWing === enemy.wingId;
       if (staysInEncounter && !positionOverlapsActors(moved.position, enemy.radius, blockers, enemy.id)) {
         enemy.position = moved.position;
         enemy.spaceId = moved.spaceId;

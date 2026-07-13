@@ -2,9 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
 import { createSimulation, getSimulationSnapshot } from "../src/core/simulator/simulation.js";
-import { WALL_DEPTH, createLevelMeshes, physicalWallSegments } from "../src/simulator/levelMeshes.js";
+import {
+  WALL_DEPTH,
+  WALL_TILE_SIZE,
+  createLevelMeshes,
+  physicalWallSegments,
+} from "../src/simulator/levelMeshes.js";
 import { snapshotEntities } from "../src/simulator/renderer.js";
-import { SPRITE_PATHS, spriteKeyForEntity, spriteSizeForEntity } from "../src/simulator/sprites.js";
+import {
+  SPRITE_PATHS,
+  TILED_TEXTURE_KEYS,
+  spriteKeyForEntity,
+  spriteSizeForEntity,
+} from "../src/simulator/sprites.js";
 
 const SCENARIO = Object.freeze({
   seed: "renderer-exit-test",
@@ -103,6 +113,55 @@ test("shared room boundaries become one thick physical wall without covering por
   assert.equal(wallBatch.userData.depth, WALL_DEPTH);
   assert.equal(wallBatch.userData.physicalWallCount, physical.length);
   assert.equal(wallBatch.geometry.index.count, physical.length * 36, "each physical wall renders all six box faces");
+  meshes.destroy();
+});
+
+test("long wall textures tile at a stable world scale instead of stretching per span", () => {
+  const physical = physicalWallSegments(FULL_LEVEL);
+  const longestIndex = physical.reduce((bestIndex, wall, index) => {
+    const length = Math.hypot(wall.segment.b.x - wall.segment.a.x, wall.segment.b.z - wall.segment.a.z);
+    const best = physical[bestIndex];
+    const bestLength = Math.hypot(best.segment.b.x - best.segment.a.x, best.segment.b.z - best.segment.a.z);
+    return length > bestLength ? index : bestIndex;
+  }, 0);
+  const longest = physical[longestIndex];
+  const length = Math.hypot(
+    longest.segment.b.x - longest.segment.a.x,
+    longest.segment.b.z - longest.segment.a.z
+  );
+  const height = longest.top - longest.bottom;
+  const ux = (longest.segment.b.x - longest.segment.a.x) / length;
+  const uz = (longest.segment.b.z - longest.segment.a.z) / length;
+  const expectedStart = (longest.segment.a.x * ux + longest.segment.a.z * uz) / WALL_TILE_SIZE;
+  assert.ok(length > WALL_TILE_SIZE * 2, "fixture should exercise a wall spanning several texture tiles");
+
+  const meshes = createLevelMeshes(FULL_LEVEL, {});
+  const wallBatch = meshes.root.children.find((child) => child.userData.kind === "wall-batch");
+  const uv = wallBatch.geometry.attributes.uv;
+  // BoxGeometry allocates 24 vertices per wall; the final 8 are its two long,
+  // room-facing surfaces. Both faces share the same world-scaled UV range.
+  const faceStart = longestIndex * 24 + 16;
+  for (let side = 0; side < 2; side += 1) {
+    const values = Array.from({ length: 4 }, (_, offset) => ({
+      u: uv.getX(faceStart + side * 4 + offset),
+      v: uv.getY(faceStart + side * 4 + offset),
+    }));
+    const uSpan = Math.max(...values.map((value) => value.u)) - Math.min(...values.map((value) => value.u));
+    const vSpan = Math.max(...values.map((value) => value.v)) - Math.min(...values.map((value) => value.v));
+    assert.ok(Math.abs(Math.min(...values.map((value) => value.u)) - expectedStart) < 1e-5);
+    assert.ok(Math.abs(uSpan - length / WALL_TILE_SIZE) < 1e-5);
+    assert.ok(Math.abs(vSpan - height / WALL_TILE_SIZE) < 1e-5);
+    assert.ok(uSpan > 2, "the wall should repeat its texture rather than stretch one copy");
+  }
+  [
+    "feltWall",
+    "auctionWall",
+    "trickworksWall",
+    "leadMineWall",
+    "paperPanel",
+    "chalkboard",
+    "vaultDoor",
+  ].forEach((key) => assert.ok(TILED_TEXTURE_KEYS.has(key), `${key} should use repeat wrapping`));
   meshes.destroy();
 });
 
