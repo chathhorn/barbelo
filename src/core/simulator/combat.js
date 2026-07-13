@@ -7,7 +7,7 @@ const SUIT_ORDER = ["S", "H", "D", "C"];
 const RANK_ORDER = "AKQJT98765432";
 const CARD_DAMAGE = 34;
 const CARD_COOLDOWN = 0.18;
-const SHUFFLE_DURATION = 0.5;
+const SHUFFLE_DURATION = 1;
 const CARD_SPEED = 24;
 const CARD_LIFETIME = 1.25;
 const PROJECTILE_MAX_STEP = 0.1;
@@ -87,6 +87,16 @@ function updateCombatTimers(combat, dt) {
   combat.cooldown = Math.max(0, combat.cooldown - dt);
   if (combat.shuffleRemaining > 0) combat.shuffleRemaining = Math.max(0, combat.shuffleRemaining - dt);
   return combat;
+}
+
+function tryShuffleHand(combat) {
+  if (!combat || !combat.cards.length) return { started: false, reason: "empty" };
+  if (combat.shuffleRemaining > 0) return { started: false, reason: "shuffling" };
+  if (combat.nextCardIndex === 0) return { started: false, reason: "full" };
+  combat.nextCardIndex = 0;
+  combat.shuffleRemaining = combat.shuffleDuration;
+  combat.shuffles += 1;
+  return { started: true, reason: "", duration: combat.shuffleDuration };
 }
 
 function tryThrowCard(combat, options = {}) {
@@ -363,6 +373,7 @@ export {
   buildPracticeDeck,
   createCombatState,
   updateCombatTimers,
+  tryShuffleHand,
   tryThrowCard,
   createEnemyProjectile,
   applyDamageToPlayer,

@@ -87,7 +87,8 @@ Chromium v1228, Firefox v1532, and WebKit v2311, respectively.
 
 The script starts its own static server on an ephemeral loopback port, loads
 synthetic PBN/results through the real app, and exercises source-mode loading,
-the preflight clipboard and Settings flows, keyboard play, all three
+the preflight clipboard and Settings flows, keyboard play, the live minimap,
+early shuffle, all three
 checkpoints, the boss/debrief, failure recovery, the compact/results-only
 disabled-Start route, renderer draw-call budget, cleanup, and same-origin
 requests.

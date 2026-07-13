@@ -146,6 +146,7 @@ function check(ok, label) {
   await page.waitForSelector(".simulator-preflight");
   await page.getByRole("button", { name: "Start!", exact: true }).click();
   await page.locator("canvas.simulator-canvas").focus();
+  check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "built simulator starts with a visible minimap HUD");
   const startX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
   await page.keyboard.down("w");
   await page.waitForTimeout(250);
@@ -155,6 +156,26 @@ function check(ok, label) {
   await page.keyboard.press("Space");
   await page.waitForTimeout(80);
   check(await page.evaluate(() => window.__builtSimulator.state.combat.shotsFired) === 1, "built simulator throws a card");
+
+  await page.evaluate(() => {
+    window.__builtSimulator.state.combat.nextCardIndex = 4;
+    window.__builtSimulator.state.combat.shuffleRemaining = 0;
+  });
+  await page.keyboard.press("r");
+  await page.waitForTimeout(80);
+  check(
+    await page.evaluate(() => window.__builtSimulator.state.combat.nextCardIndex === 0 && window.__builtSimulator.state.combat.shuffleRemaining > 0.75),
+    "built simulator uses R for the one-second early shuffle"
+  );
+  await page.keyboard.press("m");
+  check(await page.locator("[data-simulator-minimap-panel]").isHidden(), "built simulator uses M to hide the minimap");
+  await page.keyboard.press("m");
+  check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "built simulator uses M to show the minimap");
+
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#simulator-pause-title");
+  check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "built Pause omits encounter/run reset actions");
+  await page.click("[data-simulator-resume]");
 
   await page.evaluate(() => { window.__builtSimulator.state.player.composure = 0; });
   await page.waitForSelector("#simulator-match-over-title");

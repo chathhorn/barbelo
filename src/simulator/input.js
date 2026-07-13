@@ -1,7 +1,7 @@
 const GAME_KEYS = new Set([
   "KeyW", "KeyA", "KeyS", "KeyD",
   "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "Space", "KeyE", "Enter", "KeyH",
+  "Space", "KeyE", "Enter", "KeyH", "KeyR", "KeyM",
 ]);
 
 function editableTarget(target) {
@@ -15,6 +15,7 @@ function createInputController({
   keyboardTurnSpeed = 2.2,
   onPause = () => {},
   onHelp = () => {},
+  onMinimapToggle = () => {},
   onPointerLockUnavailable = () => {},
 } = {}) {
   const keys = new Set();
@@ -38,6 +39,7 @@ function createInputController({
     if (!keys.has(event.code)) pressed.add(event.code);
     keys.add(event.code);
     if (event.code === "KeyH" && !event.repeat) onHelp();
+    if (event.code === "KeyM" && !event.repeat) onMinimapToggle();
   }
 
   function onKeyUp(event) {
@@ -141,6 +143,7 @@ function createInputController({
       turn,
       fire: keys.has("Space") || mouseFiring || pressedFire,
       interact: consume("KeyE") || consume("Enter"),
+      reload: consume("KeyR"),
     };
   }
 

@@ -7,7 +7,6 @@ import {
   createSimulation,
   drainSimulationEvents,
   getSimulationSnapshot,
-  resetEncounter,
   restartRun,
   simulationStats,
   stepSimulation,
@@ -255,6 +254,16 @@ class SimulatorApp {
     overlay.classList.toggle("high-contrast", this.settings.highContrast);
   }
 
+  toggleMinimap() {
+    if (!this.elements?.minimapPanel || !this.elements.minimapToggle) return;
+    const visible = this.elements.minimapPanel.hidden;
+    this.elements.minimapPanel.hidden = !visible;
+    this.elements.minimapToggle.setAttribute("aria-pressed", String(visible));
+    this.elements.minimapToggle.innerHTML = `Map: ${visible ? "on" : "off"} <kbd>M</kbd>`;
+    this.elements.minimapToggle.title = `${visible ? "Hide" : "Show"} minimap (M)`;
+    this.elements.live.textContent = `Minimap ${visible ? "shown" : "hidden"}.`;
+  }
+
   handleSettingChange(event) {
     const control = event.target.closest("[data-simulator-setting]");
     if (!control) return;
@@ -287,6 +296,10 @@ class SimulatorApp {
     const start = event.target.closest("[data-simulator-start]");
     if (start) {
       this.startGame();
+      return;
+    }
+    if (event.target.closest("[data-simulator-minimap-toggle]")) {
+      this.toggleMinimap();
       return;
     }
     if (event.target.closest("[data-simulator-settings-close]")) {
@@ -335,12 +348,6 @@ class SimulatorApp {
       } else {
         this.resume();
       }
-      return;
-    }
-    if (event.target.closest("[data-simulator-reset]")) {
-      resetEncounter(this.state, "manual");
-      drainSimulationEvents(this.state);
-      this.resume();
       return;
     }
     if (event.target.closest("[data-simulator-restart]")) {
@@ -405,7 +412,7 @@ class SimulatorApp {
     try {
       this.launchError = "";
       this.state = createSimulation({ scenario: this.scenario, level: this.level, mode: "standard" });
-      this.elements = createGameShell(this.host, this.scenario, this.assetUrl);
+      this.elements = createGameShell(this.host, this.scenario, this.assetUrl, this.level);
       this.audio = createAudioController({ volume: this.settings.volume / 100, muted: this.settings.muted });
       this.renderer = createSimulatorRenderer({
         canvas: this.elements.canvas,
@@ -422,6 +429,7 @@ class SimulatorApp {
         sensitivity: this.mouseSensitivity(),
         onPause: () => this.pause("pointer-lock"),
         onHelp: () => this.showHelp(),
+        onMinimapToggle: () => this.toggleMinimap(),
         onPointerLockUnavailable: () => {
           this.showCaption("Mouse Lock unavailable. Arrow keys turn, and click or Space still throws.", 4500);
         },

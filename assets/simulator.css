@@ -427,6 +427,52 @@
 .simulator-boss-meter[hidden] { display: none; }
 .simulator-boss-meter progress { width: 100%; accent-color: #c94a3c; }
 
+.simulator-minimap {
+  position: absolute;
+  right: 12px;
+  top: 52px;
+  z-index: 3;
+  width: 156px;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  color: #fff0c3;
+}
+
+.simulator-minimap button {
+  min-width: 0;
+  border: 1px solid rgba(240, 189, 51, .8);
+  padding: 3px 7px;
+  background: rgba(3, 7, 5, .92);
+  color: inherit;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.simulator-minimap kbd {
+  margin-left: 3px;
+  color: var(--sim-gold);
+  font: inherit;
+}
+
+.simulator-minimap-panel {
+  width: 156px;
+  height: 104px;
+  border: 2px solid rgba(240, 189, 51, .72);
+  background: rgba(3, 7, 5, .84);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, .7);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.simulator-minimap-panel[hidden] { display: none; }
+.simulator-minimap svg { width: 100%; height: 100%; display: block; }
+.simulator-minimap-room { fill: rgba(71, 111, 85, .42); stroke: #d3c18d; stroke-width: .38; vector-effect: non-scaling-stroke; }
+.simulator-minimap-portal { stroke: #57cde8; stroke-width: 1.35; vector-effect: non-scaling-stroke; }
+.simulator-minimap-player { fill: #ffdf00; stroke: #111; stroke-width: .45; vector-effect: non-scaling-stroke; }
+.simulator-minimap-hostile { fill: #ef493f; stroke: #ffd84d; stroke-width: .45; vector-effect: non-scaling-stroke; }
+.simulator-minimap-hostile.boss { fill: #ffdf00; stroke: #e22d24; stroke-width: .75; }
+
 .simulator-damage-flash {
   position: absolute;
   inset: 0;
@@ -665,7 +711,9 @@
 
 .bridge-simulator-overlay.high-contrast .simulator-objective-banner,
 .bridge-simulator-overlay.high-contrast .simulator-caption,
-.bridge-simulator-overlay.high-contrast .simulator-boss-meter {
+.bridge-simulator-overlay.high-contrast .simulator-boss-meter,
+.bridge-simulator-overlay.high-contrast .simulator-minimap-panel,
+.bridge-simulator-overlay.high-contrast .simulator-minimap button {
   border-color: #ffdf00;
   background: #000;
   color: #fff;
@@ -674,6 +722,11 @@
 .bridge-simulator-overlay.high-contrast .simulator-canvas {
   filter: contrast(1.35) brightness(1.15);
 }
+
+.bridge-simulator-overlay.high-contrast .simulator-minimap-room { fill: #000; stroke: #fff; }
+.bridge-simulator-overlay.high-contrast .simulator-minimap-portal { stroke: #00e5ff; }
+.bridge-simulator-overlay.high-contrast .simulator-minimap-player { fill: #ffdf00; stroke: #000; }
+.bridge-simulator-overlay.high-contrast .simulator-minimap-hostile { fill: #ff2b2b; stroke: #fff; }
 
 .bridge-simulator-overlay.reduced-effects * {
   animation-duration: .001ms !important;

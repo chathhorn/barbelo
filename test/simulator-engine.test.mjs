@@ -4,6 +4,7 @@ import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
 import {
   applyDamageToPlayer,
   createCombatState,
+  tryShuffleHand,
   tryThrowCard,
   updateCombatTimers,
   updateProjectiles,
@@ -43,7 +44,7 @@ function walkTo(state, target, expectedSpaceId, maxTicks = 1200) {
   assert.fail(`could not walk to ${expectedSpaceId} at ${target.x},${target.z}`);
 }
 
-test("thirteen card throws always recover through a bounded shuffle", () => {
+test("thirteen card throws recover through a one-second shuffle", () => {
   const combat = createCombatState({ cards: CARDS, source: "pbn" });
   for (let index = 0; index < 13; index += 1) {
     const result = tryThrowCard(combat, { tick: index, angle: 0 });
@@ -51,9 +52,38 @@ test("thirteen card throws always recover through a bounded shuffle", () => {
     if (index < 12) updateCombatTimers(combat, 1);
   }
   assert.equal(combat.nextCardIndex, 0);
-  assert.ok(combat.shuffleRemaining > 0 && combat.shuffleRemaining <= 0.5);
-  updateCombatTimers(combat, 0.5);
+  assert.equal(combat.shuffleRemaining, 1);
+  updateCombatTimers(combat, 0.99);
+  assert.equal(tryThrowCard(combat, { tick: 14 }).fired, false);
+  updateCombatTimers(combat, 0.02);
   assert.equal(tryThrowCard(combat, { tick: 14 }).fired, true);
+});
+
+test("an early shuffle reloads a partly used hand", () => {
+  const combat = createCombatState({ cards: CARDS, source: "pbn" });
+  assert.equal(tryShuffleHand(combat).reason, "full");
+  assert.equal(tryThrowCard(combat, { tick: 1 }).fired, true);
+  updateCombatTimers(combat, 1);
+  assert.equal(tryThrowCard(combat, { tick: 2 }).fired, true);
+  updateCombatTimers(combat, 1);
+  assert.equal(combat.nextCardIndex, 2);
+
+  assert.deepEqual(tryShuffleHand(combat), { started: true, reason: "", duration: 1 });
+  assert.equal(combat.nextCardIndex, 0);
+  assert.equal(combat.shuffles, 1);
+  assert.equal(tryShuffleHand(combat).reason, "shuffling");
+  assert.equal(tryThrowCard(combat, { tick: 3 }).fired, false);
+  updateCombatTimers(combat, 1);
+  assert.deepEqual(tryThrowCard(combat, { tick: 3 }).projectile.card, CARDS[0]);
+});
+
+test("the simulation turns reload input into an announced early shuffle", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
+  state.combat.nextCardIndex = 4;
+  const events = stepSimulation(state, { reload: true }, FIXED_DT);
+  assert.equal(state.combat.nextCardIndex, 0);
+  assert.equal(state.combat.shuffleRemaining, 1);
+  assert.ok(events.some((event) => event.type === "shuffle-started" && event.early === true && event.duration === 1));
 });
 
 test("System Notes absorb half of damage and the test harness can run invulnerably", () => {

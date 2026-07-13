@@ -152,6 +152,10 @@ function check(ok, label) {
   await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.state.mode === "standard"), "Start! launches Standard rules");
+  check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "gameplay starts with a visible minimap HUD");
+  const initialMinimapTransform = await page.locator("[data-minimap-player]").getAttribute("transform");
+  check(initialMinimapTransform, "minimap exposes the player's position and facing");
+  check(await page.locator("[data-minimap-hostiles] .simulator-minimap-hostile").count() > 0, "minimap plots active opponents");
   const renderInfo = await page.evaluate(() => window.__bridgeSimulatorTest.renderer.resourceInfo());
   check(renderInfo.calls < 100, `retro renderer stays below 100 draw calls (${renderInfo.calls})`);
   const startX = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.position.x);
@@ -161,6 +165,7 @@ function check(ok, label) {
   await page.keyboard.up("w");
   const movedX = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.position.x);
   check(movedX > startX + 0.5, `keyboard-only movement advances the player (${startX.toFixed(2)} -> ${movedX.toFixed(2)})`);
+  check(await page.locator("[data-minimap-player]").getAttribute("transform") !== initialMinimapTransform, "minimap player marker follows movement");
   const startYaw = await page.evaluate(() => {
     window.__bridgeSimulatorTest.input.setMode("mouse");
     return window.__bridgeSimulatorTest.state.player.yaw;
@@ -258,6 +263,9 @@ function check(ok, label) {
   const shortcutBaseline = await page.evaluate(() => {
     const app = window.__bridgeSimulatorTest;
     app.state.player.position.x += 0.75;
+    app.state.combat.nextCardIndex = 4;
+    app.state.combat.cooldown = 0;
+    app.state.combat.shuffleRemaining = 0;
     return { x: app.state.player.position.x, muted: app.settings.muted };
   });
   await page.locator("canvas.simulator-canvas").focus();
@@ -267,14 +275,22 @@ function check(ok, label) {
   const shortcutAfter = await page.evaluate(() => ({
     x: window.__bridgeSimulatorTest.state.player.position.x,
     muted: window.__bridgeSimulatorTest.settings.muted,
+    cardIndex: window.__bridgeSimulatorTest.state.combat.nextCardIndex,
+    shuffleRemaining: window.__bridgeSimulatorTest.state.combat.shuffleRemaining,
   }));
-  check(Math.abs(shortcutAfter.x - shortcutBaseline.x) < 0.001, "R is not bound to reset the encounter");
+  check(Math.abs(shortcutAfter.x - shortcutBaseline.x) < 0.001 && shortcutAfter.cardIndex === 0, "R shuffles early without resetting the encounter");
+  check(shortcutAfter.shuffleRemaining > 0.75, "R starts the one-second shuffle lockout");
   check(shortcutAfter.muted === shortcutBaseline.muted, "M is not bound to mute effects");
+  check(await page.locator("[data-simulator-minimap-panel]").isHidden(), "M hides the minimap without muting effects");
+  check(await page.locator("[data-simulator-minimap-toggle]").getAttribute("aria-pressed") === "false", "minimap toggle exposes its hidden state");
+  await page.keyboard.press("m");
+  check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "M shows the minimap again");
 
   await page.keyboard.press("h");
   await page.waitForSelector("#simulator-help-title");
   const helpText = await page.locator(".simulator-modal").innerText();
   check(helpText.includes("Throwing hand"), "Help keeps the throwing hand readable");
+  check(helpText.includes("R shuffles early"), "Coach's clipboard advertises the early-shuffle control");
   check(!helpText.includes("R resets") && !helpText.includes("M mutes"), "Coach's clipboard does not advertise removed shortcuts");
   check(await page.locator('[role="dialog"][aria-modal="true"]:visible').count() === 1, "Help keeps one unambiguous modal root");
   await page.locator("[data-simulator-help-close]").focus();
@@ -288,7 +304,7 @@ function check(ok, label) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "paused simulation stops scheduling render frames");
-  check(await page.locator("[data-simulator-reset]").count() === 1, "Reset encounter remains an explicit pause action");
+  check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "Pause omits Reset encounter and Restart run actions");
   check(!await page.locator("[data-simulator-mute]").count(), "Pause no longer exposes a separate mute action");
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");

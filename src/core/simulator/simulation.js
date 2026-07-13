@@ -7,6 +7,7 @@ import {
   collectPickup,
   createCombatState,
   createEnemyProjectile,
+  tryShuffleHand,
   tryThrowCard,
   updateCombatTimers,
   updateProjectiles,
@@ -528,6 +529,12 @@ function throwIfRequested(state, input, events) {
   if (state.combat.shuffleRemaining > 0) emit(events, "shuffle-started", { duration: state.combat.shuffleDuration });
 }
 
+function shuffleIfRequested(state, input, events) {
+  if (!input.reload) return;
+  const result = tryShuffleHand(state.combat);
+  if (result.started) emit(events, "shuffle-started", { duration: result.duration, early: true });
+}
+
 function updateEnemies(state, dt, events) {
   const dynamics = dynamicsFor(state);
   const living = state.enemies.filter((enemy) => enemy.alive).sort((a, b) => a.id.localeCompare(b.id));
@@ -714,6 +721,7 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
   collectNearbyPickups(state, events);
   if (input.interact) handleInteraction(state, events);
   activateBossIfNeeded(state, events);
+  shuffleIfRequested(state, input, events);
   throwIfRequested(state, input, events);
   updateEnemies(state, step, events);
   const projectileEvents = updateProjectiles({

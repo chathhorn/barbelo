@@ -44,6 +44,35 @@ function renderHand(cards, used = 0) {
   }).join("");
 }
 
+function minimapMarkup(level) {
+  const spaces = Array.isArray(level && level.spaces) ? level.spaces : [];
+  const points = spaces.flatMap((space) => Array.isArray(space.polygon) ? space.polygon : []);
+  const xCoordinates = points.map((point) => Number(point.x) || 0);
+  const zCoordinates = points.map((point) => Number(point.z) || 0);
+  const minX = xCoordinates.length ? Math.min(...xCoordinates) : 0;
+  const minZ = zCoordinates.length ? Math.min(...zCoordinates) : 0;
+  const maxX = xCoordinates.length ? Math.max(...xCoordinates) : 1;
+  const maxZ = zCoordinates.length ? Math.max(...zCoordinates) : 1;
+  const padding = 1.5;
+  const viewBox = `${minX - padding} ${minZ - padding} ${maxX - minX + padding * 2} ${maxZ - minZ + padding * 2}`;
+  const rooms = spaces.map((space) => {
+    const polygon = (space.polygon || []).map((point) => `${Number(point.x) || 0},${Number(point.z) || 0}`).join(" ");
+    return `<polygon class="simulator-minimap-room" points="${polygon}"></polygon>`;
+  }).join("");
+  const portals = (Array.isArray(level && level.portals) ? level.portals : []).map((portal) => {
+    const a = portal.segment && portal.segment.a || {};
+    const b = portal.segment && portal.segment.b || {};
+    return `<line class="simulator-minimap-portal" x1="${Number(a.x) || 0}" y1="${Number(a.z) || 0}" x2="${Number(b.x) || 0}" y2="${Number(b.z) || 0}"></line>`;
+  }).join("");
+  return `
+    <svg viewBox="${viewBox}" aria-hidden="true" focusable="false">
+      <g>${rooms}</g>
+      <g>${portals}</g>
+      <g data-minimap-hostiles></g>
+      <path class="simulator-minimap-player" data-minimap-player d="M 0 -1.8 L 1.25 1.25 L 0 0.7 L -1.25 1.25 Z"></path>
+    </svg>`;
+}
+
 function renderSettingsControls(settings) {
   return `
     <div class="simulator-settings">
@@ -75,9 +104,9 @@ function renderClipboardContents({ requiredSlips = 3, bossTitle = "The Bottom Bo
     <p><strong>Throwing hand:</strong> ${escapeHtml(handLabel(cards))}</p>
     <ul>
       <li>WASD moves; mouse or arrow keys turn.</li>
-      <li>Click or Space throws the next card. The hand shuffles forever.</li>
+      <li>Click or Space throws the next card. R shuffles early; empty hands shuffle automatically.</li>
       <li>E or Enter interacts with chalkboards and doors.</li>
-      <li>H reopens this clipboard. Escape pauses.</li>
+      <li>M toggles the minimap. H reopens this clipboard. Escape pauses.</li>
       <li>Composure is health. System Notes absorb half of incoming damage.</li>
     </ul>
   `;
@@ -145,13 +174,13 @@ function renderSettings(host, settings, { returnToPause = false } = {}) {
   host.querySelector("#simulator-settings-title")?.focus();
 }
 
-function createGameShell(host, scenario, assetUrl) {
+function createGameShell(host, scenario, assetUrl, level) {
   const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
   host.innerHTML = `
     <section class="simulator-game" aria-label="Bridge Simulator game">
       <div class="simulator-viewport">
         <canvas class="simulator-canvas" width="320" height="200" tabindex="0"
-          aria-label="First-person cardroom. Use WASD to move, mouse or arrow keys to turn, Space to throw a card, and E to interact."
+          aria-label="First-person cardroom. Use WASD to move, mouse or arrow keys to turn, Space to throw a card, R to shuffle, M to toggle the minimap, and E to interact."
           aria-describedby="simulator-objective simulator-live-status"></canvas>
         <span class="simulator-crosshair" aria-hidden="true"></span>
         <div class="simulator-objective-banner" id="simulator-objective">Find the first coaching wing.</div>
@@ -160,6 +189,12 @@ function createGameShell(host, scenario, assetUrl) {
           <progress data-hud-boss-health max="100" value="100">100%</progress>
           <span data-hud-boss-phase>Phase 1</span>
         </div>
+        <aside class="simulator-minimap" aria-label="Minimap" data-simulator-minimap>
+          <button type="button" data-simulator-minimap-toggle aria-pressed="true" title="Hide minimap (M)">Map: on <kbd>M</kbd></button>
+          <div class="simulator-minimap-panel" data-simulator-minimap-panel role="img" aria-label="Minimap showing the player and active opponents">
+            ${minimapMarkup(level)}
+          </div>
+        </aside>
         <div class="simulator-caption" data-simulator-caption hidden></div>
         <div class="simulator-damage-flash" data-simulator-damage aria-hidden="true"></div>
       </div>
@@ -186,6 +221,12 @@ function createGameShell(host, scenario, assetUrl) {
     bossLabel: host.querySelector("[data-hud-boss-label]"),
     bossHealth: host.querySelector("[data-hud-boss-health]"),
     bossPhase: host.querySelector("[data-hud-boss-phase]"),
+    minimap: host.querySelector("[data-simulator-minimap]"),
+    minimapPanel: host.querySelector("[data-simulator-minimap-panel]"),
+    minimapToggle: host.querySelector("[data-simulator-minimap-toggle]"),
+    minimapPlayer: host.querySelector("[data-minimap-player]"),
+    minimapHostiles: host.querySelector("[data-minimap-hostiles]"),
+    minimapHostileDots: new Map(),
     caption: host.querySelector("[data-simulator-caption]"),
     damage: host.querySelector("[data-simulator-damage]"),
     modal: host.querySelector("[data-simulator-modal]"),
@@ -227,6 +268,47 @@ function updateHud(elements, snapshot, scenario) {
   elements.hand.setAttribute("aria-label", `Throwing hand: ${handLabel(cards)}${shuffling ? ". Shuffling" : ""}`);
   elements.shuffle.hidden = !shuffling;
   if (shuffling && !wasShuffling) elements.live.textContent = "Shuffling the throwing hand.";
+
+  const player = snapshot.player || {};
+  const playerPosition = player.position || player;
+  const x = Number(playerPosition.x) || 0;
+  const z = Number(playerPosition.z) || 0;
+  const yaw = Number(player.yaw != null ? player.yaw : player.angle) || 0;
+  const playerRotation = yaw * 180 / Math.PI + 90;
+  if (elements.minimapPlayer) {
+    elements.minimapPlayer.setAttribute("transform", `translate(${x} ${z}) rotate(${playerRotation})`);
+  }
+  const hostiles = (snapshot.entities || []).filter((entity) =>
+    entity && entity.kind === "enemy" && entity.alive !== false && entity.active !== false);
+  if (elements.minimapHostiles) {
+    const seen = new Set();
+    hostiles.forEach((enemy, index) => {
+      const id = String(enemy.id || `enemy-${index}`);
+      seen.add(id);
+      let dot = elements.minimapHostileDots.get(id);
+      if (!dot) {
+        dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        elements.minimapHostileDots.set(id, dot);
+        elements.minimapHostiles.append(dot);
+      }
+      const position = enemy.position || enemy;
+      const enemyX = Number(position.x) || 0;
+      const enemyZ = Number(position.z) || 0;
+      const boss = enemy.archetype === "bottom-board";
+      dot.setAttribute("class", `simulator-minimap-hostile${boss ? " boss" : ""}`);
+      dot.setAttribute("cx", String(enemyX));
+      dot.setAttribute("cy", String(enemyZ));
+      dot.setAttribute("r", String(boss ? 1.1 : 0.7));
+    });
+    elements.minimapHostileDots.forEach((dot, id) => {
+      if (seen.has(id)) return;
+      dot.remove();
+      elements.minimapHostileDots.delete(id);
+    });
+  }
+  if (elements.minimapPanel) {
+    elements.minimapPanel.setAttribute("aria-label", `Minimap showing the player and ${hostiles.length} active ${hostiles.length === 1 ? "opponent" : "opponents"}`);
+  }
 
   const boss = (snapshot.entities || []).find((entity) => entity.archetype === "bottom-board" && entity.alive !== false);
   const bossActive = Boolean(snapshot.progress && snapshot.progress.bossActive && boss);
@@ -313,9 +395,7 @@ function renderPause(modal, { cards = [], reason = "pause" } = {}) {
     ? "WebGL context was lost. Return to preflight to create a fresh renderer, or exit to the report."
     : "The director has stopped the clock. Your Review Slips are safe.";
   const gameActions = contextLost ? "" : `
-        <button type="button" class="primary" data-simulator-resume>Resume</button>
-        <button type="button" data-simulator-reset>Reset encounter</button>
-        <button type="button" data-simulator-restart>Restart run</button>`;
+        <button type="button" class="primary" data-simulator-resume>Resume</button>`;
   modal.hidden = false;
   modal.innerHTML = `
     <section class="simulator-modal" aria-labelledby="simulator-pause-title">
