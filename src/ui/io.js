@@ -134,6 +134,7 @@ function setupEvents() {
   });
 
   document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
+  document.querySelector(".brand-simulator-launch[data-simulator-open]").addEventListener("click", handleBridgeSimulatorClick);
   document.getElementById("boardOverlayClose").addEventListener("click", () => closeBoardOverlay());
   document.getElementById("boardOverlay").addEventListener("click", (event) => {
     if (event.target.closest("[data-board-overlay-close]")) closeBoardOverlay();
@@ -197,8 +198,7 @@ function setupEvents() {
     renderPairImprovementReport(STATE.results);
   });
   document.getElementById("pairReportBody").addEventListener("click", (event) => {
-    if (handleQuizClick(event)) return;
-    handleBridgeSimulatorClick(event);
+    handleQuizClick(event);
   });
   document.getElementById("quizOverlay").addEventListener("click", (event) => {
     if (handleQuizClick(event)) return;

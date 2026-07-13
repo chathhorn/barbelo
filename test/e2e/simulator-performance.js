@@ -96,7 +96,9 @@ async function stopAnimationLoopForSamples(page) {
     buffer: Buffer.from(CSV),
   });
   await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  check(await page.locator("[data-simulator-open]").count() === 1, "performance harness retains the report launch control");
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0 &&
+    await page.locator(".brand-simulator-launch").count() === 1,
+  "performance harness retains only the logo-based simulator route");
   await page.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
     window.__performanceSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });

@@ -43,6 +43,10 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await page.goto(`http://127.0.0.1:${port}/`);
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+  });
   await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
   await page.waitForTimeout(400);
   await page.setInputFiles("#pbnFile", path.join(REPO, "samples", "20260627.pbn"));
@@ -108,31 +112,55 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   const selVisible = await page.evaluate(() => document.getElementById("reportPairSelect").getBoundingClientRect().height > 0);
   check(selVisible, "pair select still visible in header");
 
-  // real Bridge Simulator launch path: semantic trigger, modal focus, cleanup
-  await page.locator("[data-quiz-open]").focus();
+  // real Bridge Simulator launch path: the ouroboros alone is a semantic
+  // trigger; the alternate compass mark remains plain, hidden artwork.
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "pair report has no simulator launch control");
+  await page.locator(".brand-simulator-launch").focus();
   await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   const simulatorLaunch = await page.evaluate(() => {
-    const button = document.querySelector("[data-simulator-open]");
-    const quiz = document.querySelector("[data-quiz-open]");
-    if (!button) return { present: false };
+    const button = document.querySelector(".brand-simulator-launch");
     const style = getComputedStyle(button);
     return {
-      present: true,
-      tag: button.tagName,
-      type: button.getAttribute("type"),
-      followsQuiz: button.previousElementSibling === quiz,
+      present: Boolean(button),
+      tag: button?.tagName,
+      type: button?.getAttribute("type"),
+      disabled: button?.disabled,
       focused: document.activeElement === button,
-      name: button.innerText,
+      name: button?.getAttribute("aria-label"),
       outline: style.outlineStyle,
+      ouroboros: document.body.classList.contains("mark-ouro"),
     };
   });
   check(
     simulatorLaunch.present && simulatorLaunch.tag === "BUTTON" && simulatorLaunch.type === "button" &&
-      simulatorLaunch.followsQuiz && simulatorLaunch.focused && /Bridge Simulator/.test(simulatorLaunch.name) &&
-      simulatorLaunch.outline !== "none",
-    `simulator launch is semantic, ordered, and focus-visible (${JSON.stringify(simulatorLaunch)})`
+      !simulatorLaunch.disabled && simulatorLaunch.focused && simulatorLaunch.name === "Open Bridge Simulator" &&
+      simulatorLaunch.outline !== "none" && simulatorLaunch.ouroboros,
+    `ouroboros simulator launch is semantic and focus-visible (${JSON.stringify(simulatorLaunch)})`
   );
-  await page.click("[data-simulator-open]");
+  const compassState = await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(false);
+    const button = document.querySelector(".brand-simulator-launch");
+    button.click();
+    return {
+      compassVisible: getComputedStyle(document.querySelector(".mark-opt-pleroma")).display !== "none",
+      buttonVisible: getComputedStyle(button).display !== "none",
+      buttonDisabled: button.disabled,
+      buttonHidden: button.getAttribute("aria-hidden"),
+      overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
+    };
+  });
+  check(
+    compassState.compassVisible && !compassState.buttonVisible && compassState.buttonDisabled &&
+      compassState.buttonHidden === "true" && !compassState.overlay,
+    `compass mark is non-interactive and cannot launch (${JSON.stringify(compassState)})`
+  );
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+  });
+  await page.click(".brand-simulator-launch");
   await page.waitForSelector(".simulator-preflight");
   const simulatorModal = await page.evaluate(() => ({
     visibleModals: [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
@@ -176,8 +204,8 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   await page.click(".bridge-simulator-exit");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(
-    await page.evaluate(() => !document.querySelector(".app-shell").inert && document.activeElement?.matches("[data-simulator-open]")),
-    "simulator exit restores app interactivity and launch focus"
+    await page.evaluate(() => !document.querySelector(".app-shell").inert && document.activeElement?.matches(".brand-simulator-launch")),
+    "simulator exit restores app interactivity and ouroboros focus"
   );
 
   // report headings descend both semantically and visually

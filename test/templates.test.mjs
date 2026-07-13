@@ -202,16 +202,14 @@ test("this-week card leads with the focus advice and top priorities", async () =
   assert.match(html, /<h3 id="rs-this-week-title">This Week<\/h3>/);
   assert.match(html, /loss-advice/, "focus advice renders in the this-week card");
   assert.match(html, /this-week-list/);
-  assert.match(html, /<button type="button" class="quiz-launch simulator-launch" data-simulator-open>/);
-  assert.match(html, /Bridge Simulator &mdash; reclaim your matchpoints/);
-  assert.doesNotMatch(html, /One personalized 1990s-style mission built from this pair's session\./);
-  assert.ok(html.indexOf("data-quiz-open") < html.indexOf("data-simulator-open"), "simulator launch follows Table Time");
+  assert.match(html, /data-quiz-open/);
+  assert.doesNotMatch(html, /data-simulator-open|Bridge Simulator/, "the report does not expose the simulator");
 });
 
-test("clean reports still expose the Bridge Simulator launch", async () => {
+test("clean reports also omit the Bridge Simulator launch", async () => {
   const { renderThisWeek } = await import("../src/ui/reportView.js");
   const html = renderThisWeek({ practicePriorities: [], profile: { focus: "" } });
-  assert.match(html, /data-simulator-open/);
+  assert.doesNotMatch(html, /data-simulator-open|Bridge Simulator/);
 });
 
 test("nested report groups use semantic subordinate headings", async () => {

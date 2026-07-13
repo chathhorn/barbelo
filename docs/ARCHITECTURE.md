@@ -40,9 +40,11 @@ typedefs in `src/core/types.js` and type-checked in CI
 The selected pair's `{ analysis, results, report }` snapshot crosses a narrow
 loader boundary in `src/ui/simulatorView.js`. The loader retains those inputs
 but does not import the scenario builder, simulation, renderer, or Three.js.
-Only an explicit development harness or, after finalization, the report launch
-control asks it to load the game. There is deliberately no visible Pair
-Improvement Report launch control yet.
+Once a valid pair report is prepared, the top-left ouroboros mark becomes the
+launch button that asks the loader to load the game. The alternate
+monad/compass mark remains static artwork, and the Pair Improvement Report has
+no simulator launch control. Clearing the loaded data disables the ouroboros
+route and discards the prepared snapshot.
 
 Source development remains no-build. When served from the repository root,
 the loader dynamically imports `src/simulator/index.js`; normal ESM imports
@@ -66,7 +68,7 @@ the loader, so source and built modes resolve the same asset names without a
 CDN. Uploaded session data stays in memory and is passed directly into
 `launch`; it is never placed in a URL or sent over the network. CI checks the
 two esbuild dependency graphs, retained legal notice, copied assets/licenses,
-and the still-absent report launch route.
+the ouroboros launch route, and the absent report launch route.
 
 ## Module map
 

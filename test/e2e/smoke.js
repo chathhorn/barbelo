@@ -54,6 +54,10 @@ function check(condition, label) {
 
   // 1. Load
   await page.goto(`http://127.0.0.1:${port}/`);
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+  });
   await page.waitForTimeout(300);
   check(consoleErrors.length === 0, `page loads without console errors (${consoleErrors.join("; ")})`);
 
@@ -129,7 +133,8 @@ function check(condition, label) {
   check(quizCheck.ok, `quiz overlay: answer, navigate, persist, close (${quizCheck.why})`);
 
   const simulatorBefore = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
-  await page.click("[data-simulator-open]");
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "pair report omits the simulator link");
+  await page.click(".brand-simulator-launch");
   await page.waitForSelector(".simulator-preflight");
   const simulatorLaunchCheck = await page.evaluate(() => ({
     overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
@@ -148,8 +153,8 @@ function check(condition, label) {
   await page.click(".bridge-simulator-exit");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(
-    await page.evaluate(() => document.activeElement?.matches("[data-simulator-open]") && !document.querySelector(".app-shell").inert),
-    "simulator exit restores report launch focus"
+    await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch") && !document.querySelector(".app-shell").inert),
+    "simulator exit restores ouroboros launch focus"
   );
 
   // 4. All views

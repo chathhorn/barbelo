@@ -80,22 +80,39 @@ function check(ok, label) {
   page.on("request", (request) => requests.push(request.url()));
 
   await page.goto(`http://127.0.0.1:${port}/`);
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+  });
+  check(await page.locator(".brand-simulator-launch").isDisabled(), "ouroboros stays inert before a pair report is prepared");
   await page.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
   await page.setInputFiles("#pbnFile", { name: "simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
   await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  const reportLaunch = page.locator("[data-simulator-open]");
-  check(await reportLaunch.count() === 1, "Pair Improvement Report exposes one Bridge Simulator launch control");
-  check(await reportLaunch.evaluate((button) => button.previousElementSibling?.matches("[data-quiz-open]")), "Bridge Simulator launch sits directly below Table Time");
+  const logoLaunch = page.locator(".brand-simulator-launch[data-simulator-open]");
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "Pair Improvement Report omits the Bridge Simulator launch control");
+  check(await logoLaunch.count() === 1 && !await logoLaunch.isDisabled(), "the prepared ouroboros logo exposes the simulator launch");
   check(!requests.some((url) => /src\/simulator\/index\.js|vendor\/three\//.test(url)), "game engine remains unloaded before report activation");
   check(!await page.locator('link[href*="assets/simulator.css"]').count(), "simulator stylesheet remains unloaded before report activation");
-  await reportLaunch.click();
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(false);
+    document.querySelector(".brand-simulator-launch").click();
+  });
+  check(await logoLaunch.isHidden() && await logoLaunch.isDisabled() &&
+    !await page.locator(".bridge-simulator-overlay").count(), "the compass logo is static and cannot launch the simulator");
+  check(!requests.some((url) => /src\/simulator\/index\.js|vendor\/three\//.test(url)), "the compass logo does not load the game engine");
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+  });
+  await logoLaunch.click();
   await page.waitForSelector(".simulator-preflight");
-  check(await page.evaluate(() => document.querySelector(".app-shell").inert), "real report launch makes the app shell inert");
-  check(requests.some((url) => /src\/simulator\/index\.js/.test(url)), "real report launch lazy-loads the simulator module");
-  check(await page.locator('link[href*="assets/simulator.css"]').count() === 1, "real report launch lazy-loads simulator styles");
+  check(await page.evaluate(() => document.querySelector(".app-shell").inert), "real logo launch makes the app shell inert");
+  check(requests.some((url) => /src\/simulator\/index\.js/.test(url)), "real logo launch lazy-loads the simulator module");
+  check(await page.locator('link[href*="assets/simulator.css"]').count() === 1, "real logo launch lazy-loads simulator styles");
   await page.click(".bridge-simulator-exit");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
-  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-open]")), "real report launch restores focus to its control");
+  check(await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch")), "real logo launch restores focus to the ouroboros");
 
   const originalPair = await page.inputValue("#reportPairSelect");
   const selectedPair = await page.evaluate(() => {
@@ -105,7 +122,7 @@ function check(ok, label) {
   });
   if (selectedPair) {
     await page.selectOption("#reportPairSelect", selectedPair.value);
-    await page.click("[data-simulator-open]");
+    await logoLaunch.click();
     await page.waitForSelector(".simulator-preflight");
     const missionChip = await page.locator(".simulator-mission-chip").textContent();
     check(missionChip.includes(`Pair ${selectedPair.pairNo}`), `pair change refreshes the real launch scenario (${missionChip})`);
@@ -483,6 +500,15 @@ function check(ok, label) {
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(await page.evaluate(() => window.__bridgeSimulatorFull.destroyed), "full-level completion tears down cleanly");
+
+  await page.click("#clearAppButton");
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+    document.querySelector(".brand-simulator-launch").click();
+  });
+  check(await logoLaunch.isDisabled() && !await page.locator(".bridge-simulator-overlay").count(),
+    "Clear disables the ouroboros and cannot reopen stale pair/session context");
 
   const failurePage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await failurePage.goto(`http://127.0.0.1:${port}/`);

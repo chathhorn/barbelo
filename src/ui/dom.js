@@ -2,6 +2,8 @@
 // and deploy-version helpers.
 import { escapeHtml } from "../core/format.js";
 
+let bridgeSimulatorReady = false;
+
 function deployedVersion() {
   const meta = document.querySelector('meta[name="barbelo-version"]');
   const version = meta ? meta.getAttribute("content") || "" : "";
@@ -58,8 +60,34 @@ function renderBoardJumpList(boardNos, limit = 8) {
   return `${visible}${more}`;
 }
 
+function syncBridgeSimulatorBrandMark() {
+  const mark = document.querySelector(".brand-simulator-launch[data-simulator-open]");
+  if (!mark) return;
+  const enabled = bridgeSimulatorReady && document.body.classList.contains("mark-ouro");
+  mark.disabled = !enabled;
+  if (enabled) {
+    mark.removeAttribute("aria-hidden");
+    mark.setAttribute("aria-label", "Open Bridge Simulator");
+    mark.setAttribute("title", "Open Bridge Simulator");
+  } else {
+    mark.setAttribute("aria-hidden", "true");
+    mark.removeAttribute("aria-label");
+    mark.removeAttribute("title");
+  }
+}
+
+function setBrandMarkVariant(ouroboros) {
+  document.body.classList.toggle("mark-ouro", Boolean(ouroboros));
+  syncBridgeSimulatorBrandMark();
+}
+
 function flipBrandMark() {
-  document.body.classList.toggle("mark-ouro", Math.random() < 0.5);
+  setBrandMarkVariant(Math.random() < 0.5);
+}
+
+function setBridgeSimulatorReady(ready) {
+  bridgeSimulatorReady = Boolean(ready);
+  syncBridgeSimulatorBrandMark();
 }
 
 function initAppVersion() {
@@ -80,6 +108,8 @@ export {
   setElementHidden,
   renderBoardJump,
   renderBoardJumpList,
+  setBrandMarkVariant,
   flipBrandMark,
+  setBridgeSimulatorReady,
   initAppVersion,
 };

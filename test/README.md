@@ -120,11 +120,14 @@ PLAYWRIGHT_BROWSER=webkit SERVE_ROOT=_site node test/e2e/simulator-built.js
 When upgrading Playwright, update both explicit version references and the CI
 version check together.
 
-The Pair Improvement Report exposes the simulator directly below Table Time.
-The source and built tests exercise that real launch path, verify that the game
-payload remains lazy until activation, and check modal/focus cleanup. The full
-source harness also imports the internal lifecycle module for lower-level game
-states that would be unnecessarily slow to reach through the UI.
+The Pair Improvement Report does not expose the simulator. When a pair report
+is prepared and the randomized top-left mark is the ouroboros, that mark
+becomes the launch button; the monad/compass variant remains non-interactive.
+The source and built tests exercise that route, verify that the game payload
+remains lazy until activation, and check variant gating, modal/focus cleanup,
+and stale-context removal after Clear. The full source harness also imports the
+internal lifecycle module for lower-level game states that would be
+unnecessarily slow to reach through the UI.
 
 The existing app browser checks remain available separately:
 
@@ -147,7 +150,7 @@ SIMULATOR_REAL_SAFARI=1 node test/e2e/simulator-safari.js
 
 The harness starts `safaridriver` and a loopback source server, records the real
 Safari version/user agent, loads synthetic PBN/results entirely in memory, and
-opens the simulator through the real Pair Improvement Report launch control
+selects the ouroboros variant and opens the simulator through its real logo control
 before using its internal lifecycle for focused game states. It smoke-tests
 WebGL preflight, launch focus restoration, the clipboard/Settings flow,
 Keyboard Look movement and arrow turning without Pointer Lock, cleanup,

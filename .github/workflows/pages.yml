@@ -175,7 +175,11 @@ jobs:
             echo "Three.js or game payload leaked into the main Barbelo artifact." >&2
             exit 1
           fi
-          grep -q 'data-simulator-open' src/ui/reportView.js
+          grep -q 'class="mark-option mark-opt-ouro brand-simulator-launch" data-simulator-open' _site/index.html
+          if grep -q 'data-simulator-open' src/ui/reportView.js; then
+            echo "Bridge Simulator launch control leaked back into the Pair Improvement Report." >&2
+            exit 1
+          fi
           grep -q 'handleBridgeSimulatorClick' src/ui/io.js
           if grep -q "__BARBELO_VERSION__" _site/index.html; then
             echo "Version placeholder survived static-site preparation." >&2

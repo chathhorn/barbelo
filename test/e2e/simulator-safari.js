@@ -260,6 +260,14 @@ async function run() {
     const origin = `http://127.0.0.1:${appPort}`;
     await client.navigate(`${origin}/`);
     await waitFor(client, "the Barbelo app", "window.PBNAnalyzer && document.querySelector('#resultsFile')");
+    const brandPrepared = await client.executeAsync(`
+      const done = arguments[arguments.length - 1];
+      import("/src/ui/dom.js").then(({ setBrandMarkVariant }) => {
+        setBrandMarkVariant(true);
+        done({ ok: true });
+      }, (error) => done({ ok: false, error: error && (error.stack || error.message) || String(error) }));
+    `);
+    if (!brandPrepared || !brandPrepared.ok) throw new Error(`Could not select the ouroboros mark: ${brandPrepared && brandPrepared.error || "unknown error"}`);
     const userAgent = await client.execute("return navigator.userAgent;");
     console.log(`SAFARI: ${capabilities.browserVersion || "version unavailable"} · ${userAgent}`);
 
@@ -283,18 +291,18 @@ async function run() {
       load("#pbnFile", "safari-smoke.pbn", "text/plain", arguments[1]);
     `, [CSV, PBN]);
     await waitFor(client, "the Pair Improvement Report", "document.querySelectorAll('.priority-card').length > 0");
-    check(await client.execute("return Boolean(document.querySelector('[data-simulator-open]'));"), "real Safari report exposes the simulator launch control");
+    check(await client.execute("return !document.querySelector('#pairReportBody [data-simulator-open]') && !document.querySelector('.brand-simulator-launch').disabled;"), "real Safari exposes the simulator only through the ouroboros");
 
     await client.execute(`
-      const trigger = document.querySelector('[data-simulator-open]');
+      const trigger = document.querySelector('.brand-simulator-launch');
       trigger.focus();
       trigger.click();
     `);
-    await waitFor(client, "the report-launched simulator preflight", "document.querySelector('.simulator-preflight')");
-    check(await client.execute("return document.querySelector('.app-shell').inert && Boolean(document.querySelector('.bridge-simulator-overlay'));"), "real Safari report launch opens the modal and inerts the app shell");
+    await waitFor(client, "the logo-launched simulator preflight", "document.querySelector('.simulator-preflight')");
+    check(await client.execute("return document.querySelector('.app-shell').inert && Boolean(document.querySelector('.bridge-simulator-overlay'));"), "real Safari logo launch opens the modal and inerts the app shell");
     await client.execute("document.querySelector('.bridge-simulator-exit').click();");
-    await waitFor(client, "report-launch cleanup", "!document.querySelector('.bridge-simulator-overlay')");
-    check(await client.execute("return document.activeElement === document.querySelector('[data-simulator-open]');"), "real Safari report launch restores focus");
+    await waitFor(client, "logo-launch cleanup", "!document.querySelector('.bridge-simulator-overlay')");
+    check(await client.execute("return document.activeElement === document.querySelector('.brand-simulator-launch');"), "real Safari logo launch restores focus");
 
     const opened = await client.executeAsync(`
       const done = arguments[arguments.length - 1];

@@ -132,16 +132,7 @@ function renderThisWeek(report) {
       ${renderLossAdvice(focus)}
       ${list}
       ${renderQuizLaunch()}
-      ${renderBridgeSimulatorLaunch()}
     </section>
-  `;
-}
-
-function renderBridgeSimulatorLaunch() {
-  return `
-    <button type="button" class="quiz-launch simulator-launch" data-simulator-open>
-      <span class="quiz-launch-title simulator-launch-title">Bridge Simulator &mdash; reclaim your matchpoints <span aria-hidden="true">&rsaquo;</span></span>
-    </button>
   `;
 }
 
