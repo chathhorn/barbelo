@@ -47,20 +47,6 @@ function serve() {
   });
 }
 
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=
-3,1,2,N,3 H X,-2
-3,3,4,N,2 S,=
-3,5,6,N,2 S,+1`;
-
-const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
-const PBN = [1, 2, 3].map((board) => `[Board "${board}"]\n[Deal "${DEAL}"]`).join("\n\n");
-
 const failures = [];
 function check(ok, label) {
   console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
@@ -84,15 +70,11 @@ function check(ok, label) {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
   });
-  check(await page.locator(".brand-simulator-launch").isDisabled(), "ouroboros stays inert before a pair report is prepared");
-  await page.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
-  await page.setInputFiles("#pbnFile", { name: "simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
-  await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
   const logoLaunch = page.locator(".brand-simulator-launch[data-simulator-open]");
-  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "Pair Improvement Report omits the Bridge Simulator launch control");
-  check(await logoLaunch.count() === 1 && !await logoLaunch.isDisabled(), "the prepared ouroboros logo exposes the simulator launch");
-  check(!requests.some((url) => /src\/simulator\/index\.js|vendor\/three\//.test(url)), "game engine remains unloaded before report activation");
-  check(!await page.locator('link[href*="assets/simulator.css"]').count(), "simulator stylesheet remains unloaded before report activation");
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "empty Pair Improvement Report omits the Bridge Simulator launch control");
+  check(await logoLaunch.count() === 1 && !await logoLaunch.isDisabled(), "ouroboros exposes the generic simulator on an empty app");
+  check(!requests.some((url) => /packages\/bridge-simulator\/(?:src\/index\.js|vendor\/three\/)/.test(url)), "source package remains unloaded before activation");
+  check(!await page.locator('link[href*="packages/bridge-simulator/simulator.css"]').count(), "package stylesheet remains unloaded before activation");
   await page.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(false);
@@ -100,7 +82,7 @@ function check(ok, label) {
   });
   check(await logoLaunch.isHidden() && await logoLaunch.isDisabled() &&
     !await page.locator(".bridge-simulator-overlay").count(), "the compass logo is static and cannot launch the simulator");
-  check(!requests.some((url) => /src\/simulator\/index\.js|vendor\/three\//.test(url)), "the compass logo does not load the game engine");
+  check(!requests.some((url) => /packages\/bridge-simulator\/(?:src\/index\.js|vendor\/three\/)/.test(url)), "the compass logo does not load the source package");
   await page.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
@@ -108,29 +90,14 @@ function check(ok, label) {
   await logoLaunch.click();
   await page.waitForSelector(".simulator-preflight");
   check(await page.evaluate(() => document.querySelector(".app-shell").inert), "real logo launch makes the app shell inert");
-  check(requests.some((url) => /src\/simulator\/index\.js/.test(url)), "real logo launch lazy-loads the simulator module");
-  check(await page.locator('link[href*="assets/simulator.css"]').count() === 1, "real logo launch lazy-loads simulator styles");
+  check(requests.some((url) => /packages\/bridge-simulator\/src\/index\.js/.test(url)), "real logo launch lazy-loads the simulator package module");
+  check(requests.some((url) => /packages\/bridge-simulator\/vendor\/three\/three\.module\.js/.test(url)), "real logo launch loads the package-owned Three.js module");
+  check(await page.locator('link[href*="packages/bridge-simulator/simulator.css"]').count() === 1, "real logo launch lazy-loads package styles");
   await page.click(".bridge-simulator-exit");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch")), "real logo launch restores focus to the ouroboros");
 
-  const originalPair = await page.inputValue("#reportPairSelect");
-  const selectedPair = await page.evaluate(() => {
-    const select = document.getElementById("reportPairSelect");
-    const next = [...select.options].find((option) => option.value !== select.value);
-    return next ? { value: next.value, pairNo: next.textContent.match(/^Pair\s+([^\s(]+)/)?.[1] || "" } : null;
-  });
-  if (selectedPair) {
-    await page.selectOption("#reportPairSelect", selectedPair.value);
-    await logoLaunch.click();
-    await page.waitForSelector(".simulator-preflight");
-    const missionChip = await page.locator(".simulator-mission-chip").textContent();
-    check(missionChip.includes(`Pair ${selectedPair.pairNo}`), `pair change refreshes the real launch scenario (${missionChip})`);
-    await page.click(".bridge-simulator-exit");
-    await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
-    await page.selectOption("#reportPairSelect", originalPair);
-  }
-  await page.locator("#clearAppButton").focus();
+  await logoLaunch.focus();
 
   await page.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
@@ -144,31 +111,42 @@ function check(ok, label) {
   });
   await page.waitForSelector(".simulator-preflight");
   check(await page.evaluate(() => window.__bridgeSimulatorConcurrentController), "concurrent opens share one controller");
+  check(await page.locator(".bridge-simulator-host.bridge-simulator-root").count() === 1,
+    "the package decorates its own independently styled root");
   check(await page.locator(".bridge-simulator-overlay").getAttribute("role") === "dialog", "simulator opens as a modal dialog");
   check(await page.evaluate(() => document.querySelector(".app-shell").inert), "app shell is inert while simulator is open");
-  check(await page.locator('[data-simulator-start="standard"]').count() === 1, "preflight exposes one gameplay mode");
-  check((await page.locator('[data-simulator-start="standard"]').textContent()).trim() === "Start!", "single gameplay button is labeled Start!");
-  check(!await page.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "Practice and Coach-only launch modes are absent");
+  check(await page.locator("[data-simulator-start]").count() === 1, "preflight exposes one gameplay action");
+  check((await page.locator("[data-simulator-start]").textContent()).trim() === "Start!", "single gameplay button is labeled Start!");
   const clipboardText = await page.locator(".simulator-clipboard").textContent();
   check(clipboardText.includes("Coach's clipboard") && clipboardText.includes("Throwing hand") && clipboardText.includes("WASD"), "Mission preflight displays the Coach's clipboard");
-  const preflightText = await page.locator(".simulator-preflight-panel").innerText();
-  check(!preflightText.includes("this greeting stays local") && !/Using .*hand from loaded PBN Board/i.test(preflightText), "Mission preflight omits internal greeting and hand-provenance copy");
+  const preflightText = await page.locator(".simulator-preflight").innerText();
+  const normalizedPreflightText = preflightText.toLowerCase();
+  check(
+    normalizedPreflightText.includes("bridge fundamentals · training deal") &&
+      normalizedPreflightText.includes("three coaching wings, thirteen cards, and one bottom board."),
+    "Mission preflight presents the generic bridge-fundamentals briefing"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(preflightText), "Mission preflight contains no session or report copy");
   check(!await page.locator(".simulator-preflight [data-simulator-setting]").count(), "Mission preflight does not expose inline settings");
 
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");
   check(await page.locator('[data-simulator-setting="inputMode"]').count() === 1, "initial Settings exposes input configuration");
   await page.check('[data-simulator-setting="highContrast"]');
-  check(await page.locator(".bridge-simulator-overlay").evaluate((element) => element.classList.contains("high-contrast")), "high contrast applies to the full simulator shell");
+  check(await page.locator(".bridge-simulator-root").evaluate((element) => element.classList.contains("high-contrast")), "high contrast applies inside the standalone simulator root");
   await page.uncheck('[data-simulator-setting="highContrast"]');
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
   await page.click("[data-simulator-settings-close]");
   await page.waitForSelector(".simulator-preflight");
   check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-settings]")), "closing initial Settings restores Settings-button focus");
 
-  await page.click('[data-simulator-start="standard"]');
+  await page.click("[data-simulator-start]");
   await page.waitForSelector("canvas.simulator-canvas");
-  check(await page.evaluate(() => window.__bridgeSimulatorTest.state.mode === "standard"), "Start! launches Standard rules");
+  check(await page.evaluate(() => Boolean(
+    window.__bridgeSimulatorTest.state &&
+    window.__bridgeSimulatorTest.renderer &&
+    window.__bridgeSimulatorTest.raf
+  )), "Start! launches the running simulation");
   check(!await page.locator(".simulator-hud-coach, [data-hud-notes]").count(), "gameplay HUD omits the Coach portrait and System Notes meter");
   check(await page.evaluate(() =>
     !("systemNotes" in window.__bridgeSimulatorTest.state.player) &&
@@ -281,7 +259,7 @@ function check(ok, label) {
   });
 
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
-    { type: "player-hit", composureLost: 0, practice: true },
+    { type: "player-hit", composureLost: 0 },
   ]));
   check(!await page.locator("[data-simulator-damage]").evaluate((element) => element.classList.contains("active")), "zero-damage events suppress false damage feedback");
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
@@ -289,7 +267,7 @@ function check(ok, label) {
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Partner! I’m on your side."), "friendly Coach impact has a concise caption");
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
-    { type: "player-hit", composureLost: 7, practice: false },
+    { type: "player-hit", composureLost: 7 },
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Composure -7"), "damage has a captioned non-color cue");
 
@@ -351,7 +329,7 @@ function check(ok, label) {
   await page.waitForSelector("#simulator-pause-title");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "paused simulation stops scheduling render frames");
   check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "Pause omits Reset encounter and Restart run actions");
-  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "Pause relies on the persistent top-right Exit to report control");
+  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "Pause relies on the persistent top-right Exit control");
   check(!await page.locator("[data-simulator-mute]").count(), "Pause no longer exposes a separate mute action");
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");
@@ -381,7 +359,12 @@ function check(ok, label) {
   });
   await page.waitForSelector("#simulator-chalkboard-title");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.state.progress.slips) === 1, "moving over a cleared chalkboard immediately awards and opens its Review Slip");
-  check((await page.locator(".simulator-chalkboard").innerText()).includes("Session evidence"), "chalkboard exposes semantic session evidence");
+  const chalkboardText = await page.locator(".simulator-chalkboard").innerText();
+  check(
+    chalkboardText.includes("Coach's notes") && chalkboardText.includes("Build an auction picture before choosing a contract."),
+    "chalkboard exposes the generic Coach notes"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(chalkboardText), "chalkboard contains no session or report copy");
   await page.click("[data-simulator-chalkboard-close]");
   const checkpointHonor = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.honor);
   await page.locator("canvas.simulator-canvas").focus();
@@ -396,7 +379,6 @@ function check(ok, label) {
   });
   await page.waitForSelector("#simulator-pause-title");
   check((await page.locator(".simulator-modal").innerText()).includes("fresh renderer"), "context loss exposes a real preflight recovery path");
-  check(!await page.locator('[data-simulator-start="coach"]').count(), "context-loss pause does not restore the removed Coach-only mode");
   check(await page.locator("[data-simulator-settings]").count() === 1, "context-loss pause retains Settings access");
   await page.click("[data-simulator-back-preflight]");
   await page.waitForSelector(".simulator-preflight");
@@ -411,8 +393,8 @@ function check(ok, label) {
       .filter(Boolean)
       .map((key) => [key, localStorage.getItem(key)])
   ));
-  check(Object.keys(storedPreferences).every((key) => key === "barbelo.bridgeSimulator.settings.v1"), "local storage contains preferences only");
-  check(!/AKQJ|PairNS|simulator\.csv/.test(JSON.stringify(storedPreferences)), "uploaded session and hand data are never persisted");
+  check(Object.keys(storedPreferences).every((key) => key === "bridgeSimulator.settings.v1"), "local storage contains preferences only");
+  check(!/session|report|coach|auction/i.test(JSON.stringify(storedPreferences)), "generic run and coaching content are never persisted");
   check(requests.every((url) => new URL(url).origin === `http://127.0.0.1:${port}`), "all requests remain same-origin");
   check(errors.length === 0, `browser run has no console/page errors (${errors.join("; ")})`);
 
@@ -425,7 +407,7 @@ function check(ok, label) {
   await page.click("[data-simulator-settings]");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
   await page.click("[data-simulator-settings-close]");
-  await page.click('[data-simulator-start="standard"]');
+  await page.click("[data-simulator-start]");
   await page.waitForSelector("canvas.simulator-canvas");
   const fullRenderInfo = await page.evaluate(() => window.__bridgeSimulatorFull.renderer.resourceInfo());
   check(fullRenderInfo.calls < 100, `full level stays below 100 draw calls (${fullRenderInfo.calls})`);
@@ -496,37 +478,53 @@ function check(ok, label) {
     "completion debrief celebrates recovered matchpoints without the fictional-score disclaimer"
   );
   check(!await page.locator(".simulator-debrief-panel dt", { hasText: "Secrets" }).count(), "completion debrief omits the removed Secrets stat");
-  check(await page.locator(".simulator-debrief-panel").count() === 2, "debrief separates fictional simulation stats from the actual session");
+  const debriefText = await page.locator(".simulator-debrief").innerText();
+  const normalizedDebriefText = debriefText.toLowerCase();
+  check(
+    await page.locator(".simulator-debrief-panel").count() === 2 &&
+      normalizedDebriefText.includes("coach's notes") &&
+      normalizedDebriefText.includes("auction: keep track of range, shape, fit, and which calls are forcing.") &&
+      normalizedDebriefText.includes("next table habit"),
+    "debrief separates simulation stats from generic Coach notes"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(debriefText), "debrief contains no session or report copy");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(await page.evaluate(() => window.__bridgeSimulatorFull.destroyed), "full-level completion tears down cleanly");
 
-  await page.click("#clearAppButton");
+  await page.evaluate(() => document.getElementById("clearAppButton").click());
   await page.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
-    document.querySelector(".brand-simulator-launch").click();
   });
-  check(await logoLaunch.isDisabled() && !await page.locator(".bridge-simulator-overlay").count(),
-    "Clear disables the ouroboros and cannot reopen stale pair/session context");
+  check(!await logoLaunch.isDisabled(), "Clear leaves the generic ouroboros launcher enabled");
+  await logoLaunch.click();
+  await page.waitForSelector(".simulator-preflight");
+  check(
+    (await page.locator(".simulator-mission-chip").innerText()).toLowerCase().includes("bridge fundamentals · training deal"),
+    "Clear leaves the generic simulator launchable without session state"
+  );
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
 
   const failurePage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await failurePage.goto(`http://127.0.0.1:${port}/`);
-  await failurePage.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
-  await failurePage.setInputFiles("#pbnFile", { name: "simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
-  await failurePage.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  await failurePage.locator("#clearAppButton").focus();
-  await failurePage.route("**/assets/simulator.css*", (route) => route.abort());
+  await failurePage.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+    document.querySelector(".brand-simulator-launch").focus();
+  });
+  await failurePage.route("**/packages/bridge-simulator/simulator.css*", (route) => route.abort());
   await failurePage.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
     window.__failureReturnFocus = document.activeElement;
     window.__failureController = await simulator.openBridgeSimulator({ levelId: "slice" });
   });
   await failurePage.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
-  check(!await failurePage.evaluate(() => document.querySelector(".app-shell").inert), "lazy-load failure automatically restores report interactivity");
+  check(!await failurePage.evaluate(() => document.querySelector(".app-shell").inert), "lazy-load failure automatically restores app interactivity");
   check(await failurePage.evaluate(() => document.activeElement === window.__failureReturnFocus), "lazy-load failure restores launch focus");
   await failurePage.waitForFunction(() => document.querySelector("#toast").textContent.includes("could not start"));
-  check((await failurePage.locator("#toast").innerText()).includes("could not start"), "lazy-load failure explains itself in the report toast");
+  check((await failurePage.locator("#toast").innerText()).includes("could not start"), "lazy-load failure explains itself in the app toast");
   check(await failurePage.evaluate(() => window.__failureController === null), "lazy-load failure does not leak a controller");
   await failurePage.close();
 
@@ -537,21 +535,22 @@ function check(ok, label) {
   compactPage.on("console", (message) => { if (message.type() === "error") compactErrors.push(message.text()); });
   compactPage.on("pageerror", (error) => compactErrors.push(error.message));
   await compactPage.goto(`http://127.0.0.1:${port}/`);
-  await compactPage.setInputFiles("#resultsFile", { name: "simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
-  await compactPage.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
-  await compactPage.locator("#clearAppButton").focus();
+  await compactPage.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
+    document.querySelector(".brand-simulator-launch").focus();
+  });
   await compactPage.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
     window.__compactReturnFocus = document.activeElement;
     window.__compactSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });
   });
   await compactPage.waitForSelector(".simulator-preflight");
-  check(await compactPage.locator('[data-simulator-start="standard"]').isDisabled(), "post-zoom viewport below 960×540 disables Standard FPS");
-  check(!await compactPage.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "compact viewport does not restore removed modes");
+  check(await compactPage.locator("[data-simulator-start]").isDisabled(), "post-zoom viewport below 960×540 disables Start!");
   check(!await compactPage.locator("[data-simulator-settings]").isDisabled(), "compact viewport retains Settings access");
   const compactPreflight = (await compactPage.locator(".simulator-preflight").innerText()).toLowerCase();
-  check(compactPreflight.includes("below the 960 × 540"), "compact results-only preflight explains why Start is disabled");
-  check(!compactPreflight.includes("practice deck") && !compactPreflight.includes("this greeting stays local"), "compact preflight omits internal provenance copy");
+  check(compactPreflight.includes("below the 960 × 540"), "compact generic preflight explains why Start is disabled");
+  check(!/session evidence|pair improvement report|loaded pbn|actual session/i.test(compactPreflight), "compact preflight contains no session or report copy");
   check(compactPreflight.includes("coach's clipboard") && compactPreflight.includes("throwing hand"), "compact preflight retains the Coach's clipboard");
   await compactPage.click("[data-simulator-settings]");
   await compactPage.waitForSelector("#simulator-settings-title");

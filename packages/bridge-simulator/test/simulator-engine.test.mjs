@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
-import { ARCHETYPE_STATS, createEnemyFromMarker } from "../src/core/simulator/ai.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/level.js";
+import { ARCHETYPE_STATS, createEnemyFromMarker } from "../src/core/ai.js";
 import {
   applyDamageToPlayer,
   createCombatState,
@@ -9,7 +9,7 @@ import {
   tryThrowCard,
   updateCombatTimers,
   updateProjectiles,
-} from "../src/core/simulator/combat.js";
+} from "../src/core/combat.js";
 import {
   FIXED_DT,
   createSimulation,
@@ -18,14 +18,14 @@ import {
   restartRun,
   simulationStats,
   stepSimulation,
-} from "../src/core/simulator/simulation.js";
+} from "../src/core/simulation.js";
 
 const CARDS = ["SA", "SK", "SQ", "SJ", "ST", "S9", "H8", "H7", "D6", "D5", "C4", "C3", "C2"]
   .map((value) => ({ suit: value[0], rank: value[1] }));
 
 const SCENARIO = Object.freeze({
   seed: "engine-test",
-  representativeHand: { source: "pbn", cards: CARDS },
+  hand: { cards: CARDS },
   wings: [{ slot: "A" }, { slot: "B" }, { slot: "C" }],
   boss: { title: "The Bottom Board" },
 });
@@ -65,7 +65,7 @@ function walkTo(state, target, expectedSpaceId, maxTicks = 1200) {
 }
 
 test("thirteen card throws recover through a one-second shuffle", () => {
-  const combat = createCombatState({ cards: CARDS, source: "pbn" });
+  const combat = createCombatState({ cards: CARDS });
   for (let index = 0; index < 13; index += 1) {
     const result = tryThrowCard(combat, { tick: index, angle: 0 });
     assert.equal(result.fired, true, `card ${index + 1}`);
@@ -80,7 +80,7 @@ test("thirteen card throws recover through a one-second shuffle", () => {
 });
 
 test("an early shuffle reloads a partly used hand", () => {
-  const combat = createCombatState({ cards: CARDS, source: "pbn" });
+  const combat = createCombatState({ cards: CARDS });
   assert.equal(tryShuffleHand(combat).reason, "full");
   assert.equal(tryThrowCard(combat, { tick: 1 }).fired, true);
   updateCombatTimers(combat, 1);
@@ -107,21 +107,17 @@ test("the simulation turns reload input into an announced early shuffle", () => 
   assert.ok(events.some((event) => event.type === "shuffle-started" && event.early === true && event.duration === 1));
 });
 
-test("incoming damage reduces Composure and the test harness can run invulnerably", () => {
+test("incoming damage reduces Composure", () => {
   const player = { composure: 100 };
-  assert.deepEqual(applyDamageToPlayer(player, 30, "standard"), {
+  assert.deepEqual(applyDamageToPlayer(player, 30), {
     rawDamage: 30,
     composureLost: 30,
     defeated: false,
-    practice: false,
   });
   assert.equal(player.composure, 70);
-  const practice = { composure: 100 };
-  assert.equal(applyDamageToPlayer(practice, 500, "practice").composureLost, 0);
-  assert.equal(practice.composure, 100);
 });
 
-test("live boss objective uses the personalized scenario title", () => {
+test("live boss objective uses the scenario title", () => {
   const state = createSimulation({
     scenario: { ...SCENARIO, boss: { title: "Complacency" } },
     level: SLICE_LEVEL,
@@ -256,7 +252,8 @@ test("moving over a cleared wing's Review Slip awards it once and preserves revi
 });
 
 test("a coaching wing objective exposes remaining opponents and the cleared slip", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
+  state.enemies.forEach((enemy) => { enemy.damage = 0; });
   walkTo(state, { x: 12.6, z: 35 }, "club-entrance");
   walkTo(state, { x: 16.2, z: 35 }, "movement-hall");
   walkTo(state, { x: 31, z: 35 }, "main-cardroom");
@@ -278,7 +275,7 @@ test("a coaching wing objective exposes remaining opponents and the cleared slip
 });
 
 test("boss defeat retains slips, reveals the exit, and completes through movement and interaction", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   state.progress.slips = 1;
   state.progress.collectedSlipIds = ["review-slip-a"];
   state.progress.completedWings = ["a"];
@@ -328,11 +325,11 @@ test("Restart Run clears all progress and encounter state", () => {
   assert.equal(state.player.honor, 0);
   assert.equal(state.progress.slips, 0);
   assert.deepEqual(state.progress.completedWings, []);
-  assert.equal(state.mode, "standard");
+  assert.equal(Object.hasOwn(state, "mode"), false);
 });
 
 test("simulation state and snapshots expose no secret pickups or bonus state", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL, mode: "standard" });
+  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL });
   const snapshot = getSimulationSnapshot(state);
   assert.equal(Object.hasOwn(state, "secrets"), false);
   assert.equal(Object.hasOwn(state.progress, "secrets"), false);
@@ -342,7 +339,7 @@ test("simulation state and snapshots expose no secret pickups or bonus state", (
 });
 
 test("reset after a completed wing preserves completed actors and awards", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const wingEnemies = state.enemies.filter((enemy) => enemy.wingId === "a");
   wingEnemies.forEach((enemy) => {
     enemy.alive = false;
@@ -364,7 +361,7 @@ test("reset after a completed wing preserves completed actors and awards", () =>
 });
 
 test("checkpoint rollback restores neutral enemies and pickups with global stats", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const wingEnemies = state.enemies.filter((enemy) => enemy.wingId === "a");
   wingEnemies.forEach((enemy) => { enemy.alive = false; enemy.health = 0; });
   state.encounter = { ...state.encounter, kind: "wing", wingId: "a" };
@@ -396,13 +393,14 @@ test("checkpoint rollback restores neutral enemies and pickups with global stats
 });
 
 test("wing enemies stay authored while the boss pursues through the vault gate", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   state.progress.slips = 1;
   state.progress.completedWings = ["a"];
   state.portalStates["hub-to-vault"].open = true;
   state.player.position = { x: 43, y: 0, z: 28 };
   state.player.spaceId = "main-cardroom";
   const boss = state.enemies.find((enemy) => enemy.archetype === "bottom-board");
+  boss.damage = 0;
   boss.active = true;
   boss.alerted = true;
   state.progress.bossActive = true;
@@ -429,7 +427,7 @@ test("wing enemies stay authored while the boss pursues through the vault gate",
 
 test("either lift control calls a timed lift before the shortcut opens", () => {
   for (const controlId of ["lift-control-hub", "lift-control-wing-a"]) {
-    const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+    const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
     state.progress.completedWings = ["a"];
     state.progress.slips = 1;
     const portalId = "wing-a-lift-shortcut";

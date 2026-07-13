@@ -9,15 +9,16 @@ function escapeHtml(value) {
 
 function segmentText(segments) {
   return (Array.isArray(segments) ? segments : [])
-    .map((segment) => String(segment && segment.text || "").trim())
+    .map((segment) => String(segment || "").trim())
     .filter(Boolean)
     .join(" ");
 }
 
 function renderSegments(segments, className = "") {
   const content = (Array.isArray(segments) ? segments : [])
-    .filter((segment) => segment && segment.text)
-    .map((segment) => `<span data-claim-kind="${escapeHtml(segment.claimKind || "static")}">${escapeHtml(segment.text)}</span>`)
+    .map((segment) => String(segment || "").trim())
+    .filter(Boolean)
+    .map((text) => `<span>${escapeHtml(text)}</span>`)
     .join(" ");
   return `<p${className ? ` class="${escapeHtml(className)}"` : ""}>${content}</p>`;
 }
@@ -117,11 +118,9 @@ function renderPreflight(host, scenario, assetUrl, {
   requiredSlips = scenario.wings ? scenario.wings.length : 3,
   unavailableReason = "This device or viewport cannot run the FPS safely.",
 } = {}) {
-  const pair = scenario.identity || {};
-  const mode = scenario.mode === "defend-crown" ? "Defend the Crown" : "Restore Honor";
   const bark = segmentText(scenario.briefing && scenario.briefing.bark);
   const unavailable = fpsAvailable ? "" : `
-    <div class="simulator-provenance" role="status">
+    <div class="simulator-capability-note" role="status">
       ${escapeHtml(unavailableReason)} Start is unavailable on this device or viewport.
     </div>`;
   host.innerHTML = `
@@ -131,7 +130,7 @@ function renderPreflight(host, scenario, assetUrl, {
           <span>One level. Thirteen cards. Questionable honor.</span>
           <h1 id="simulator-preflight-title">The Lost<br>Matchpoints</h1>
         </div>
-        <span class="simulator-mission-chip">${escapeHtml(pair.pairLabel || "Selected pair")} · ${escapeHtml(mode)}</span>
+        <span class="simulator-mission-chip">Bridge fundamentals · Training deal</span>
         <article class="simulator-coach-card">
           <img src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Upright Border Collie Bridge Coach wearing a trenchcoat">
           <div>
@@ -148,11 +147,11 @@ function renderPreflight(host, scenario, assetUrl, {
           ${renderClipboardContents({
             requiredSlips,
             bossTitle: scenario.boss && scenario.boss.title,
-            cards: scenario.representativeHand && scenario.representativeHand.cards,
+            cards: scenario.hand && scenario.hand.cards,
           })}
         </section>
         <div class="simulator-actions">
-          <button type="button" class="primary" data-simulator-start="standard"${fpsAvailable ? "" : " disabled"}>Start!</button>
+          <button type="button" class="primary" data-simulator-start${fpsAvailable ? "" : " disabled"}>Start!</button>
           <button type="button" data-simulator-settings>Settings</button>
         </div>
       </div>
@@ -175,7 +174,7 @@ function renderSettings(host, settings, { returnToPause = false } = {}) {
 }
 
 function createGameShell(host, scenario, level) {
-  const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
+  const cards = scenario.hand && scenario.hand.cards || [];
   host.innerHTML = `
     <section class="simulator-game" aria-label="Bridge Simulator game">
       <div class="simulator-viewport">
@@ -237,14 +236,8 @@ function createGameShell(host, scenario, level) {
   };
 }
 
-function valueFrom(snapshot, paths, fallback = 0) {
-  for (const path of paths) {
-    const parts = path.split(".");
-    let value = snapshot;
-    for (const part of parts) value = value == null ? undefined : value[part];
-    if (value != null && Number.isFinite(Number(value))) return Number(value);
-  }
-  return fallback;
+function numericValue(value, fallback = 0) {
+  return value != null && Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
 
 function updateHandCards(hand, used) {
@@ -273,11 +266,11 @@ function prepareHandShuffle(hand, label, cards, duration) {
 }
 
 function updateHud(elements, snapshot, scenario) {
-  const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
-  const composure = valueFrom(snapshot, ["player.composure", "player.health", "hud.composure"], 100);
-  const honor = valueFrom(snapshot, ["player.honor", "score.honor", "stats.honor", "hud.honor"], 0);
-  const slips = valueFrom(snapshot, ["objectives.slips", "progress.slips", "stats.slips", "hud.slips"], 0);
-  const used = valueFrom(snapshot, ["weapon.cardIndex", "weapon.used", "player.cardIndex", "hud.cardIndex"], 0);
+  const cards = scenario.hand && scenario.hand.cards || [];
+  const composure = numericValue(snapshot.player && snapshot.player.composure, 100);
+  const honor = numericValue(snapshot.player && snapshot.player.honor, 0);
+  const slips = numericValue(snapshot.progress && snapshot.progress.slips, 0);
+  const used = numericValue(snapshot.weapon && snapshot.weapon.cardIndex, 0);
   elements.composure.textContent = String(Math.max(0, Math.round(composure)));
   elements.honor.textContent = String(Math.max(0, Math.round(honor)));
   elements.slips.textContent = String(Math.max(0, Math.round(slips)));
@@ -287,7 +280,7 @@ function updateHud(elements, snapshot, scenario) {
   const wasShuffling = elements.hand.dataset.shuffling === "true";
   elements.hand.setAttribute("aria-label", `Throwing hand: ${handLabel(cards)}${shuffling ? ". Shuffling" : ""}`);
   if (shuffling && !wasShuffling) {
-    const shuffleDuration = valueFrom(snapshot, ["weapon.shuffleDuration"], 1);
+    const shuffleDuration = numericValue(snapshot.weapon && snapshot.weapon.shuffleDuration, 1);
     prepareHandShuffle(elements.hand, elements.shuffle, handCards, shuffleDuration);
     elements.hand.dataset.shuffling = "true";
     elements.shuffle.hidden = false;
@@ -359,25 +352,11 @@ function updateHud(elements, snapshot, scenario) {
   } else {
     elements.bossMeter.dataset.phase = "";
   }
-  const objective = snapshot.objectiveText || snapshot.hud && snapshot.hud.objective || "Recover the Review Slips.";
+  const objective = snapshot.objectiveText || "Recover the Review Slips.";
   if (elements.objective.textContent !== objective) {
     elements.objective.textContent = objective;
     elements.live.textContent = `Objective: ${objective}`;
   }
-}
-
-function evidenceRows(board) {
-  if (!board) return "";
-  const rows = [
-    ["Board", board.boardNo == null ? "Not board-specific" : board.boardNo],
-    ["Your table", board.contractText || "Not available"],
-    ["Score", board.pairScore == null ? "Not available" : board.pairScore],
-    ["Board %", board.percent == null ? "Not available" : `${Number(board.percent).toFixed(1)}%`],
-    ["Review category", board.categoryLabel || "Manual review"],
-    ["Confidence", board.confidence && board.confidence.label || "Manual review"],
-  ];
-  if (board.betterPeer) rows.push(["Same-direction comparison", `${board.betterPeer.contract || "Result"} · ${board.betterPeer.score == null ? "score unavailable" : board.betterPeer.score}`]);
-  return `<dl>${rows.map(([term, value]) => `<dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl>`;
 }
 
 function renderChalkboard(modal, wing) {
@@ -387,11 +366,10 @@ function renderChalkboard(modal, wing) {
     <article class="simulator-chalkboard" aria-labelledby="simulator-chalkboard-title">
       <h2 id="simulator-chalkboard-title">${escapeHtml(wing && wing.title || "Coach's Chalkboard")}</h2>
       ${renderSegments(feedback.summary, "simulator-chalkboard-summary")}
-      <details class="simulator-evidence" open>
-        <summary>Session evidence</summary>
-        ${evidenceRows(wing && wing.featuredBoard)}
+      <section class="simulator-evidence" aria-labelledby="simulator-coach-notes-title">
+        <h3 id="simulator-coach-notes-title">Coach's notes</h3>
         ${renderSegments(feedback.details)}
-      </details>
+      </section>
       <div class="simulator-modal-actions">
         <button type="button" class="primary" data-simulator-chalkboard-close>Return to mission</button>
       </div>
@@ -420,7 +398,7 @@ function renderReducedEffectsOffer(modal) {
 function renderPause(modal, { cards = [], reason = "pause" } = {}) {
   const contextLost = reason === "context-lost";
   const contextNote = contextLost
-    ? "WebGL context was lost. Return to preflight to create a fresh renderer, or exit to the report."
+    ? "WebGL context was lost. Return to preflight to create a fresh renderer, or exit the simulator."
     : "The director has stopped the clock. Your Review Slips are safe.";
   const gameActions = contextLost ? "" : `
         <button type="button" class="primary" data-simulator-resume>Resume</button>`;
@@ -469,7 +447,7 @@ function renderMatchOver(modal) {
 }
 
 function renderDebrief(host, scenario, stats = {}, assetUrl) {
-  const sessionFacts = scenario.debrief && scenario.debrief.sessionFacts || [];
+  const notes = scenario.debrief && scenario.debrief.notes || [];
   host.innerHTML = `
     <section class="simulator-debrief" aria-labelledby="simulator-debrief-title">
       <h2 id="simulator-debrief-title" tabindex="-1">Matchpoints recovered.</h2>
@@ -489,15 +467,15 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
           </dl>
         </section>
         <section class="simulator-debrief-panel">
-          <h3>Your Actual Session</h3>
-          ${(sessionFacts || []).map((fact) => renderSegments(fact.segments)).join("")}
-          <strong>Practice action</strong>
-          ${renderSegments(scenario.debrief && scenario.debrief.practiceAction)}
+          <h3>Coach's Notes</h3>
+          ${renderSegments(notes)}
+          <strong>Next table habit</strong>
+          ${renderSegments(scenario.debrief && scenario.debrief.nextTableHabit)}
         </section>
       </div>
       <div class="simulator-modal-actions">
         <button type="button" data-simulator-restart>Play again</button>
-        <button type="button" class="primary" data-simulator-close>Return to report</button>
+        <button type="button" class="primary" data-simulator-close>Exit simulator</button>
       </div>
     </section>
   `;

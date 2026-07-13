@@ -1,9 +1,8 @@
 // Lazy lifecycle bridge for Bridge Simulator. This module is intentionally
-// small enough to live in Barbelo's main bundle: the scenario builder,
-// Three.js renderer, simulation, and assets load only when opened.
-import { deployedVersion, setBridgeSimulatorReady, showToast } from "./dom.js";
+// small enough to live in Barbelo's main bundle. The self-contained game
+// package, Three.js renderer, styles, and assets load only when opened.
+import { deployedVersion, showToast } from "./dom.js";
 
-let preparedInputs = null;
 let activeController = null;
 let activeOverlay = null;
 let activeOpenPromise = null;
@@ -28,7 +27,9 @@ function isBuiltSite() {
 function ensureStylesheet() {
   if (stylesheetPromise) return stylesheetPromise;
   stylesheetPromise = new Promise((resolve, reject) => {
-    const href = versionedUrl("assets/simulator.css");
+    const href = versionedUrl(isBuiltSite()
+      ? "assets/simulator.css"
+      : "packages/bridge-simulator/simulator.css");
     const existing = [...document.querySelectorAll('link[rel="stylesheet"]')]
       .find((link) => link.href === href);
     if (existing) {
@@ -70,7 +71,7 @@ function ensureStylesheet() {
 async function loadSourceModule() {
   // Keeping the specifier in a variable prevents the main esbuild entry from
   // absorbing the simulator into Barbelo's eagerly loaded bundle.
-  const moduleUrl = versionedUrl("src/simulator/index.js");
+  const moduleUrl = versionedUrl("packages/bridge-simulator/src/index.js");
   return import(moduleUrl);
 }
 
@@ -133,11 +134,11 @@ function createOverlay() {
     <div class="bridge-simulator-frame">
       <header class="bridge-simulator-framebar">
         <div>
-          <span class="bridge-simulator-eyebrow">Barbelo field training</span>
+          <span class="bridge-simulator-eyebrow">Bridge fundamentals field training</span>
           <strong>Bridge Simulator: The Lost Matchpoints</strong>
         </div>
         <span class="bridge-simulator-global-status" role="status" aria-live="polite">Loading simulator...</span>
-        <button type="button" class="bridge-simulator-exit" data-simulator-exit>Exit to report</button>
+        <button type="button" class="bridge-simulator-exit" data-simulator-exit>Exit simulator</button>
       </header>
       <div class="bridge-simulator-host" data-simulator-host>
         <div class="bridge-simulator-loading" role="status">
@@ -176,12 +177,6 @@ function trapOverlayFocus(event) {
   }
 }
 
-function prepareBridgeSimulator(analysis, results, report) {
-  preparedInputs = results && report ? { analysis: analysis || null, results, report } : null;
-  setBridgeSimulatorReady(Boolean(preparedInputs));
-  return Boolean(preparedInputs);
-}
-
 function bridgeSimulatorIsOpen() {
   return Boolean(activeOverlay && document.body.contains(activeOverlay));
 }
@@ -205,7 +200,6 @@ async function openBridgeSimulatorOnce(options) {
   const exit = activeOverlay.querySelector("[data-simulator-exit]");
   if (exit) exit.focus();
 
-  const frozenInputs = preparedInputs;
   const status = activeOverlay.querySelector(".bridge-simulator-global-status");
   const host = activeOverlay.querySelector("[data-simulator-host]");
   try {
@@ -213,10 +207,12 @@ async function openBridgeSimulatorOnce(options) {
     if (!bridgeSimulatorIsOpen() || generation !== openGeneration) return null;
     const launch = simulator.launch || (globalThis.BridgeSimulator && globalThis.BridgeSimulator.launch);
     if (typeof launch !== "function") throw new Error("Simulator launch API is unavailable.");
-    const controller = await launch(host, frozenInputs, {
+    const controller = await launch(host, {
       ...options,
       version: deployedVersion(),
-      assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
+      assetBaseUrl: new URL(isBuiltSite()
+        ? "assets/simulator/"
+        : "packages/bridge-simulator/assets/", document.baseURI).href,
       onStatus(message) {
         if (status) status.textContent = message;
       },
@@ -240,7 +236,6 @@ async function openBridgeSimulatorOnce(options) {
 }
 
 async function openBridgeSimulator(options = {}) {
-  if (!preparedInputs) throw new Error("Bridge Simulator needs a selected pair report.");
   if (bridgeSimulatorIsOpen()) return activeController || activeOpenPromise;
   const pending = openBridgeSimulatorOnce(options);
   activeOpenPromise = pending;
@@ -287,7 +282,6 @@ function closeBridgeSimulator({ restoreFocus = true, preserveReturnFocus = false
 }
 
 export {
-  prepareBridgeSimulator,
   handleBridgeSimulatorClick,
   openBridgeSimulator,
   closeBridgeSimulator,

@@ -61,6 +61,41 @@ function check(condition, label) {
   await page.waitForTimeout(300);
   check(consoleErrors.length === 0, `page loads without console errors (${consoleErrors.join("; ")})`);
 
+  // The generic simulator is a blank-app easter egg. It must not depend on a
+  // loaded report, even though the rest of this smoke continues with samples.
+  const simulatorBefore = requests.filter((url) => /bridge-simulator\.js|packages\/bridge-simulator\/src\/index\.js/.test(url)).length;
+  check(
+    await page.locator("#pairReportBody [data-simulator-open]").count() === 0 &&
+      !await page.locator(".brand-simulator-launch").isDisabled(),
+    "blank app exposes the generic simulator only through the ouroboros"
+  );
+  await page.click(".brand-simulator-launch");
+  await page.waitForSelector(".simulator-preflight");
+  const simulatorLaunchCheck = await page.evaluate(() => ({
+    overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
+    inert: document.querySelector(".app-shell").inert,
+    focused: document.querySelector(".bridge-simulator-overlay").contains(document.activeElement),
+    starts: document.querySelectorAll("[data-simulator-start]").length,
+    startName: document.querySelector("[data-simulator-start]")?.textContent?.trim(),
+    clipboard: Boolean(document.querySelector(".simulator-clipboard")),
+    generic: !/Pair\s+\d|session percentage|MP versus average|loaded PBN/i.test(
+      document.querySelector(".simulator-preflight")?.textContent || ""
+    ),
+  }));
+  const simulatorAfter = requests.filter((url) => /bridge-simulator\.js|packages\/bridge-simulator\/src\/index\.js/.test(url)).length;
+  check(
+    simulatorBefore === 0 && simulatorAfter > simulatorBefore && simulatorLaunchCheck.overlay && simulatorLaunchCheck.inert &&
+      simulatorLaunchCheck.focused && simulatorLaunchCheck.starts === 1 && simulatorLaunchCheck.startName === "Start!" &&
+      simulatorLaunchCheck.clipboard && simulatorLaunchCheck.generic,
+    `blank-app simulator launch is lazy, generic, and modal (${JSON.stringify(simulatorLaunchCheck)})`
+  );
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(
+    await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch") && !document.querySelector(".app-shell").inert),
+    "blank-app simulator exit restores ouroboros launch focus"
+  );
+
   // 2. Load BWS only (results-only mode)
   await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
   await page.waitForTimeout(600);
@@ -131,31 +166,6 @@ function check(condition, label) {
     };
   });
   check(quizCheck.ok, `quiz overlay: answer, navigate, persist, close (${quizCheck.why})`);
-
-  const simulatorBefore = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
-  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "pair report omits the simulator link");
-  await page.click(".brand-simulator-launch");
-  await page.waitForSelector(".simulator-preflight");
-  const simulatorLaunchCheck = await page.evaluate(() => ({
-    overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
-    inert: document.querySelector(".app-shell").inert,
-    focused: document.querySelector(".bridge-simulator-overlay").contains(document.activeElement),
-    starts: document.querySelectorAll("[data-simulator-start]").length,
-    startName: document.querySelector("[data-simulator-start]")?.textContent?.trim(),
-    clipboard: Boolean(document.querySelector(".simulator-clipboard")),
-  }));
-  const simulatorAfter = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
-  check(
-    simulatorBefore === 0 && simulatorAfter > simulatorBefore && simulatorLaunchCheck.overlay && simulatorLaunchCheck.inert &&
-      simulatorLaunchCheck.focused && simulatorLaunchCheck.starts === 1 && simulatorLaunchCheck.startName === "Start!" && simulatorLaunchCheck.clipboard,
-    `real simulator launch is lazy and modal (${JSON.stringify(simulatorLaunchCheck)})`
-  );
-  await page.click(".bridge-simulator-exit");
-  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
-  check(
-    await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch") && !document.querySelector(".app-shell").inert),
-    "simulator exit restores ouroboros launch focus"
-  );
 
   // 4. All views
   for (const view of ["overview", "improve", "boards", "results", "export", "diagnostics"]) {

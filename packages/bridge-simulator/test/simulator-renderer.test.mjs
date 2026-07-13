@@ -1,24 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
-import { createSimulation, getSimulationSnapshot } from "../src/core/simulator/simulation.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/level.js";
+import { createSimulation, getSimulationSnapshot } from "../src/core/simulation.js";
 import {
   WALL_DEPTH,
   WALL_TILE_SIZE,
   createLevelMeshes,
   physicalWallSegments,
-} from "../src/simulator/levelMeshes.js";
-import { snapshotEntities } from "../src/simulator/renderer.js";
+} from "../src/runtime/levelMeshes.js";
+import { snapshotEntities } from "../src/runtime/renderer.js";
 import {
   SPRITE_PATHS,
   TILED_TEXTURE_KEYS,
   spriteKeyForEntity,
   spriteSizeForEntity,
-} from "../src/simulator/sprites.js";
+} from "../src/runtime/sprites.js";
 
 const SCENARIO = Object.freeze({
   seed: "renderer-exit-test",
-  representativeHand: null,
+  hand: null,
   wings: [{ slot: "A" }],
   boss: { title: "The Bottom Board" },
 });
@@ -247,7 +247,7 @@ test("coaching wings have distinct surface palettes and batched architectural si
 });
 
 test("the authored next-round exit reaches the renderer as a visible door billboard", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const snapshot = getSimulationSnapshot(state);
   const marker = SLICE_LEVEL.markers.find((entry) => entry.id === SLICE_LEVEL.objectives.exitMarkerId);
   const exit = snapshotEntities(snapshot).find((entity) => entity.id === marker.id);

@@ -138,9 +138,9 @@ function createExit(marker) {
 }
 
 /**
- * @param {{ scenario?: any, level?: any, mode?: string }} [options]
+ * @param {{ scenario?: any, level?: any }} [options]
  */
-function createSimulation({ scenario, level, mode = "standard" } = {}) {
+function createSimulation({ scenario, level } = {}) {
   if (!scenario || !level) throw new Error("Simulator scenario and level are required.");
   const player = createPlayer(level);
   const enemies = level.markers
@@ -151,7 +151,7 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     if (enemy.archetype === "bottom-board") {
       enemy.sprite = scenario.boss && scenario.boss.encounterSkin || "bottom-board";
       enemy.title = scenario.boss && scenario.boss.title || "The Bottom Board";
-      enemy.tint = scenario.mode === "defend-crown" ? 0xffd66b : 0xffffff;
+      enemy.tint = 0xffffff;
       return;
     }
     if (!enemy.wingId) return;
@@ -175,18 +175,15 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
   const exits = level.markers.filter((marker) => marker.type === "exit").map(createExit);
   const state = {
     schemaVersion: SIMULATION_SCHEMA_VERSION,
-    scenarioSeed: scenario.seed,
     scenario,
     level,
     levelId: level.id,
-    mode: mode === "practice" ? "practice" : "standard",
     tick: 0,
     elapsed: 0,
     status: "running",
     player,
     combat: createCombatState({
-      cards: scenario.representativeHand && scenario.representativeHand.cards,
-      source: scenario.representativeHand && scenario.representativeHand.source,
+      cards: scenario.hand && scenario.hand.cards,
       seed: scenario.seed,
     }),
     enemies,
@@ -513,7 +510,7 @@ function updateEnemies(state, dt, events) {
     if (!intent.attack) continue;
     enemy.cooldown = enemy.attackCooldown / (enemy.archetype === "bottom-board" ? 1 + (enemy.phase - 1) * 0.12 : 1);
     if (intent.melee) {
-      const result = applyDamageToPlayer(state.player, enemy.damage, state.mode);
+      const result = applyDamageToPlayer(state.player, enemy.damage);
       emit(events, "player-hit", { sourceId: enemy.id, ...result });
     } else {
       const projectile = createEnemyProjectile(enemy, state.player, `enemy-card-${state.tick}-${enemy.id}`);
@@ -616,7 +613,7 @@ function resetEncounter(state, reason = "manual", { queue = true } = {}) {
 }
 
 function restartRun(state) {
-  const fresh = createSimulation({ scenario: state.scenario, level: state.level, mode: state.mode });
+  const fresh = createSimulation({ scenario: state.scenario, level: state.level });
   Object.keys(state).forEach((key) => delete state[key]);
   Object.assign(state, fresh);
   const event = { type: "run-restarted" };
@@ -662,7 +659,6 @@ function objectiveText(state) {
 
 function stepSimulation(state, input = {}, dt = FIXED_DT) {
   if (!state || state.status !== "running") return [];
-  if (input.restart) return resetEncounter(state, "manual");
   const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
   if (!step) return [];
   const events = [];
@@ -687,7 +683,6 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
     obstacles: state.covers,
     allies: [coachEntityFor(state)].filter(Boolean),
     dt: step,
-    mode: state.mode,
     combat: state.combat,
   });
   applyCombatEvents(state, projectileEvents, events);

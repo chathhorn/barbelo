@@ -50,19 +50,6 @@ function serve() {
   });
 }
 
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=
-3,1,2,N,3 H X,-2
-3,3,4,N,2 S,=
-3,5,6,N,2 S,+1`;
-const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
-const PBN = [1, 2, 3].map((board) => `[Board "${board}"]\n[Deal "${DEAL}"]`).join("\n\n");
-
 const failures = [];
 function check(ok, label) {
   console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
@@ -92,10 +79,10 @@ function check(ok, label) {
 
   await page.addInitScript(() => {
     const random = Math.random.bind(Math);
-    let brandChoicePending = true;
+    let forcedOuroborosChoices = 2;
     Math.random = () => {
-      if (brandChoicePending) {
-        brandChoicePending = false;
+      if (forcedOuroborosChoices > 0) {
+        forcedOuroborosChoices -= 1;
         return 0;
       }
       return random();
@@ -103,14 +90,13 @@ function check(ok, label) {
   });
   await page.goto(`${origin}/`);
   await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
-  await page.setInputFiles("#resultsFile", { name: "built-simulator.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
-  await page.setInputFiles("#pbnFile", { name: "built-simulator.pbn", mimeType: "text/plain", buffer: Buffer.from(PBN) });
-  await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
   const logoLaunch = page.locator(".brand-simulator-launch[data-simulator-open]");
-  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "built report omits the simulator launch control");
-  check(await logoLaunch.count() === 1 && !await logoLaunch.isDisabled(), "built ouroboros exposes the prepared simulator launch");
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "empty built report omits the simulator launch control");
+  check(await logoLaunch.count() === 1 && !await logoLaunch.isDisabled(), "built ouroboros exposes the generic simulator on an empty app");
+  await page.evaluate(() => document.getElementById("clearAppButton").click());
+  check(!await logoLaunch.isDisabled(), "built Clear leaves the generic ouroboros launcher enabled");
   check(!await page.evaluate(() => Boolean(window.BridgeSimulator)), "simulator global is absent before the lazy bundle loads");
-  check(!requests.some((url) => /bridge-simulator\.js/.test(url)), "built game bundle is absent before report activation");
+  check(!requests.some((url) => /bridge-simulator\.js/.test(url)), "built game bundle is absent before activation");
   await logoLaunch.click();
   await page.waitForSelector(".simulator-preflight");
   check(await page.evaluate(() => typeof window.BridgeSimulator.launch === "function"), "real built launch loads the narrow IIFE API");
@@ -120,11 +106,7 @@ function check(ok, label) {
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
   check(await page.evaluate(() => document.activeElement?.matches(".brand-simulator-launch")), "real built launch restores focus to the ouroboros");
 
-  await page.evaluate(async ({ csv, pbn }) => {
-    const api = window.PBNAnalyzer;
-    const analysis = api.buildAnalysis(api.parsePbn(pbn, "built-simulator.pbn"));
-    const results = api.buildResultsAnalysis(api.parseResultsCsv(csv, "built-simulator.csv", csv.length), analysis);
-    const report = api.buildPairImprovementReport(results, "1");
+  await page.evaluate(async () => {
     const overlay = document.createElement("div");
     overlay.className = "bridge-simulator-overlay";
     const host = document.createElement("div");
@@ -133,19 +115,25 @@ function check(ok, label) {
     overlay.appendChild(host);
     document.body.appendChild(overlay);
     window.__builtSimulatorOverlay = overlay;
-    window.__builtSimulator = await window.BridgeSimulator.launch(host, { analysis, results, report }, {
+    window.__builtSimulator = await window.BridgeSimulator.launch(host, {
       levelId: "slice",
       assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
       version: "built-e2e",
     });
-  }, { csv: CSV, pbn: PBN });
+  });
   await page.waitForSelector(".simulator-preflight");
   check(await page.locator(".simulator-preflight").count() === 1, "built bundle reaches mission preflight");
   check(await page.locator(".simulator-clipboard").count() === 1, "built preflight displays the Coach's clipboard");
   const clipboardText = await page.locator(".simulator-clipboard").innerText();
   check(clipboardText.includes("Throwing hand") && clipboardText.includes("Composure"), "built preflight clipboard includes the mission hand and survival guidance");
-  const preflightText = await page.locator(".simulator-preflight-panel").innerText();
-  check(!preflightText.includes("this greeting stays local") && !/Using .*hand from loaded PBN Board/i.test(preflightText), "built preflight omits internal greeting and hand-provenance copy");
+  const preflightText = await page.locator(".simulator-preflight").innerText();
+  const normalizedPreflightText = preflightText.toLowerCase();
+  check(
+    normalizedPreflightText.includes("bridge fundamentals · training deal") &&
+      normalizedPreflightText.includes("three coaching wings, thirteen cards, and one bottom board."),
+    "built preflight presents the generic bridge-fundamentals briefing"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(preflightText), "built preflight contains no session or report copy");
   check(
     await page.locator("[data-simulator-start]").count() === 1 &&
       await page.getByRole("button", { name: "Start!", exact: true }).count() === 1,
@@ -203,7 +191,7 @@ function check(ok, label) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "built Pause omits encounter/run reset actions");
-  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "built Pause omits its redundant Exit to report action");
+  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "built Pause omits its redundant close action");
   await page.click("[data-simulator-resume]");
 
   await page.evaluate(() => { window.__builtSimulator.state.player.composure = 0; });
@@ -218,13 +206,28 @@ function check(ok, label) {
   await page.waitForFunction(() => document.querySelector("[data-simulator-modal]").hidden);
   check(await page.evaluate(() => window.__builtSimulator.state.player.composure) === 100, "built retry resumes from a refreshed encounter checkpoint");
 
+  await page.evaluate(() => window.__builtSimulator.finishRun());
+  await page.waitForSelector("#simulator-debrief-title");
+  const debriefText = await page.locator(".simulator-debrief").innerText();
+  const normalizedDebriefText = debriefText.toLowerCase();
+  check(
+    normalizedDebriefText.includes("coach's notes") &&
+      normalizedDebriefText.includes("auction: keep track of range, shape, fit, and which calls are forcing.") &&
+      normalizedDebriefText.includes("next table habit"),
+    "built debrief presents the generic Coach notes and next-table habit"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(debriefText), "built debrief contains no session or report copy");
+
   await page.evaluate(() => {
     window.__builtSimulator.destroy();
     window.__builtSimulatorOverlay.remove();
   });
   check(await page.evaluate(() => window.__builtSimulator.destroyed), "built simulator destroys its resources");
   check(requests.every((url) => new URL(url).origin === origin), "built run makes same-origin requests only");
-  check(!requests.some((url) => /PairNS|AKQJ|built-simulator\.csv/.test(decodeURIComponent(url))), "built run puts no session data in request URLs");
+  check(
+    !requests.some((url) => /[?&](?:pair|session|report|board|hand)=/i.test(decodeURIComponent(url))),
+    "built generic run puts no session or report inputs in request URLs"
+  );
   check(errors.length === 0, `built run has no console/page errors (${errors.join("; ")})`);
 
   await browser.close();

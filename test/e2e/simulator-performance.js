@@ -47,14 +47,6 @@ function serve() {
   });
 }
 
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=`;
-
 const failures = [];
 function check(ok, label) {
   console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
@@ -90,15 +82,14 @@ async function stopAnimationLoopForSamples(page) {
   page.on("request", (request) => requests.push(request.url()));
 
   await page.goto(`${origin}/`);
-  await page.setInputFiles("#resultsFile", {
-    name: "performance-simulator.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(CSV),
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
   });
-  await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
   check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0 &&
-    await page.locator(".brand-simulator-launch").count() === 1,
-  "performance harness retains only the logo-based simulator route");
+    await page.locator(".brand-simulator-launch").count() === 1 &&
+    !await page.locator(".brand-simulator-launch").isDisabled(),
+  "blank app exposes the generic simulator only through the ouroboros");
   await page.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
     window.__performanceSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });
@@ -109,7 +100,7 @@ async function stopAnimationLoopForSamples(page) {
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
   await page.click("[data-simulator-settings-close]");
   await page.waitForSelector(".simulator-preflight");
-  await page.click('[data-simulator-start="standard"]');
+  await page.click("[data-simulator-start]");
   await page.waitForSelector("canvas.simulator-canvas");
   await page.evaluate(() => { window.__performanceRunOne = window.__performanceSimulator.state; });
 
@@ -137,7 +128,7 @@ async function stopAnimationLoopForSamples(page) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   await page.click("[data-simulator-back-preflight]");
-  await page.click('[data-simulator-start="standard"]');
+  await page.click("[data-simulator-start]");
   await page.waitForSelector("canvas.simulator-canvas");
   await page.evaluate(() => { window.__performanceRunTwo = window.__performanceSimulator.state; });
   await stopAnimationLoopForSamples(page);
@@ -150,13 +141,13 @@ async function stopAnimationLoopForSamples(page) {
   check(await page.evaluate(() => {
     const app = window.__performanceSimulator;
     return app.settings.reducedEffects && app.state === window.__performanceRunTwo &&
-      app.host.closest(".bridge-simulator-overlay").classList.contains("reduced-effects") &&
+      app.host.classList.contains("reduced-effects") &&
       Math.abs(app.renderer.scene.fog.density - 0.009) < 0.0001;
   }), "enable action changes presentation in place and resumes the same run");
   check((await page.locator("[data-simulator-live]").innerText()).includes("combat and game rules are unchanged"), "enable action announces unchanged rules and resume");
   check(await page.evaluate(() => {
     const keys = Object.keys(localStorage);
-    if (keys.length !== 1 || keys[0] !== "barbelo.bridgeSimulator.settings.v1") return false;
+    if (keys.length !== 1 || keys[0] !== "bridgeSimulator.settings.v1") return false;
     const settings = JSON.parse(localStorage.getItem(keys[0]));
     return settings.reducedEffects === true && !Object.keys(settings).some((key) => /frame|slow|offer|performance/i.test(key));
   }), "only the existing Reduced Effects preference is persisted; no performance history is stored");

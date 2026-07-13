@@ -1,26 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { coachEntityFor } from "../src/core/simulator/coach.js";
-import { createCombatState, updateProjectiles } from "../src/core/simulator/combat.js";
-import { SLICE_LEVEL } from "../src/core/simulator/level.js";
+import { coachEntityFor } from "../src/core/coach.js";
+import { createCombatState, updateProjectiles } from "../src/core/combat.js";
+import { SLICE_LEVEL } from "../src/core/level.js";
 import {
   FIXED_DT,
   createSimulation,
   drainSimulationEvents,
   simulationStats,
   stepSimulation,
-} from "../src/core/simulator/simulation.js";
+} from "../src/core/simulation.js";
 
 const SCENARIO = Object.freeze({
   seed: "coach-impact-test",
-  representativeHand: null,
+  hand: null,
   wings: [{ slot: "A" }],
   boss: { title: "The Bottom Board" },
 });
 
 test("player cards stop on the current Coach without damage, Honor, or hostile accuracy", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "standard" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const coachBefore = coachEntityFor(state);
   const aim = Math.atan2(
     coachBefore.position.z - state.player.position.z,
@@ -105,7 +105,6 @@ test("enemy projectiles ignore the Coach and continue to the player", () => {
     obstacles: [],
     player,
     dt: 0.1,
-    mode: "standard",
     combat,
   });
 
@@ -116,7 +115,7 @@ test("enemy projectiles ignore the Coach and continue to the player", () => {
 });
 
 test("Coach derivation retains authored checkpoint placement and remains non-blocking", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   assert.equal(coachEntityFor(state).spaceId, "club-entrance");
 
   state.player.spaceId = "movement-hall";

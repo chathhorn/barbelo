@@ -1,0 +1,16 @@
+{
+  "name": "bridge-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A self-contained, generic bridge-themed browser FPS.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.js",
+    "./simulator.css": "./simulator.css"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc -p jsconfig.json --noEmit"
+  }
+}

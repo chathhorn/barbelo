@@ -54,19 +54,6 @@ const MIME = {
   ".md": "text/markdown; charset=utf-8",
 };
 
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=
-3,1,2,N,3 H X,-2
-3,3,4,N,2 S,=
-3,5,6,N,2 S,+1`;
-const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
-const PBN = [1, 2, 3].map((board) => `[Board "${board}"]\n[Deal "${DEAL}"]`).join("\n\n");
-
 function boundedNumber(value, fallback, minimum, maximum) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -225,14 +212,6 @@ function check(ok, label) {
   await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
   check(!await page.evaluate(() => Boolean(window.BridgeSimulator)), "simulator production global is cold before measurement");
 
-  await page.evaluate(({ csv, pbn }) => {
-    const api = window.PBNAnalyzer;
-    const analysis = api.buildAnalysis(api.parsePbn(pbn, "performance-baseline.pbn"));
-    const results = api.buildResultsAnalysis(api.parseResultsCsv(csv, "performance-baseline.csv", csv.length), analysis);
-    const report = api.buildPairImprovementReport(results, "1");
-    window.__simulatorPerformanceInputs = { analysis, results, report };
-  }, { csv: CSV, pbn: PBN });
-
   const version = `performance-${Date.now()}`;
   const startup = await page.evaluate(async ({ cacheVersion }) => {
     const load = (element) => new Promise((resolve, reject) => {
@@ -261,15 +240,11 @@ function check(ok, label) {
     overlay.appendChild(host);
     document.body.appendChild(overlay);
     window.__simulatorPerformanceOverlay = overlay;
-    window.__simulatorPerformanceController = await window.BridgeSimulator.launch(
-      host,
-      window.__simulatorPerformanceInputs,
-      {
-        levelId: "full",
-        assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
-        version: cacheVersion,
-      }
-    );
+    window.__simulatorPerformanceController = await window.BridgeSimulator.launch(host, {
+      levelId: "full",
+      assetBaseUrl: new URL("assets/simulator/", document.baseURI).href,
+      version: cacheVersion,
+    });
     const preflightAt = performance.now();
     const resources = performance.getEntriesByType("resource")
       .filter((entry) => entry.startTime >= startedAt && /assets\/(?:bridge-simulator\.js|simulator\.css|simulator\/)/.test(entry.name))
@@ -290,13 +265,21 @@ function check(ok, label) {
     };
   }, { cacheVersion: version });
   await page.waitForSelector(".simulator-preflight");
+  const preflightText = await page.locator(".simulator-preflight").innerText();
+  const normalizedPreflightText = preflightText.toLowerCase();
+  check(
+    normalizedPreflightText.includes("bridge fundamentals · training deal") &&
+      normalizedPreflightText.includes("three coaching wings, thirteen cards, and one bottom board."),
+    "production baseline starts with the generic bridge-fundamentals briefing"
+  );
+  check(!/session evidence|pair improvement report|loaded PBN|actual session/i.test(preflightText), "production baseline preflight contains no session or report copy");
 
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
   await page.click("[data-simulator-settings-close]");
   await page.waitForSelector(".simulator-preflight");
-  await page.click('[data-simulator-start="standard"]');
+  await page.click("[data-simulator-start]");
   await page.waitForSelector("canvas.simulator-canvas");
   const sceneSetup = await page.evaluate(async (scene) => {
     if (scene === "ordinary") {
@@ -460,10 +443,13 @@ function check(ok, label) {
       .filter(Boolean)
       .map((key) => [key, localStorage.getItem(key)])
   ));
-  check(Object.keys(storedData).every((key) => key === "barbelo.bridgeSimulator.settings.v1"), "baseline persists preferences only");
-  check(!/PairNS|AKQJ|performance-baseline/i.test(JSON.stringify(storedData)), "baseline never persists synthetic session data");
+  check(Object.keys(storedData).every((key) => key === "bridgeSimulator.settings.v1"), "baseline persists preferences only");
+  check(!/session|report|coach|auction/i.test(JSON.stringify(storedData)), "baseline never persists generic run or coaching content");
   check(requests.every((url) => new URL(url).origin === origin), "baseline requests remain same-origin");
-  check(!requests.some((url) => /PairNS|AKQJ|performance-baseline/i.test(decodeURIComponent(url))), "baseline puts no session data in request URLs");
+  check(
+    !requests.some((url) => /[?&](?:pair|session|report|board|hand)=/i.test(decodeURIComponent(url))),
+    "baseline puts no session or report inputs in request URLs"
+  );
 
   const thresholdResults = {
     coldStart: startup.coldStartMs <= THRESHOLDS.coldStartMs,
@@ -482,7 +468,6 @@ function check(ok, label) {
     if (overlay) overlay.remove();
     delete window.__simulatorPerformanceController;
     delete window.__simulatorPerformanceOverlay;
-    delete window.__simulatorPerformanceInputs;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     return {
       controllerDestroyed: Boolean(app && app.destroyed),

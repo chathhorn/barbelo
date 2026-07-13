@@ -1,7 +1,7 @@
-import { buildBridgeSimulatorScenario } from "../core/simulator/scenario.js";
-import { coachEntityFor } from "../core/simulator/coach.js";
-import { FULL_LEVEL, SLICE_LEVEL } from "../core/simulator/level.js";
-import { assertValidLevel } from "../core/simulator/validateLevel.js";
+import { GENERIC_SCENARIO } from "./content.js";
+import { coachEntityFor } from "./core/coach.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "./core/level.js";
+import { assertValidLevel } from "./core/validateLevel.js";
 import {
   FIXED_DT,
   createSimulation,
@@ -10,8 +10,8 @@ import {
   restartRun,
   simulationStats,
   stepSimulation,
-} from "../core/simulator/simulation.js";
-import { createAudioController } from "./audio.js";
+} from "./core/simulation.js";
+import { createAudioController } from "./runtime/audio.js";
 import {
   createGameShell,
   renderChalkboard,
@@ -23,13 +23,13 @@ import {
   renderReducedEffectsOffer,
   renderSettings,
   updateHud,
-} from "./hud.js";
-import { createInputController } from "./input.js";
-import { createSlowFrameMonitor } from "./performance.js";
-import { createSimulatorRenderer } from "./renderer.js";
-import { disposeSpriteTextures, preloadSpriteTextures } from "./sprites.js";
+} from "./runtime/hud.js";
+import { createInputController } from "./runtime/input.js";
+import { createSlowFrameMonitor } from "./runtime/performance.js";
+import { createSimulatorRenderer } from "./runtime/renderer.js";
+import { disposeSpriteTextures, preloadSpriteTextures } from "./runtime/sprites.js";
 
-const SETTINGS_KEY = "barbelo.bridgeSimulator.settings.v1";
+const SETTINGS_KEY = "bridgeSimulator.settings.v1";
 const MAX_FRAME_DELTA = 0.25;
 
 function safeLocalStorage() {
@@ -78,7 +78,7 @@ function saveSettings(settings) {
     const storage = safeLocalStorage();
     if (storage) storage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch (error) {
-    // Preferences are optional; session/report data is never stored.
+    // Preferences are optional and contain no game-progress state.
   }
 }
 
@@ -202,7 +202,7 @@ class SimulatorApp {
       : null;
     let focusSelector = "";
     if (active?.hasAttribute("data-simulator-start")) {
-      focusSelector = `[data-simulator-start="${active.dataset.simulatorStart}"]`;
+      focusSelector = "[data-simulator-start]";
     } else if (active?.hasAttribute("data-simulator-settings")) {
       focusSelector = "[data-simulator-settings]";
     }
@@ -248,10 +248,8 @@ class SimulatorApp {
   }
 
   applyDisplaySettings() {
-    const overlay = this.host.closest(".bridge-simulator-overlay");
-    if (!overlay) return;
-    overlay.classList.toggle("reduced-effects", this.settings.reducedEffects);
-    overlay.classList.toggle("high-contrast", this.settings.highContrast);
+    this.host.classList.toggle("reduced-effects", this.settings.reducedEffects);
+    this.host.classList.toggle("high-contrast", this.settings.highContrast);
   }
 
   toggleMinimap() {
@@ -411,7 +409,7 @@ class SimulatorApp {
     this.slowFrameMonitor.resetRun();
     try {
       this.launchError = "";
-      this.state = createSimulation({ scenario: this.scenario, level: this.level, mode: "standard" });
+      this.state = createSimulation({ scenario: this.scenario, level: this.level });
       this.elements = createGameShell(this.host, this.scenario, this.level);
       this.audio = createAudioController({ volume: this.settings.volume / 100, muted: this.settings.muted });
       this.renderer = createSimulatorRenderer({
@@ -572,7 +570,7 @@ class SimulatorApp {
     this.modalKind = "pause";
     this.setGameInert(true);
     renderPause(this.elements.modal, {
-      cards: this.scenario.representativeHand.cards,
+      cards: this.scenario.hand.cards,
       reason: this.pauseReason,
     });
   }
@@ -641,7 +639,7 @@ class SimulatorApp {
     renderHelp(this.elements.modal, {
       requiredSlips: this.requiredSlips(),
       bossTitle: this.scenario.boss && this.scenario.boss.title,
-      cards: this.scenario.representativeHand.cards,
+      cards: this.scenario.hand.cards,
     });
   }
 
@@ -758,24 +756,30 @@ class SimulatorApp {
     window.removeEventListener("resize", this.boundViewportChange);
     window.visualViewport?.removeEventListener("resize", this.boundViewportChange);
     this.host.innerHTML = "";
+    this.host.classList.remove("bridge-simulator-root", "reduced-effects", "high-contrast");
   }
 }
 
-async function launch(host, inputs, options = {}) {
-  if (!host || typeof host.replaceChildren !== "function") throw new Error("Simulator host element is required.");
-  const scenario = buildBridgeSimulatorScenario(inputs);
-  if (!scenario) throw new Error("The selected pair has no playable report rows.");
+async function launch(host, options = {}) {
+  if (!host || typeof host.replaceChildren !== "function" || !host.classList) {
+    throw new Error("Simulator host element is required.");
+  }
+  if (!options.assetBaseUrl) throw new Error("Simulator assetBaseUrl is required.");
+  const scenario = GENERIC_SCENARIO;
   const level = options.levelId === "slice" ? SLICE_LEVEL : FULL_LEVEL;
   assertValidLevel(level);
-  const assetUrl = assetResolver(options.assetBaseUrl || "assets/simulator/", options.version || "");
+  const assetUrl = assetResolver(options.assetBaseUrl, options.version || "");
+  host.classList.add("bridge-simulator-root");
   options.onStatus?.("Loading original simulator art...");
-  const textures = await preloadSpriteTextures(assetUrl, (progress) => {
-    options.onStatus?.(`Loading simulator art ${Math.round(progress * 100)}%`);
-  });
+  let textures;
   try {
+    textures = await preloadSpriteTextures(assetUrl, (progress) => {
+      options.onStatus?.(`Loading simulator art ${Math.round(progress * 100)}%`);
+    });
     return new SimulatorApp(host, scenario, level, textures, assetUrl, options);
   } catch (error) {
-    disposeSpriteTextures(textures);
+    if (textures) disposeSpriteTextures(textures);
+    host.classList.remove("bridge-simulator-root", "reduced-effects", "high-contrast");
     throw error;
   }
 }

@@ -34,6 +34,9 @@ jobs:
       - name: Type-check core and parsers
         run: npx --yes -p typescript@5.9 tsc -p jsconfig.json --noEmit
 
+      - name: Type-check simulator content and core
+        run: npx --yes -p typescript@5.9 tsc -p packages/bridge-simulator/jsconfig.json --noEmit
+
   simulator-e2e:
     name: Simulator E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
@@ -58,9 +61,8 @@ jobs:
         with:
           node-version: 22
 
-      # Browser tooling is CI-only. Keep the app's dependency-free repository
-      # convention by pinning an ephemeral install instead of tracking an npm
-      # manifest or lockfile.
+      # The repository manifest pins the local browser-test dependency. CI
+      # still uses an ephemeral exact install and does not generate a lockfile.
       - name: Install pinned browser-test package
         run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.61.1
 
@@ -87,13 +89,15 @@ jobs:
           site_root=/tmp/bridge-simulator-built-e2e
           mkdir -p "$site_root/assets" "$site_root/vendor/three"
           cp index.html "$site_root/index.html"
-          cp assets/barbelo.css assets/simulator.css assets/*.png assets/*.jpg assets/*.svg "$site_root/assets/"
-          cp -R assets/simulator "$site_root/assets/"
-          cp vendor/three/LICENSE vendor/three/VERSION "$site_root/vendor/three/"
+          cp assets/barbelo.css assets/*.png assets/*.jpg assets/*.svg "$site_root/assets/"
+          cp packages/bridge-simulator/simulator.css "$site_root/assets/simulator.css"
+          cp -R packages/bridge-simulator/assets "$site_root/assets/simulator"
+          cp packages/bridge-simulator/LICENSE "$site_root/assets/bridge-simulator.LICENSE"
+          cp packages/bridge-simulator/vendor/three/LICENSE packages/bridge-simulator/vendor/three/VERSION "$site_root/vendor/three/"
           npx --yes esbuild@0.25.5 src/main.js \
             --bundle --format=iife --legal-comments=eof \
             --outfile="$site_root/assets/barbelo.js"
-          npx --yes esbuild@0.25.5 src/simulator/index.js \
+          npx --yes esbuild@0.25.5 packages/bridge-simulator/src/index.js \
             --bundle --format=iife --global-name=BridgeSimulator --legal-comments=eof \
             --outfile="$site_root/assets/bridge-simulator.js"
           sed -i 's/__BARBELO_VERSION__/built-e2e/g' "$site_root/index.html"
@@ -124,16 +128,18 @@ jobs:
           set -euo pipefail
           mkdir -p _site/assets _site/vendor/three
           cp index.html _site/index.html
-          cp assets/barbelo.css assets/simulator.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
-          cp -R assets/simulator _site/assets/
-          cp vendor/three/LICENSE vendor/three/VERSION _site/vendor/three/
+          cp assets/barbelo.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
+          cp packages/bridge-simulator/simulator.css _site/assets/simulator.css
+          cp -R packages/bridge-simulator/assets _site/assets/simulator
+          cp packages/bridge-simulator/LICENSE _site/assets/bridge-simulator.LICENSE
+          cp packages/bridge-simulator/vendor/three/LICENSE packages/bridge-simulator/vendor/three/VERSION _site/vendor/three/
           npx --yes esbuild@0.25.5 src/main.js \
             --bundle \
             --format=iife \
             --legal-comments=eof \
             --metafile=/tmp/barbelo-meta.json \
             --outfile=_site/assets/barbelo.js
-          npx --yes esbuild@0.25.5 src/simulator/index.js \
+          npx --yes esbuild@0.25.5 packages/bridge-simulator/src/index.js \
             --bundle \
             --format=iife \
             --global-name=BridgeSimulator \
@@ -152,6 +158,7 @@ jobs:
           fi
           test -s _site/assets/barbelo.js
           test -s _site/assets/bridge-simulator.js
+          test -s _site/assets/bridge-simulator.LICENSE
           test -s _site/assets/simulator.css
           test -s _site/assets/simulator/ATTRIBUTIONS.md
           test -s _site/assets/simulator/coach/coach-idle-talk.svg
@@ -166,12 +173,13 @@ jobs:
           fi
           grep -q 'var BridgeSimulator' _site/assets/bridge-simulator.js
           grep -q 'SPDX-License-Identifier: MIT' _site/assets/bridge-simulator.js
-          grep -q 'vendor/three/three.core.js' /tmp/bridge-simulator-meta.json
-          if grep -Eq 'src/(core/)?simulator/|vendor/three/' /tmp/barbelo-meta.json; then
+          grep -q 'packages/bridge-simulator/vendor/three/three.core.js' /tmp/bridge-simulator-meta.json
+          node -e "const m=require('/tmp/bridge-simulator-meta.json'); const bad=Object.keys(m.inputs).filter((p)=>!p.startsWith('packages/bridge-simulator/')); if (bad.length) throw new Error('Non-package modules entered the simulator bundle: ' + bad.join(', '))"
+          if grep -Eq 'packages/bridge-simulator/|src/(core/)?simulator/|vendor/three/' /tmp/barbelo-meta.json; then
             echo "Simulator or Three.js modules leaked into the main Barbelo bundle." >&2
             exit 1
           fi
-          if grep -Eq 'Three\.js Authors|WebGLRenderer|buildBridgeSimulatorScenario|createSimulatorRenderer' _site/assets/barbelo.js; then
+          if grep -Eq 'Three\.js Authors|WebGLRenderer|GENERIC_SCENARIO|createSimulatorRenderer' _site/assets/barbelo.js; then
             echo "Three.js or game payload leaked into the main Barbelo artifact." >&2
             exit 1
           fi

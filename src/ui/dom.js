@@ -2,8 +2,6 @@
 // and deploy-version helpers.
 import { escapeHtml } from "../core/format.js";
 
-let bridgeSimulatorReady = false;
-
 function deployedVersion() {
   const meta = document.querySelector('meta[name="barbelo-version"]');
   const version = meta ? meta.getAttribute("content") || "" : "";
@@ -63,7 +61,7 @@ function renderBoardJumpList(boardNos, limit = 8) {
 function syncBridgeSimulatorBrandMark() {
   const mark = document.querySelector(".brand-simulator-launch[data-simulator-open]");
   if (!mark) return;
-  const enabled = bridgeSimulatorReady && document.body.classList.contains("mark-ouro");
+  const enabled = document.body.classList.contains("mark-ouro");
   mark.disabled = !enabled;
   if (enabled) {
     mark.removeAttribute("aria-hidden");
@@ -83,11 +81,6 @@ function setBrandMarkVariant(ouroboros) {
 
 function flipBrandMark() {
   setBrandMarkVariant(Math.random() < 0.5);
-}
-
-function setBridgeSimulatorReady(ready) {
-  bridgeSimulatorReady = Boolean(ready);
-  syncBridgeSimulatorBrandMark();
 }
 
 function initAppVersion() {
@@ -110,6 +103,5 @@ export {
   renderBoardJumpList,
   setBrandMarkVariant,
   flipBrandMark,
-  setBridgeSimulatorReady,
   initAppVersion,
 };

@@ -48,14 +48,6 @@ function serve() {
   });
 }
 
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=`;
-
 const failures = [];
 function check(ok, label) {
   console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
@@ -67,12 +59,12 @@ const COMPACT_CAPABILITY_REASON = "below the 960 × 540 CSS-pixel FPS minimum";
 async function capabilitySnapshot(page) {
   return page.evaluate(() => {
     const app = window.__responsiveSimulator;
-    const standard = document.querySelector('[data-simulator-start="standard"]');
+    const start = document.querySelector("[data-simulator-start]");
     const status = document.querySelector(".simulator-preflight [role=status]");
     return {
       available: app?.capability?.available ?? null,
       reason: app?.capability?.reason || "",
-      standardDisabled: standard ? standard.disabled : null,
+      startDisabled: start ? start.disabled : null,
       status: status?.textContent?.trim() || "",
     };
   });
@@ -94,8 +86,8 @@ async function waitForCapability(page, {
     if (reasonIncludes && !String(app.capability.reason || "").includes(reasonIncludes)) return false;
     if (!expectPreflight) return true;
 
-    const standard = document.querySelector('[data-simulator-start="standard"]');
-    if (!standard || standard.disabled !== !available) return false;
+    const start = document.querySelector("[data-simulator-start]");
+    if (!start || start.disabled !== !available) return false;
     if (reasonIncludes) {
       const status = document.querySelector(".simulator-preflight [role=status]");
       if (!status?.textContent?.includes(reasonIncludes)) return false;
@@ -121,15 +113,14 @@ async function waitForCapability(page, {
   page.on("request", (request) => requests.push(request.url()));
 
   await page.goto(`${origin}/`);
-  await page.setInputFiles("#resultsFile", {
-    name: "responsive-simulator.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(CSV),
+  await page.evaluate(async () => {
+    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
+    setBrandMarkVariant(true);
   });
-  await page.waitForFunction(() => document.querySelectorAll(".priority-card").length > 0);
   check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0 &&
-    await page.locator(".brand-simulator-launch").count() === 1,
-  "responsive harness retains only the logo-based simulator route");
+    await page.locator(".brand-simulator-launch").count() === 1 &&
+    !await page.locator(".brand-simulator-launch").isDisabled(),
+  "blank app exposes the generic simulator only through the ouroboros");
   await page.locator("#clearAppButton").focus();
   await page.evaluate(async () => {
     const simulator = await import("/src/ui/simulatorView.js");
@@ -137,11 +128,11 @@ async function waitForCapability(page, {
   });
   await page.waitForSelector(".simulator-preflight");
 
-  const standard = page.locator('[data-simulator-start="standard"]');
+  const start = page.locator("[data-simulator-start]");
   const initialCapability = await capabilitySnapshot(page);
   logCapability("initial desktop", initialCapability);
   const initialFpsReady = initialCapability.available === true
-    && initialCapability.standardDisabled === false;
+    && initialCapability.startDisabled === false;
   check(initialFpsReady, `desktop preflight enables the Start! launcher (reason: ${initialCapability.reason || "none"})`);
   if (!initialFpsReady) {
     console.error(`RESPONSIVE CAPABILITY REQUIREMENT FAILED: desktop FPS capability and Start! must be available; ${initialCapability.reason || "no capability reason was reported"}`);
@@ -151,7 +142,7 @@ async function waitForCapability(page, {
   }
   check(await page.getByRole("button", { name: "Start!", exact: true }).count() === 1, "preflight exposes one Start! action");
   check(await page.locator(".simulator-clipboard").count() === 1, "preflight displays the Coach's clipboard");
-  await standard.focus();
+  await start.focus();
 
   await page.setViewportSize({ width: 640, height: 400 });
   const compactCapability = await waitForCapability(page, {
@@ -159,7 +150,7 @@ async function waitForCapability(page, {
     reasonIncludes: COMPACT_CAPABILITY_REASON,
     label: "compact preflight",
   });
-  check(await standard.isDisabled(), "shrinking below 960 × 540 disables Start!");
+  check(await start.isDisabled(), "shrinking below 960 × 540 disables Start!");
   check(await page.evaluate(() => document.activeElement?.hasAttribute("data-simulator-settings")), "threshold change moves focus from disabled Start! to Settings");
   check(compactCapability.status.includes(COMPACT_CAPABILITY_REASON), "compact preflight explains the post-zoom minimum");
 
@@ -168,14 +159,14 @@ async function waitForCapability(page, {
     available: true,
     label: "restored desktop preflight",
   });
-  check(!await standard.isDisabled(), "growing back above the threshold reenables Start!");
+  check(!await start.isDisabled(), "growing back above the threshold reenables Start!");
 
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
   await page.click("[data-simulator-settings-close]");
   await page.waitForSelector(".simulator-preflight");
-  await standard.click();
+  await start.click();
   await page.waitForSelector("canvas.simulator-canvas");
   await page.evaluate(() => { window.__responsiveOriginalState = window.__responsiveSimulator.state; });
 
@@ -207,14 +198,14 @@ async function waitForCapability(page, {
     reasonIncludes: COMPACT_CAPABILITY_REASON,
     label: "compact return to preflight",
   });
-  check(await standard.isDisabled(), "returning from the run applies the current compact capability to Start!");
+  check(await start.isDisabled(), "returning from the run applies the current compact capability to Start!");
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await waitForCapability(page, {
     available: true,
     label: "second restored desktop preflight",
   });
-  check(!await standard.isDisabled(), "the same preflight responds to a second threshold crossing");
+  check(!await start.isDisabled(), "the same preflight responds to a second threshold crossing");
 
   await page.click(".bridge-simulator-exit");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));

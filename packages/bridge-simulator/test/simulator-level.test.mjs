@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
-import { moveActor, spaceAtPoint } from "../src/core/simulator/collision.js";
-import { validateLevel } from "../src/core/simulator/validateLevel.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/level.js";
+import { moveActor, spaceAtPoint } from "../src/core/collision.js";
+import { validateLevel } from "../src/core/validateLevel.js";
 
 test("full and slice level manifests validate their declared scopes", () => {
   const slice = validateLevel(SLICE_LEVEL);

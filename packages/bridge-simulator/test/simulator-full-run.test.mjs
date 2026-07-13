@@ -1,29 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { findSpacePath } from "../src/core/simulator/ai.js";
+import { findSpacePath } from "../src/core/ai.js";
 import {
   distance,
   hasLineOfSight,
   otherPortalSpace,
   pointInPolygon,
-} from "../src/core/simulator/collision.js";
-import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
+} from "../src/core/collision.js";
+import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/level.js";
 import {
   FIXED_DT,
   createSimulation,
   drainSimulationEvents,
   simulationStats,
   stepSimulation,
-} from "../src/core/simulator/simulation.js";
+} from "../src/core/simulation.js";
 
 const CARDS = ["SA", "SK", "SQ", "SJ", "ST", "S9", "H8", "H7", "D6", "D5", "C4", "C3", "C2"]
   .map((value) => ({ suit: value[0], rank: value[1] }));
 
 const SCENARIO = Object.freeze({
   seed: "deterministic-full-run",
-  mode: "restore-honor",
-  representativeHand: { source: "pbn", cards: CARDS },
+  hand: { cards: CARDS },
   wings: [
     { slot: "A", encounterSkin: "auction-gremlin" },
     { slot: "B", encounterSkin: "overtrick-imp" },
@@ -347,7 +346,8 @@ function waitForEvent(state, eventType, trace, maxTicks = 200) {
 }
 
 test("deterministic bot completes the authored full level through real movement and combat", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL, mode: "practice" });
+  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL });
+  state.enemies.forEach((enemy) => { enemy.damage = 0; });
   const trace = createTrace(state);
   assert.equal(state.portalStates["wing-a-lift-shortcut"].open, false);
   assert.equal(state.portalStates["hub-to-vault"].open, false);
@@ -466,13 +466,13 @@ test("deterministic bot completes the authored full level through real movement 
   assert.ok(trace.events.some((event) => event.type === "run-complete"));
 });
 
-test("evasive Standard bot survives the authored slice wing and unassisted boss", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "standard" });
+test("evasive live-rules bot survives the authored slice wing and unassisted boss", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
   const trace = createTrace(state);
 
   moveTo(state, { x: 12.6, z: 35 }, "club-entrance", trace);
   moveTo(state, { x: 16.2, z: 35 }, "movement-hall", trace);
-  huntEnemiesEvasively(state, (enemy) => enemy.id.startsWith("tutorial-"), trace, "Standard tutorial");
+  huntEnemiesEvasively(state, (enemy) => enemy.id.startsWith("tutorial-"), trace, "live-rules tutorial");
   moveTo(state, { x: 31, z: 35 }, "main-cardroom", trace);
 
   const doorwayDodge = [{ x: 30, z: 44.5 }, { x: 40, z: 44.5 }];
@@ -481,7 +481,7 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     state,
     (enemy) => ["a-enemy-1", "a-enemy-2", "a-enemy-3"].includes(enemy.id),
     trace,
-    "Standard wing A entrance",
+    "live-rules wing A entrance",
     "main-cardroom",
     doorwayDodge
   );
@@ -493,7 +493,7 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     state,
     (enemy) => ["a-enemy-4", "a-enemy-5"].includes(enemy.id),
     trace,
-    "Standard wing A chalkboard wave",
+    "live-rules wing A chalkboard wave",
     12000
   );
   collectSlipByContact(state, "review-slip-a", trace);
@@ -515,7 +515,7 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     state,
     (enemy) => enemy.archetype === "bottom-board",
     trace,
-    "unassisted Standard boss",
+    "unassisted live-rules boss",
     45000
   );
   const bossSeconds = state.elapsed - bossStartedAt;
@@ -525,9 +525,9 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
   interactWithMarker(state, "next-round-exit", "run-complete", trace);
 
   const resetEvents = trace.events.filter((event) => event.type === "player-defeated" || event.type === "encounter-reset");
-  assert.deepEqual(resetEvents, [], "Standard validation must not pass through a checkpoint defeat/reset");
+  assert.deepEqual(resetEvents, [], "live-rules validation must not pass through a checkpoint defeat/reset");
   assert.equal(state.status, "complete");
-  assert.ok(state.player.composure > 0, "the Standard bot should survive with positive Composure");
+  assert.ok(state.player.composure > 0, "the live-rules bot should survive with positive Composure");
   assert.ok(
     bossSeconds >= 30 && bossSeconds <= 55,
     `reduced-health unassisted boss took ${bossSeconds.toFixed(1)} seconds`

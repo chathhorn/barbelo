@@ -16,15 +16,6 @@ const MIME = {
   ".jpg": "image/jpeg",
   ".json": "application/json",
 };
-const CSV = `Board,PairNS,PairEW,NS/EW,Contract,Result
-1,1,2,N,3 NT,=
-1,3,4,N,3 NT,+1
-1,5,6,N,3 NT,+1
-2,1,2,N,2 S,+1
-2,3,4,N,4 S,=
-2,5,6,N,4 S,=`;
-const DEAL = "N:AKQJ.AKQ.AKQ.AKQ T987.J87.J87.J87 654.654.654.T965 32.T932.T932.432";
-const PBN = [1, 2].map((board) => `[Board "${board}"]\n[Deal "${DEAL}"]`).join("\n\n");
 const ARROW_RIGHT = "\uE014";
 
 class WebDriverError extends Error {
@@ -259,7 +250,7 @@ async function run() {
     await client.setWindowRect({ width: 1400, height: 900, x: 20, y: 20 });
     const origin = `http://127.0.0.1:${appPort}`;
     await client.navigate(`${origin}/`);
-    await waitFor(client, "the Barbelo app", "window.PBNAnalyzer && document.querySelector('#resultsFile')");
+    await waitFor(client, "the Barbelo app", "document.readyState === 'complete' && document.querySelector('.brand-simulator-launch')");
     const brandPrepared = await client.executeAsync(`
       const done = arguments[arguments.length - 1];
       import("/src/ui/dom.js").then(({ setBrandMarkVariant }) => {
@@ -279,19 +270,10 @@ async function run() {
       window.addEventListener("error", (event) => window.__safariSmokeErrors.push(event.message || stringify(event.error)));
       window.addEventListener("unhandledrejection", (event) => window.__safariSmokeErrors.push(stringify(event.reason)));
     `);
-    await client.execute(`
-      const load = (selector, name, type, text) => {
-        const transfer = new DataTransfer();
-        transfer.items.add(new File([text], name, { type }));
-        const input = document.querySelector(selector);
-        input.files = transfer.files;
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      };
-      load("#resultsFile", "safari-smoke.csv", "text/csv", arguments[0]);
-      load("#pbnFile", "safari-smoke.pbn", "text/plain", arguments[1]);
-    `, [CSV, PBN]);
-    await waitFor(client, "the Pair Improvement Report", "document.querySelectorAll('.priority-card').length > 0");
-    check(await client.execute("return !document.querySelector('#pairReportBody [data-simulator-open]') && !document.querySelector('.brand-simulator-launch').disabled;"), "real Safari exposes the simulator only through the ouroboros");
+    check(await client.execute(`
+      const launch = document.querySelector('.brand-simulator-launch');
+      return Boolean(launch && !launch.disabled && !document.querySelector('#pairReportBody [data-simulator-open]'));
+    `), "real Safari exposes the generic simulator through the blank-app ouroboros");
 
     await client.execute(`
       const trigger = document.querySelector('.brand-simulator-launch');
@@ -299,7 +281,11 @@ async function run() {
       trigger.click();
     `);
     await waitFor(client, "the logo-launched simulator preflight", "document.querySelector('.simulator-preflight')");
-    check(await client.execute("return document.querySelector('.app-shell').inert && Boolean(document.querySelector('.bridge-simulator-overlay'));"), "real Safari logo launch opens the modal and inerts the app shell");
+    check(await client.execute(`
+      const preflight = document.querySelector('.simulator-preflight');
+      return document.querySelector('.app-shell').inert && Boolean(document.querySelector('.bridge-simulator-overlay')) &&
+        !/Pair\\s+\\d|session percentage|MP versus average|loaded PBN/i.test(preflight && preflight.textContent || '');
+    `), "real Safari blank-app logo launch opens the generic modal and inerts the app shell");
     await client.execute("document.querySelector('.bridge-simulator-exit').click();");
     await waitFor(client, "logo-launch cleanup", "!document.querySelector('.bridge-simulator-overlay')");
     check(await client.execute("return document.activeElement === document.querySelector('.brand-simulator-launch');"), "real Safari logo launch restores focus");
@@ -358,16 +344,17 @@ async function run() {
     const audit = await client.execute(`
       const resources = performance.getEntriesByType("resource").map((entry) => entry.name);
       const foreign = resources.filter((url) => { try { return new URL(url, location.href).origin !== location.origin; } catch (error) { return true; } });
-      const persisted = JSON.stringify(localStorage);
       return {
         foreign,
-        leakedUrl: resources.some((url) => /PairNS|AKQJ|safari-smoke\\.(csv|pbn)/.test(decodeURIComponent(url))),
-        persistedSession: /PairNS|AKQJ|safari-smoke\\.(csv|pbn)/.test(persisted),
+        preferenceKeys: Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).filter(Boolean),
         errors: window.__safariSmokeErrors.slice(),
       };
     `);
     check(audit.foreign.length === 0, `real Safari requests remain same-origin (${audit.foreign.join(", ")})`);
-    check(!audit.leakedUrl && !audit.persistedSession, "real Safari neither transmits nor persists uploaded session data");
+    check(
+      audit.preferenceKeys.length === 1 && audit.preferenceKeys[0] === "bridgeSimulator.settings.v1",
+      `real Safari persists only generic simulator preferences (${audit.preferenceKeys.join(", ")})`
+    );
     check(audit.errors.length === 0, `real Safari records no console/page errors (${audit.errors.join("; ")})`);
 
     console.log(failures.length ? `\nREAL SAFARI SMOKE FAILED (${failures.length})` : "\nREAL SAFARI SMOKE PASSED");

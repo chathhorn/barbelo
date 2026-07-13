@@ -1,7 +1,7 @@
 # Bridge Simulator visual assets
 
 All visual files in this directory are project-original assets created for
-Barbelo's Bridge Simulator. No third-party artwork is included in this pack.
+Bridge Simulator. No third-party artwork is included in this pack.
 
 ## Creation record
 
@@ -14,7 +14,7 @@ Barbelo's Bridge Simulator. No third-party artwork is included in this pack.
 - Raster/image model use: none.
 - External fonts, linked images, scripts, filters, and copied vector paths:
   none.
-- Existing Barbelo Coach photographs, avatars, and SVGs were not used as
+- Existing coach photographs, avatars, and SVGs were not used as
   visual references, traced, sampled, color-picked, or transformed. The Coach
   pose set was designed from scratch from the generic prompt “full-body Border
   Collie bridge coach,” then hand-redrawn for an upright, human-like stance and
@@ -24,10 +24,10 @@ Barbelo's Bridge Simulator. No third-party artwork is included in this pack.
 - Validation: each SVG was parsed with `xmllint` and raster-previewed locally
   with librsvg to check transparency and silhouette readability.
 
-These originals are intended to be distributed under the repository's MIT
-license. The upstream Three.js engine is vendored separately under
-`vendor/three/` and retains its own MIT license, exact release record, source
-URLs, and hashes there.
+These originals are distributed under the package's MIT license. The upstream
+Three.js engine is vendored separately under the
+package's `vendor/three/` directory and retains its own MIT license, exact
+release record, source URLs, and hashes there.
 
 ## Shared visual specification
 

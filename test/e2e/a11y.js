@@ -47,6 +47,31 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
   });
+  check(
+    await page.locator(".brand-simulator-launch").count() === 1 &&
+      !await page.locator(".brand-simulator-launch").isDisabled() &&
+      await page.locator("#pairReportBody [data-simulator-open]").count() === 0,
+    "blank app exposes the generic simulator only through the semantic ouroboros"
+  );
+  await page.click(".brand-simulator-launch");
+  await page.waitForSelector(".simulator-preflight");
+  const blankSimulator = await page.evaluate(() => ({
+    appInert: document.querySelector(".app-shell").inert,
+    focusInside: document.querySelector(".bridge-simulator-overlay")?.contains(document.activeElement),
+    generic: !/Pair\s+\d|session percentage|MP versus average|loaded PBN/i.test(
+      document.querySelector(".simulator-preflight")?.textContent || ""
+    ),
+  }));
+  check(
+    blankSimulator.appInert && blankSimulator.focusInside && blankSimulator.generic,
+    `blank-app generic simulator owns focus without report data (${JSON.stringify(blankSimulator)})`
+  );
+  await page.click(".bridge-simulator-exit");
+  await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
+  check(
+    await page.evaluate(() => !document.querySelector(".app-shell").inert && document.activeElement?.matches(".brand-simulator-launch")),
+    "blank-app simulator exit restores app interactivity and launch focus"
+  );
   await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
   await page.waitForTimeout(400);
   await page.setInputFiles("#pbnFile", path.join(REPO, "samples", "20260627.pbn"));
@@ -112,9 +137,9 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   const selVisible = await page.evaluate(() => document.getElementById("reportPairSelect").getBoundingClientRect().height > 0);
   check(selVisible, "pair select still visible in header");
 
-  // real Bridge Simulator launch path: the ouroboros alone is a semantic
-  // trigger; the alternate compass mark remains plain, hidden artwork.
-  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "pair report has no simulator launch control");
+  // The generic Bridge Simulator remains independent of the report after app
+  // data loads: the ouroboros is semantic and the compass stays static.
+  check(await page.locator("#pairReportBody [data-simulator-open]").count() === 0, "loaded pair report still has no simulator launch control");
   await page.locator(".brand-simulator-launch").focus();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Shift+Tab");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SLOW_FRAME_POLICY, createSlowFrameMonitor } from "../src/simulator/performance.js";
+import { SLOW_FRAME_POLICY, createSlowFrameMonitor } from "../src/runtime/performance.js";
 
 function feed(monitor, count, delta = 0.05, options) {
   let offered = false;

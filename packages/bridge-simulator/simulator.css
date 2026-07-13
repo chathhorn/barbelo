@@ -1,4 +1,4 @@
-.bridge-simulator-overlay {
+.bridge-simulator-root {
   --sim-ink: #f4e8c1;
   --sim-muted: #c3b58e;
   --sim-paper: #efe0ae;
@@ -8,74 +8,29 @@
   --sim-gold: #d8a936;
   --sim-blue: #7dc9da;
   --sim-black: #080a09;
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  background: #050706;
+  min-height: 100%;
+  position: relative;
+  overflow: auto;
+  background: #090d0b;
   color: var(--sim-ink);
   font-family: "Courier New", Courier, monospace;
   font-size: 15px;
   line-height: 1.35;
-  overflow: hidden;
 }
 
-.bridge-simulator-overlay *,
-.bridge-simulator-overlay *::before,
-.bridge-simulator-overlay *::after {
+.bridge-simulator-root *,
+.bridge-simulator-root *::before,
+.bridge-simulator-root *::after {
   box-sizing: border-box;
 }
 
-.bridge-simulator-frame {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  background:
-    linear-gradient(rgba(255,255,255,.018) 50%, transparent 50%) 0 0 / 100% 4px,
-    #090d0b;
-}
-
-.bridge-simulator-framebar {
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: minmax(230px, 1fr) auto auto;
-  align-items: center;
-  gap: 18px;
-  padding: 8px 14px;
-  border-bottom: 3px solid #594a2c;
-  background: #121914;
-  box-shadow: 0 3px 0 #030403;
-  position: relative;
-  z-index: 8;
-}
-
-.bridge-simulator-framebar strong {
-  display: block;
-  color: #fff0c7;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: clamp(18px, 2vw, 26px);
-  font-weight: 400;
-  letter-spacing: .055em;
-  line-height: 1;
-  text-transform: uppercase;
-  text-shadow: 2px 2px 0 #491c18;
-}
-
-.bridge-simulator-eyebrow,
-.bridge-simulator-global-status {
-  color: var(--sim-muted);
-  font-size: 11px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.bridge-simulator-overlay button,
-.bridge-simulator-overlay select,
-.bridge-simulator-overlay input {
+.bridge-simulator-root button,
+.bridge-simulator-root select,
+.bridge-simulator-root input {
   font: inherit;
 }
 
-.bridge-simulator-overlay button {
+.bridge-simulator-root button {
   min-height: 38px;
   border: 2px solid #79683e;
   border-radius: 0;
@@ -88,62 +43,28 @@
   letter-spacing: .045em;
 }
 
-.bridge-simulator-overlay button:hover {
+.bridge-simulator-root button:hover {
   background: #384439;
   border-color: var(--sim-gold);
 }
 
-.bridge-simulator-overlay button.primary {
+.bridge-simulator-root button.primary {
   border-color: #e1b43f;
   background: #695122;
   color: #fff5d6;
 }
 
-.bridge-simulator-overlay button:focus-visible,
-.bridge-simulator-overlay input:focus-visible,
-.bridge-simulator-overlay select:focus-visible,
-.bridge-simulator-overlay summary:focus-visible {
+.bridge-simulator-root button:focus-visible,
+.bridge-simulator-root input:focus-visible,
+.bridge-simulator-root select:focus-visible,
+.bridge-simulator-root summary:focus-visible {
   outline: 3px solid var(--sim-blue);
   outline-offset: 2px;
 }
 
-.bridge-simulator-overlay button:disabled {
+.bridge-simulator-root button:disabled {
   cursor: not-allowed;
   opacity: .45;
-}
-
-.bridge-simulator-exit {
-  border-color: #8c4d3c !important;
-  background: #3c1f1b !important;
-}
-
-.bridge-simulator-host {
-  min-height: 0;
-  position: relative;
-  overflow: auto;
-}
-
-.bridge-simulator-loading,
-.bridge-simulator-error {
-  min-height: 100%;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 10px;
-  padding: 32px;
-  text-align: center;
-}
-
-.bridge-simulator-loading-mark {
-  color: var(--sim-gold);
-  font-size: 72px;
-  line-height: 1;
-  text-shadow: 5px 5px 0 #531e21;
-  animation: simulator-shuffle .75s steps(4, end) infinite;
-}
-
-@keyframes simulator-shuffle {
-  50% { transform: translateX(10px) rotate(8deg); }
 }
 
 .simulator-preflight {
@@ -247,7 +168,7 @@
   text-transform: uppercase;
 }
 
-.simulator-provenance {
+.simulator-capability-note {
   border-left: 4px solid var(--sim-gold);
   margin: 0 0 18px;
   padding: 7px 10px;
@@ -691,10 +612,7 @@
   padding-top: 12px;
 }
 
-.simulator-evidence summary { cursor: pointer; font-weight: 700; }
-.simulator-evidence dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
-.simulator-evidence dt { color: #d3c18d; }
-.simulator-evidence dd { margin: 0; }
+.simulator-evidence h3 { margin: 0 0 8px; color: #d3c18d; }
 
 .simulator-debrief {
   width: min(1000px, calc(100% - 40px));
@@ -733,7 +651,7 @@
   border: 0 !important;
 }
 
-.bridge-simulator-overlay.high-contrast {
+.bridge-simulator-root.high-contrast {
   --sim-ink: #fff;
   --sim-muted: #fff;
   --sim-paper: #fff;
@@ -741,57 +659,55 @@
   --sim-blue: #00e5ff;
 }
 
-.bridge-simulator-overlay.high-contrast .bridge-simulator-frame,
-.bridge-simulator-overlay.high-contrast .bridge-simulator-framebar,
-.bridge-simulator-overlay.high-contrast .simulator-preflight,
-.bridge-simulator-overlay.high-contrast .simulator-preflight-panel,
-.bridge-simulator-overlay.high-contrast .simulator-provenance,
-.bridge-simulator-overlay.high-contrast .simulator-clipboard,
-.bridge-simulator-overlay.high-contrast .simulator-hud,
-.bridge-simulator-overlay.high-contrast .simulator-modal,
-.bridge-simulator-overlay.high-contrast .simulator-chalkboard,
-.bridge-simulator-overlay.high-contrast .simulator-coach-card,
-.bridge-simulator-overlay.high-contrast .simulator-debrief,
-.bridge-simulator-overlay.high-contrast .simulator-debrief-panel {
+.bridge-simulator-root.high-contrast .simulator-preflight,
+.bridge-simulator-root.high-contrast .simulator-preflight-panel,
+.bridge-simulator-root.high-contrast .simulator-capability-note,
+.bridge-simulator-root.high-contrast .simulator-clipboard,
+.bridge-simulator-root.high-contrast .simulator-hud,
+.bridge-simulator-root.high-contrast .simulator-modal,
+.bridge-simulator-root.high-contrast .simulator-chalkboard,
+.bridge-simulator-root.high-contrast .simulator-coach-card,
+.bridge-simulator-root.high-contrast .simulator-debrief,
+.bridge-simulator-root.high-contrast .simulator-debrief-panel {
   border-color: #fff;
   background: #000;
   color: #fff;
 }
 
-.bridge-simulator-overlay.high-contrast button,
-.bridge-simulator-overlay.high-contrast select {
+.bridge-simulator-root.high-contrast button,
+.bridge-simulator-root.high-contrast select {
   border-color: #fff;
   background: #000;
   color: #fff;
 }
 
-.bridge-simulator-overlay.high-contrast .simulator-objective-banner,
-.bridge-simulator-overlay.high-contrast .simulator-caption,
-.bridge-simulator-overlay.high-contrast .simulator-boss-meter,
-.bridge-simulator-overlay.high-contrast .simulator-minimap-panel,
-.bridge-simulator-overlay.high-contrast .simulator-minimap button {
+.bridge-simulator-root.high-contrast .simulator-objective-banner,
+.bridge-simulator-root.high-contrast .simulator-caption,
+.bridge-simulator-root.high-contrast .simulator-boss-meter,
+.bridge-simulator-root.high-contrast .simulator-minimap-panel,
+.bridge-simulator-root.high-contrast .simulator-minimap button {
   border-color: #ffdf00;
   background: #000;
   color: #fff;
 }
 
-.bridge-simulator-overlay.high-contrast .simulator-canvas {
+.bridge-simulator-root.high-contrast .simulator-canvas {
   filter: contrast(1.35) brightness(1.15);
 }
 
-.bridge-simulator-overlay.high-contrast .simulator-minimap-room { fill: #000; stroke: #fff; }
-.bridge-simulator-overlay.high-contrast .simulator-minimap-portal { stroke: #00e5ff; }
-.bridge-simulator-overlay.high-contrast .simulator-minimap-player { fill: #ffdf00; stroke: #000; }
-.bridge-simulator-overlay.high-contrast .simulator-minimap-hostile { fill: #ff2b2b; stroke: #fff; }
+.bridge-simulator-root.high-contrast .simulator-minimap-room { fill: #000; stroke: #fff; }
+.bridge-simulator-root.high-contrast .simulator-minimap-portal { stroke: #00e5ff; }
+.bridge-simulator-root.high-contrast .simulator-minimap-player { fill: #ffdf00; stroke: #000; }
+.bridge-simulator-root.high-contrast .simulator-minimap-hostile { fill: #ff2b2b; stroke: #fff; }
 
-.bridge-simulator-overlay.reduced-effects * {
+.bridge-simulator-root.reduced-effects * {
   animation-duration: .001ms !important;
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bridge-simulator-overlay * {
+  .bridge-simulator-root * {
     animation-duration: .001ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
@@ -812,10 +728,6 @@
 }
 
 @media (max-width: 680px) {
-  .bridge-simulator-framebar {
-    grid-template-columns: 1fr auto;
-  }
-  .bridge-simulator-global-status { display: none; }
   .simulator-settings,
   .simulator-debrief-grid { grid-template-columns: 1fr; }
   .simulator-hud { grid-template-columns: repeat(2, 1fr); padding-inline: 6px; }
