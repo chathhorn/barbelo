@@ -202,7 +202,7 @@ function createGameShell(host, scenario, level) {
         <div class="simulator-hud-stat"><span>Composure</span><strong data-hud-composure>100</strong></div>
         <div class="simulator-hand-wrap">
           <div class="simulator-card-hand" data-hud-hand role="group" aria-label="Throwing hand: ${escapeHtml(handLabel(cards))}">${renderHand(cards)}</div>
-          <span class="simulator-shuffle-label" data-hud-shuffle hidden>Shuffle</span>
+          <span class="simulator-shuffle-label" data-hud-shuffle aria-hidden="true" hidden>Shuffling…</span>
         </div>
         <div class="simulator-hud-stat"><span>Honor · Slips</span><strong><span data-hud-honor>0</span> · <span data-hud-slips>0</span></strong></div>
       </div>
@@ -247,6 +247,31 @@ function valueFrom(snapshot, paths, fallback = 0) {
   return fallback;
 }
 
+function updateHandCards(hand, used) {
+  const cards = [...hand.querySelectorAll(".simulator-card")];
+  const nextUsed = String(used);
+  if (hand.dataset.used === nextUsed) return cards;
+  cards.forEach((card, index) => {
+    card.classList.toggle("used", index < used);
+    card.classList.toggle("next", index === used);
+  });
+  hand.dataset.used = nextUsed;
+  return cards;
+}
+
+function prepareHandShuffle(hand, label, cards, duration) {
+  const handBox = hand.getBoundingClientRect();
+  const handCenter = handBox.left + handBox.width / 2;
+  cards.forEach((card) => {
+    const cardBox = card.getBoundingClientRect();
+    const cardCenter = cardBox.left + cardBox.width / 2;
+    card.style.setProperty("--shuffle-gather-x", `${(handCenter - cardCenter).toFixed(2)}px`);
+  });
+  const animationDuration = `${Math.max(0.01, duration)}s`;
+  hand.style.setProperty("--simulator-shuffle-duration", animationDuration);
+  label.style.setProperty("--simulator-shuffle-duration", animationDuration);
+}
+
 function updateHud(elements, snapshot, scenario) {
   const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
   const composure = valueFrom(snapshot, ["player.composure", "player.health", "hud.composure"], 100);
@@ -256,13 +281,21 @@ function updateHud(elements, snapshot, scenario) {
   elements.composure.textContent = String(Math.max(0, Math.round(composure)));
   elements.honor.textContent = String(Math.max(0, Math.round(honor)));
   elements.slips.textContent = String(Math.max(0, Math.round(slips)));
-  elements.hand.innerHTML = renderHand(cards, Math.max(0, Math.min(cards.length, used)));
+  const clampedUsed = Math.max(0, Math.min(cards.length, used));
+  const handCards = updateHandCards(elements.hand, clampedUsed);
   const shuffling = Boolean(snapshot.weapon && snapshot.weapon.shuffling);
   const wasShuffling = elements.hand.dataset.shuffling === "true";
-  elements.hand.dataset.shuffling = String(shuffling);
   elements.hand.setAttribute("aria-label", `Throwing hand: ${handLabel(cards)}${shuffling ? ". Shuffling" : ""}`);
-  elements.shuffle.hidden = !shuffling;
-  if (shuffling && !wasShuffling) elements.live.textContent = "Shuffling the throwing hand.";
+  if (shuffling && !wasShuffling) {
+    const shuffleDuration = valueFrom(snapshot, ["weapon.shuffleDuration"], 1);
+    prepareHandShuffle(elements.hand, elements.shuffle, handCards, shuffleDuration);
+    elements.hand.dataset.shuffling = "true";
+    elements.shuffle.hidden = false;
+    elements.live.textContent = "Shuffling the throwing hand.";
+  } else if (!shuffling && (wasShuffling || elements.hand.dataset.shuffling !== "false")) {
+    elements.hand.dataset.shuffling = "false";
+    elements.shuffle.hidden = true;
+  }
 
   const player = snapshot.player || {};
   const playerPosition = player.position || player;
@@ -439,7 +472,7 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
   const sessionFacts = scenario.debrief && scenario.debrief.sessionFacts || [];
   host.innerHTML = `
     <section class="simulator-debrief" aria-labelledby="simulator-debrief-title">
-      <h2 id="simulator-debrief-title" tabindex="-1">Honor simulated. Evidence preserved.</h2>
+      <h2 id="simulator-debrief-title" tabindex="-1">Matchpoints recovered.</h2>
       <article class="simulator-coach-card">
         <img src="${escapeHtml(assetUrl("coach/coach-victory.svg"))}" alt="Victorious upright Border Collie Bridge Coach in a trenchcoat">
         <div><strong>Coach's verdict</strong><p>You cannot outgun a bad auction. Fortunately, this was a simulator.</p></div>
@@ -463,7 +496,6 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
           ${renderSegments(scenario.debrief && scenario.debrief.practiceAction)}
         </section>
       </div>
-      <p class="simulator-provenance">Honor Reclaimed is fictional game score. It does not change or restore real matchpoints.</p>
       <div class="simulator-modal-actions">
         <button type="button" data-simulator-restart>Play again</button>
         <button type="button" class="primary" data-simulator-close>Return to report</button>

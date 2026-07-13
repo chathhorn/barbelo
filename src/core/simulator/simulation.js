@@ -782,6 +782,7 @@ function getSimulationSnapshot(state) {
       cardIndex: state.combat.nextCardIndex,
       shuffling: state.combat.shuffleRemaining > 0,
       shuffleRemaining: state.combat.shuffleRemaining,
+      shuffleDuration: state.combat.shuffleDuration,
     },
     entities: renderEntities(state),
     portalStates: Object.fromEntries(Object.entries(state.portalStates).map(([id, portal]) => [id, { ...portal }])),

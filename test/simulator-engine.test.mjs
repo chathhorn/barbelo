@@ -103,6 +103,7 @@ test("the simulation turns reload input into an announced early shuffle", () => 
   const events = stepSimulation(state, { reload: true }, FIXED_DT);
   assert.equal(state.combat.nextCardIndex, 0);
   assert.equal(state.combat.shuffleRemaining, 1);
+  assert.equal(getSimulationSnapshot(state).weapon.shuffleDuration, 1);
   assert.ok(events.some((event) => event.type === "shuffle-started" && event.early === true && event.duration === 1));
 });
 

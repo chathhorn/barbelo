@@ -526,6 +526,7 @@
 .simulator-card {
   width: clamp(27px, 3vw, 40px);
   height: clamp(48px, 5vw, 64px);
+  position: relative;
   display: grid;
   place-items: center;
   border: 2px solid #c9b985;
@@ -542,17 +543,81 @@
 .simulator-card.red { color: #9d2e30; }
 .simulator-card.next { border-color: #f0bd33; transform: translateY(-7px); }
 
+.simulator-card-hand[data-shuffling="true"] .simulator-card {
+  z-index: 2;
+  will-change: transform, opacity;
+  animation-duration: var(--simulator-shuffle-duration, 1s);
+  animation-timing-function: cubic-bezier(.42, 0, .24, 1);
+  animation-fill-mode: both;
+}
+
+.simulator-card-hand[data-shuffling="true"] .simulator-card:nth-child(odd) {
+  animation-name: simulator-card-riffle-left;
+}
+
+.simulator-card-hand[data-shuffling="true"] .simulator-card:nth-child(even) {
+  animation-name: simulator-card-riffle-right;
+}
+
+@keyframes simulator-card-riffle-left {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  20% { transform: translate(var(--shuffle-gather-x, 0), 6px) rotate(0) scale(.96); }
+  36% { transform: translate(calc(var(--shuffle-gather-x, 0px) - 34px), -9px) rotate(-9deg) scale(.96); }
+  50% { transform: translate(calc(var(--shuffle-gather-x, 0px) + 12px), -3px) rotate(3deg) scale(.96); }
+  66% { transform: translate(calc(var(--shuffle-gather-x, 0px) - 24px), -7px) rotate(-6deg) scale(.96); }
+  80% { transform: translate(var(--shuffle-gather-x, 0), 5px) rotate(0) scale(.96); }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+
+@keyframes simulator-card-riffle-right {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  20% { transform: translate(var(--shuffle-gather-x, 0), 6px) rotate(0) scale(.96); }
+  36% { transform: translate(calc(var(--shuffle-gather-x, 0px) + 34px), -9px) rotate(9deg) scale(.96); }
+  50% { transform: translate(calc(var(--shuffle-gather-x, 0px) - 12px), -3px) rotate(-3deg) scale(.96); }
+  66% { transform: translate(calc(var(--shuffle-gather-x, 0px) + 24px), -7px) rotate(6deg) scale(.96); }
+  80% { transform: translate(var(--shuffle-gather-x, 0), 5px) rotate(0) scale(.96); }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+
 .simulator-shuffle-label {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  z-index: 3;
+  overflow: hidden;
+  padding: 5px 10px 7px;
+  border: 1px solid #806d37;
+  background: rgba(9, 14, 12, .9);
   color: var(--sim-gold);
   font-family: Impact, "Arial Black", sans-serif;
   font-size: 24px;
   letter-spacing: .08em;
   text-shadow: 2px 2px #000;
   text-transform: uppercase;
+  animation: simulator-shuffle-stamp var(--simulator-shuffle-duration, 1s) ease-in-out both;
+}
+
+.simulator-shuffle-label::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--sim-gold);
+  transform-origin: left center;
+  animation: simulator-shuffle-progress var(--simulator-shuffle-duration, 1s) linear both;
+}
+
+@keyframes simulator-shuffle-stamp {
+  0% { transform: translate(-50%, -50%) scale(.88); opacity: 0; }
+  14%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes simulator-shuffle-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .simulator-modal-backdrop {

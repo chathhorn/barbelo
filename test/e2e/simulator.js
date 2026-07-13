@@ -217,11 +217,29 @@ function check(ok, label) {
   check(clickEnd === clickStart + 1, "click still throws after Pointer Lock is denied");
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Mouse Lock unavailable"), "Pointer Lock denial explains the fallback controls");
 
-  await page.evaluate(() => { window.__bridgeSimulatorTest.state.combat.shuffleRemaining = 0.4; });
+  await page.evaluate(() => {
+    window.__simulatorShuffleCard = document.querySelector("[data-hud-hand] .simulator-card");
+    window.__bridgeSimulatorTest.state.combat.shuffleRemaining = 0.4;
+  });
   await page.waitForTimeout(60);
   check(!await page.locator("[data-hud-shuffle]").evaluate((element) => element.hidden), "Shuffle lockout is visible in the HUD");
   check((await page.locator("[data-hud-hand]").getAttribute("aria-label") || "").includes("Shuffling"), "Shuffle state is announced semantically");
+  const shuffleVisual = await page.evaluate(() => {
+    const hand = document.querySelector("[data-hud-hand]");
+    const card = hand.querySelector(".simulator-card");
+    return {
+      stableCard: card === window.__simulatorShuffleCard,
+      active: hand.dataset.shuffling === "true",
+      animationName: getComputedStyle(card).animationName,
+    };
+  });
+  check(
+    shuffleVisual.stableCard && shuffleVisual.active && shuffleVisual.animationName.includes("simulator-card-riffle"),
+    `Shuffle visibly animates the stable card hand (${JSON.stringify(shuffleVisual)})`
+  );
   await page.evaluate(() => { window.__bridgeSimulatorTest.state.combat.shuffleRemaining = 0; });
+  await page.waitForTimeout(60);
+  check(await page.locator("[data-hud-hand]").getAttribute("data-shuffling") === "false", "Shuffle animation clears when the reload finishes");
 
   await page.evaluate(() => {
     const state = window.__bridgeSimulatorTest.state;
@@ -450,6 +468,11 @@ function check(ok, label) {
   await page.locator("canvas.simulator-canvas").focus();
   await page.keyboard.press("e");
   await page.waitForSelector("#simulator-debrief-title");
+  check(
+    await page.getByRole("heading", { name: "Matchpoints recovered.", exact: true }).count() === 1 &&
+      !(await page.locator(".simulator-debrief").innerText()).includes("Honor Reclaimed is fictional game score"),
+    "completion debrief celebrates recovered matchpoints without the fictional-score disclaimer"
+  );
   check(await page.locator(".simulator-debrief-panel").count() === 2, "debrief separates fictional simulation stats from the actual session");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));

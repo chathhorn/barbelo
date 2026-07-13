@@ -172,6 +172,12 @@ function check(ok, label) {
     await page.evaluate(() => window.__builtSimulator.state.combat.nextCardIndex === 0 && window.__builtSimulator.state.combat.shuffleRemaining > 0.75),
     "built simulator uses R for the one-second early shuffle"
   );
+  check(await page.evaluate(() => {
+    const hand = document.querySelector("[data-hud-hand]");
+    const card = hand?.querySelector(".simulator-card");
+    return hand?.dataset.shuffling === "true" &&
+      getComputedStyle(card).animationName.includes("simulator-card-riffle");
+  }), "built simulator animates the early shuffle");
   await page.keyboard.press("m");
   check(await page.locator("[data-simulator-minimap-panel]").isHidden(), "built simulator uses M to hide the minimap");
   await page.keyboard.press("m");
