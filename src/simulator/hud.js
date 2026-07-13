@@ -485,7 +485,6 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
             <dt>Card accuracy</dt><dd>${escapeHtml(stats.accuracyLabel || "—")}</dd>
             <dt>Enemies reseated</dt><dd>${escapeHtml(stats.enemiesDefeated || 0)}</dd>
             <dt>Biscuits found</dt><dd>${escapeHtml(stats.biscuits || 0)}</dd>
-            <dt>Secrets</dt><dd>${escapeHtml(stats.secrets || 0)}</dd>
             <dt>Honor Reclaimed</dt><dd>${escapeHtml(stats.honor || 0)} suit tokens</dd>
           </dl>
         </section>

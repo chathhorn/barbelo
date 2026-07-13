@@ -27,7 +27,12 @@ function materialLuminance(material) {
 }
 
 test("floor and ceiling meshes occupy the same authored X/Z rooms", () => {
-  const meshes = createLevelMeshes(SLICE_LEVEL, {});
+  const floorTexture = { id: "quiet-floor" };
+  const ceilingTexture = { id: "quiet-ceiling" };
+  const meshes = createLevelMeshes(SLICE_LEVEL, {
+    carpetSuits: floorTexture,
+    ceilingTile: ceilingTexture,
+  });
   const floors = meshes.root.children.filter((child) => child.userData.kind === "floor");
   const ceilings = meshes.root.children.filter((child) => child.userData.kind === "ceiling");
   const wallBatches = meshes.root.children.filter((child) => child.userData.kind === "wall-batch");
@@ -42,7 +47,11 @@ test("floor and ceiling meshes occupy the same authored X/Z rooms", () => {
     assert.ok(Math.abs(floorBounds.max.x - ceilingBounds.max.x) < 1e-6);
     assert.ok(Math.abs(floorBounds.min.z - ceilingBounds.min.z) < 1e-6);
     assert.ok(Math.abs(floorBounds.max.z - ceilingBounds.max.z) < 1e-6);
+    assert.equal(floor.material.map, floorTexture);
+    assert.equal(ceilings[index].material.map, ceilingTexture);
   });
+
+  assert.equal(SPRITE_PATHS.ceilingTile, "textures/ceiling-tile.svg");
 
   meshes.destroy();
 });

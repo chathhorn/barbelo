@@ -1,22 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
-  <title>Cardroom suit carpet tile</title>
-  <desc>Original repeating medium-navy carpet motif with abstract spade, heart, diamond, and club shapes.</desc>
+  <title>Quiet cardroom carpet tile</title>
+  <desc>Original low-contrast woven carpet with a sparse abstract card-suit watermark.</desc>
   <metadata>tile=true;tileWidth=64;tileHeight=64;surface=floor</metadata>
-  <rect width="64" height="64" fill="#30465a"/>
-  <path fill="#3d5869" d="M0 0h32v32H0zM32 32h32v32H32z"/>
-  <path fill="#326a63" d="M0 30h64v4H0zM30 0h4v64H30z"/>
-  <g fill="#d69b3d">
-    <path d="m16 7 7 9-4 6h-2v5h-4v-5h-2l-4-6Z"/>
-    <path d="m48 38 5 4-1 5 4 2 2 5-4 4-5-2v4h-4v-4l-5 2-4-4 2-5 4-2-1-5Z"/>
-  </g>
-  <g fill="#c74b50">
-    <path d="m48 26-9-10 2-6 5-2 3 4 3-4 5 2 2 6Z"/>
-    <path d="m16 38 9 10-9 10-9-10Z"/>
-  </g>
-  <g fill="#0f1821" opacity="0.55">
-    <rect x="2" y="2" width="3" height="3"/>
-    <rect x="59" y="2" width="3" height="3"/>
-    <rect x="2" y="59" width="3" height="3"/>
-    <rect x="59" y="59" width="3" height="3"/>
-  </g>
+  <rect width="64" height="64" fill="#858780"/>
+  <path fill="#8f918a" d="M0 0h64v2H0zM0 16h64v2H0zM0 32h64v2H0zM0 48h64v2H0z"/>
+  <path fill="#7b7d77" opacity=".55" d="M7 7h9v2H7zM39 7h9v2h-9zM23 23h9v2h-9zM55 23h9v2h-9zM7 39h9v2H7zM39 39h9v2h-9zM23 55h9v2h-9zM55 55h9v2h-9z"/>
+  <path fill="#9a9c94" opacity=".45" d="m32 26 5 6-5 6-5-6Z"/>
 </svg>

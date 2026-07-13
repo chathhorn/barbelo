@@ -151,6 +151,11 @@ function check(ok, label) {
     !("systemNotes" in window.__builtSimulator.state.player) &&
     !window.__builtSimulator.level.markers.some((marker) => marker.pickupKind === "system-notes")
   ), "built simulation contains no System Notes armor or pickups");
+  check(await page.evaluate(() =>
+    !("secrets" in window.__builtSimulator.state) &&
+    !("secrets" in window.__builtSimulator.state.progress) &&
+    !window.__builtSimulator.level.markers.some((marker) => marker.type === "secret")
+  ), "built simulation contains no secret pickups");
   check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "built simulator starts with a visible minimap HUD");
   const startX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
   await page.keyboard.down("w");

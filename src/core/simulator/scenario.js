@@ -832,7 +832,7 @@ function buildDebrief(report, mode, wings, decisionTypes) {
 
   return {
     mode,
-    fictionalStatsLabels: ["Time", "Card Accuracy", "Enemies Reseated", "Biscuits Found", "Secrets", "Honor Reclaimed"],
+    fictionalStatsLabels: ["Time", "Card Accuracy", "Enemies Reseated", "Biscuits Found", "Honor Reclaimed"],
     sessionFacts,
     practiceAction,
   };

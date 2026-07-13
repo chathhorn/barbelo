@@ -68,7 +68,6 @@ function marker(id, type, spaceId, x, z, options = {}) {
     archetype: options.archetype || "",
     pickupKind: options.pickupKind || "",
     amount: options.amount == null ? 0 : options.amount,
-    secretId: options.secretId || "",
     label: options.label || "",
     manifests: options.manifests || ["full", "slice"]
   };
@@ -222,10 +221,6 @@ const MARKERS = [
   marker("lift-control-hub", "liftControl", "main-cardroom", 50, 46, { label: "Call lift" }),
   marker("lift-control-wing-a", "liftControl", "wing-a-chalkboard", 50, 50, { label: "Call lift" }),
 
-  marker("secret-biscuit", "secret", "movement-hall", 18, 31, { secretId: "biscuit-closet", label: "Biscuit Closet", radius: 0.5 }),
-  marker("secret-dummy", "secret", "wing-a-chalkboard", 53, 51, { secretId: "dummys-hand", label: "Dummy's Hand", radius: 0.5 }),
-  marker("secret-seven-nt", "secret", "vulnerability-passage", 86, 14, { secretId: "seven-nt-room", label: "The 7NT Room", radius: 0.5, manifests: ["full"] }),
-
   marker("tutorial-1", "enemySpawn", "movement-hall", 21, 34, { archetype: "kibitzer", radius: 0.34 }),
   marker("tutorial-2", "enemySpawn", "movement-hall", 24, 38, { archetype: "overtrick-imp", radius: 0.3 }),
 
@@ -267,7 +262,6 @@ const FULL_LEVEL_MANIFEST = Object.freeze({
   wingIds: ["a", "b", "c"],
   requiredSlipIds: ["review-slip-a", "review-slip-b", "review-slip-c"],
   requiredSlipCount: 3,
-  requiredSecretIds: ["secret-biscuit", "secret-dummy", "secret-seven-nt"],
   expectedOrdinaryEnemies: 20,
   expectedPrimarySpaces: 12
 });
@@ -296,7 +290,6 @@ const SLICE_LEVEL_MANIFEST = Object.freeze({
   wingIds: ["a"],
   requiredSlipIds: ["review-slip-a"],
   requiredSlipCount: 1,
-  requiredSecretIds: ["secret-biscuit", "secret-dummy"],
   expectedOrdinaryEnemies: 7,
   expectedPrimarySpaces: 7
 });
@@ -367,8 +360,7 @@ function buildLevel(manifest) {
       requiredSlipCount: manifest.requiredSlipCount,
       bossMarkerId: "bottom-board",
       vaultMarkerId: "vault-objective",
-      exitMarkerId: "next-round-exit",
-      requiredSecretIds: [...manifest.requiredSecretIds]
+      exitMarkerId: "next-round-exit"
     }
   };
   return deepFreeze(level);

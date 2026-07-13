@@ -157,6 +157,11 @@ function check(ok, label) {
     !("systemNotes" in window.__bridgeSimulatorTest.state.player) &&
     !window.__bridgeSimulatorTest.level.markers.some((marker) => marker.pickupKind === "system-notes")
   ), "simulation state and level contain no System Notes armor or pickups");
+  check(await page.evaluate(() =>
+    !("secrets" in window.__bridgeSimulatorTest.state) &&
+    !("secrets" in window.__bridgeSimulatorTest.state.progress) &&
+    !window.__bridgeSimulatorTest.level.markers.some((marker) => marker.type === "secret")
+  ), "simulation state and level contain no secret pickups");
   check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "gameplay starts with a visible minimap HUD");
   const initialMinimapTransform = await page.locator("[data-minimap-player]").getAttribute("transform");
   check(initialMinimapTransform, "minimap exposes the player's position and facing");
@@ -473,6 +478,7 @@ function check(ok, label) {
       !(await page.locator(".simulator-debrief").innerText()).includes("Honor Reclaimed is fictional game score"),
     "completion debrief celebrates recovered matchpoints without the fictional-score disclaimer"
   );
+  check(!await page.locator(".simulator-debrief-panel dt", { hasText: "Secrets" }).count(), "completion debrief omits the removed Secrets stat");
   check(await page.locator(".simulator-debrief-panel").count() === 2, "debrief separates fictional simulation stats from the actual session");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));

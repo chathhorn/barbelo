@@ -184,10 +184,6 @@ function validateManifest(level, errors, warnings) {
     const item = markerById(level, id);
     if (!item || item.type !== "reviewSlip") errors.push(`Required review slip ${id} is missing.`);
   });
-  level.objectives.requiredSecretIds.forEach((id) => {
-    const item = markerById(level, id);
-    if (!item || item.type !== "secret") errors.push(`Required secret ${id} is missing.`);
-  });
   [
     [level.objectives.bossMarkerId, "bossSpawn"],
     [level.objectives.vaultMarkerId, "vault"],
@@ -202,10 +198,6 @@ function validateManifest(level, errors, warnings) {
   level.objectives.requiredSlipIds.forEach((id) => {
     const slip = markerById(level, id);
     if (slip && !beforeVault.has(slip.spaceId)) errors.push(`Review slip ${id} is unreachable before the vault gate.`);
-  });
-  level.objectives.requiredSecretIds.forEach((id) => {
-    const secret = markerById(level, id);
-    if (secret && !beforeVault.has(secret.spaceId)) warnings.push(`Secret ${id} is not reachable before the boss.`);
   });
   const atVault = reachableSpaces(level, {
     slips: level.objectives.requiredSlipCount,
@@ -257,7 +249,6 @@ function validateLevel(level) {
       portals: level.portals.length,
       markers: level.markers.length,
       ordinaryEnemies: level.markers.filter((entry) => entry.type === "enemySpawn").length,
-      secrets: level.markers.filter((entry) => entry.type === "secret").length,
       reachableSpaces: reachable.size
     }
   };

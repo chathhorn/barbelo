@@ -89,24 +89,6 @@ function createReviewSlip(marker) {
   };
 }
 
-function createSecret(marker) {
-  return {
-    id: marker.id,
-    kind: "secret",
-    type: marker.secretId === "biscuit-closet" ? "biscuit" : "review-slip",
-    secretId: marker.secretId,
-    label: marker.label,
-    position: { ...marker.position },
-    spawnPosition: { ...marker.position },
-    spaceId: marker.spaceId,
-    radius: marker.radius,
-    height: 0.6,
-    active: true,
-    collected: false,
-    blocking: false,
-  };
-}
-
 function initialPortalStates(level) {
   const states = {};
   level.portals.forEach((portal) => {
@@ -179,7 +161,6 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
   });
   const pickups = level.markers.filter((marker) => marker.type === "pickup").map(createPickup);
   const reviewSlips = level.markers.filter((marker) => marker.type === "reviewSlip").map(createReviewSlip);
-  const secrets = level.markers.filter((marker) => marker.type === "secret").map(createSecret);
   const covers = level.markers.filter((marker) => marker.type === "cover").map((marker) => ({
     id: marker.id,
     kind: "cover",
@@ -211,7 +192,6 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
     enemies,
     pickups,
     reviewSlips,
-    secrets,
     covers,
     liftControls,
     exits,
@@ -225,14 +205,11 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
       bossActive: false,
       bossDefeated: false,
       exited: false,
-      secrets: [],
-      rapidDealRemaining: 0,
     },
     stats: {
       enemiesDefeated: 0,
       biscuits: 0,
       pickups: 0,
-      secrets: 0,
       honor: 0,
       shotsFired: 0,
       shotsHit: 0,
@@ -244,7 +221,6 @@ function createSimulation({ scenario, level, mode = "standard" } = {}) {
       enemiesDefeatedAtEntry: 0,
       pickupsAtEntry: 0,
       biscuitsAtEntry: 0,
-      rapidDealAtEntry: 0,
       defeatedEnemyIdsAtEntry: [],
       collectedPickupIdsAtEntry: [],
       enemyStatesAtEntry: [],
@@ -278,7 +254,6 @@ function encounterCheckpoint(state, { kind = state.encounter.kind, wingId = stat
     enemiesDefeatedAtEntry: state.stats.enemiesDefeated,
     pickupsAtEntry: state.stats.pickups,
     biscuitsAtEntry: state.stats.biscuits,
-    rapidDealAtEntry: state.progress.rapidDealRemaining,
     defeatedEnemyIdsAtEntry: state.enemies.filter((enemy) => !enemy.alive).map((enemy) => enemy.id),
     collectedPickupIdsAtEntry: state.pickups.filter((pickup) => pickup.collected).map((pickup) => pickup.id),
     enemyStatesAtEntry: state.enemies.map((enemy) => ({
@@ -420,26 +395,6 @@ function collectReviewSlip(state, slip, events) {
   return true;
 }
 
-function collectSecret(state, secret, events) {
-  secret.collected = true;
-  secret.active = false;
-  state.progress.secrets.push(secret.secretId);
-  state.stats.secrets = state.progress.secrets.length;
-  state.player.honor += 250;
-  state.stats.honor = state.player.honor;
-  state.encounter.honorAtEntry = state.player.honor;
-  if (secret.secretId === "biscuit-closet") {
-    state.player.composure = Math.min(100, state.player.composure + 35);
-    state.stats.biscuits += 1;
-  }
-  if (secret.secretId === "seven-nt-room") state.progress.rapidDealRemaining = 20;
-  // Secrets persist through an encounter reset. Capture the rest of the
-  // encounter at the same instant so previously defeated actors and consumed
-  // pickups cannot respawn while their Honor/stat awards remain banked.
-  state.encounter = encounterCheckpoint(state);
-  emit(events, "secret-found", { secretId: secret.secretId, label: secret.label, honor: 250 });
-}
-
 function callLift(state, control, events) {
   const portal = state.level.portals.find((entry) => entry.kind === "lift" &&
     (entry.from === control.spaceId || entry.to === control.spaceId));
@@ -487,11 +442,6 @@ function handleInteraction(state, events) {
     }
     return;
   }
-  const secret = nearestActive(state.secrets, state.player);
-  if (secret) {
-    collectSecret(state, secret, events);
-    return;
-  }
   const liftControl = nearestActive(state.liftControls, state.player);
   if (liftControl && callLift(state, liftControl, events)) return;
   const exit = markerById(state.level, state.level.objectives.exitMarkerId);
@@ -528,7 +478,6 @@ function throwIfRequested(state, input, events) {
     tick: state.tick,
   });
   if (!result.fired) return;
-  if (state.progress.rapidDealRemaining > 0) state.combat.cooldown = Math.min(state.combat.cooldown, 0.1);
   state.projectiles.push(result.projectile);
   state.stats.shotsFired = state.combat.shotsFired;
   emit(events, "card-thrown", { card: result.projectile.card, projectileId: result.projectile.id });
@@ -641,7 +590,6 @@ function resetEncounter(state, reason = "manual", { queue = true } = {}) {
   state.stats.enemiesDefeated = encounter.enemiesDefeatedAtEntry;
   state.stats.pickups = encounter.pickupsAtEntry || 0;
   state.stats.biscuits = encounter.biscuitsAtEntry || 0;
-  state.progress.rapidDealRemaining = encounter.rapidDealAtEntry || 0;
   state.lifts = {
     ...initialLiftStates(state.level),
     ...Object.fromEntries(Object.entries(encounter.liftStatesAtEntry || {}).map(([id, lift]) => [id, { ...lift }])),
@@ -719,7 +667,6 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
   const events = [];
   state.tick += 1;
   state.elapsed += step;
-  if (state.progress.rapidDealRemaining > 0) state.progress.rapidDealRemaining = Math.max(0, state.progress.rapidDealRemaining - step);
   updateCombatTimers(state.combat, step);
   updateLifts(state, step, events);
   movePlayer(state, input, step);
@@ -760,7 +707,6 @@ function renderEntities(state) {
     ...state.enemies,
     ...state.pickups,
     ...state.reviewSlips,
-    ...state.secrets,
     ...state.liftControls,
     ...state.exits,
     ...state.projectiles.map((projectile) => ({ ...projectile, kind: projectile.type })),
@@ -790,7 +736,6 @@ function getSimulationSnapshot(state) {
       ...state.progress,
       collectedSlipIds: [...state.progress.collectedSlipIds],
       completedWings: [...state.progress.completedWings],
-      secrets: [...state.progress.secrets],
     },
     objectives: { slips: state.progress.slips },
     stats: { ...state.stats },
@@ -817,7 +762,6 @@ function simulationStats(state) {
     accuracyLabel: `${accuracy.toFixed(0)}%`,
     enemiesDefeated: state.stats.enemiesDefeated,
     biscuits: state.stats.biscuits,
-    secrets: state.stats.secrets,
     honor: state.player.honor,
     shotsFired: state.combat.shotsFired,
     shotsHit: state.combat.shotsHit,

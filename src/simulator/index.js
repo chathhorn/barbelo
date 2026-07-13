@@ -526,9 +526,6 @@ class SimulatorApp {
       } else if (event.type === "lift-ready") {
         if (!event.alreadyReady) this.audio?.play("door");
         this.showCaption("Lift ready. Mind the duplicate-board gap.");
-      } else if (event.type === "secret-found") {
-        this.audio?.play("pickup");
-        this.showCaption(`Secret found: ${event.label}`);
       } else if (event.type === "interaction-blocked") {
         this.showCaption(event.reason === "lift-locked"
           ? "The lift call stays locked until this coaching wing is complete."

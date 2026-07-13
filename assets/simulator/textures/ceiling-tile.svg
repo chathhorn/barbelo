@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <title>Quiet cardroom ceiling tile</title>
+  <desc>Original broad low-contrast ceiling tile with a shallow recessed border.</desc>
+  <metadata>tile=true;tileWidth=64;tileHeight=64;surface=ceiling</metadata>
+  <rect width="64" height="64" fill="#aaa79d"/>
+  <path fill="#b4b1a7" d="M3 3h58v58H3z"/>
+  <path fill="#bebbb1" d="M7 7h50v2H7zM7 9h2v48H7z"/>
+  <path fill="#9d9a91" opacity=".55" d="M7 55h50v2H7zM55 7h2v50h-2z"/>
+</svg>

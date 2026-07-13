@@ -30,6 +30,7 @@ const SPRITE_PATHS = {
   leadMineWall: "textures/lead-mine-wall.svg",
   paperPanel: "textures/paper-panel.svg",
   carpetSuits: "textures/carpet-suits.svg",
+  ceilingTile: "textures/ceiling-tile.svg",
   chalkboard: "textures/coach-chalkboard.svg",
   vaultDoor: "textures/traveler-vault-door.svg",
   courtyardSky: "textures/courtyard-sky.svg",
@@ -55,7 +56,7 @@ async function preloadSpriteTextures(assetUrl, onProgress = () => {}) {
   const textures = {};
   const results = await Promise.allSettled(entries.map(async ([key, path]) => {
     textures[key] = configureTexture(await loader.loadAsync(assetUrl(path)), {
-      tile: key === "carpetSuits" || key === "paperPanel",
+      tile: key === "carpetSuits" || key === "ceilingTile" || key === "paperPanel",
     });
     loaded += 1;
     onProgress(loaded / entries.length, path);

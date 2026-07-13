@@ -13,16 +13,19 @@ test("full and slice level manifests validate their declared scopes", () => {
     spaces: 7,
     primarySpaces: 7,
     portals: 7,
-    markers: 25,
+    markers: 23,
     ordinaryEnemies: 7,
-    secrets: 2,
     reachableSpaces: 7,
   });
   assert.equal(full.metrics.spaces, 12);
   assert.equal(full.metrics.ordinaryEnemies, 20);
-  assert.equal(full.metrics.secrets, 3);
   assert.equal(full.metrics.reachableSpaces, 12);
   [SLICE_LEVEL, FULL_LEVEL].forEach((level) => {
+    assert.equal(
+      level.markers.some((marker) => marker.type === "secret"),
+      false,
+      `${level.id} must not contain secret pickups`
+    );
     assert.equal(
       level.markers.some((marker) => marker.pickupKind === "system-notes"),
       false,

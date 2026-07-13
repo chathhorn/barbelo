@@ -68,7 +68,7 @@ function scaledColor(hex, light = 1, surface = "wall") {
 
 function textureForMaterial(textures, key, surface) {
   if (surface === "floor") return textures.carpetSuits;
-  if (surface === "ceiling") return textures.paperPanel;
+  if (surface === "ceiling") return textures.ceilingTile;
   if (/auction/.test(key)) return textures.auctionWall;
   if (/trickworks/.test(key)) return textures.trickworksWall;
   if (/lead-mine/.test(key)) return textures.leadMineWall;

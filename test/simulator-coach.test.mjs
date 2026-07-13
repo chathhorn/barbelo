@@ -54,7 +54,6 @@ test("player cards stop on the current Coach without damage, Honor, or hostile a
     accuracyLabel: "0%",
     enemiesDefeated: 0,
     biscuits: 0,
-    secrets: 0,
     honor: 0,
     shotsFired: 1,
     shotsHit: 0,

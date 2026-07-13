@@ -357,14 +357,12 @@ test("deterministic bot completes the authored full level through real movement 
   moveTo(state, { x: 12.6, z: 35 }, "club-entrance", trace);
   moveTo(state, { x: 16.2, z: 35 }, "movement-hall", trace);
   huntEnemies(state, (enemy) => enemy.id.startsWith("tutorial-"), trace, "tutorial hall");
-  interactWithMarker(state, "secret-biscuit", "secret-found", trace);
   moveTo(state, { x: 31, z: 35 }, "main-cardroom", trace);
 
   // Wing A, including the post-slip lift shortcut back to the hub.
   moveTo(state, { x: 35, z: 50.2 }, "wing-a-entry", trace);
   huntEnemies(state, (enemy) => enemy.wingId === "a", trace, "wing A");
   collectSlipByContact(state, "review-slip-a", trace);
-  interactWithMarker(state, "secret-dummy", "secret-found", trace);
   assert.equal(state.portalStates["wing-a-lift-shortcut"].open, false, "the lift must be called after wing completion");
   interactWithMarker(state, "lift-control-wing-a", "lift-called", trace);
   waitForEvent(state, "lift-ready", trace);
@@ -402,7 +400,6 @@ test("deterministic bot completes the authored full level through real movement 
   moveTo(state, { x: 86, z: 28 }, "vulnerability-passage", trace);
   huntEnemies(state, (enemy) => enemy.id === "passage-enemy-3", trace, "upper vulnerability passage");
   moveTo(state, { x: 86, z: 18 }, "vulnerability-passage", trace);
-  interactWithMarker(state, "secret-seven-nt", "secret-found", trace);
 
   // Leave through wing B's opened shortcut and return to the hub.
   moveTo(state, { x: 86, z: 41 }, "vulnerability-passage", trace);
@@ -411,7 +408,6 @@ test("deterministic bot completes the authored full level through real movement 
   moveTo(state, { x: 54, z: 41 }, "main-cardroom", trace);
 
   assert.equal(state.progress.slips, 3);
-  assert.equal(state.progress.secrets.length, 3);
   assert.equal(state.portalStates["hub-to-vault"].open, true);
   assert.ok(state.enemies.filter((enemy) => enemy.archetype !== "bottom-board").every((enemy) => !enemy.alive));
   assert.equal(state.stats.enemiesDefeated, 20);
@@ -433,7 +429,7 @@ test("deterministic bot completes the authored full level through real movement 
   assert.equal(state.portalStates["vault-to-results"].open, true);
   assert.ok(
     bossFightSeconds <= 75,
-    `secret-assisted perfect-bot boss fight exceeded 75 seconds; observed ${bossFightSeconds.toFixed(1)} seconds`
+    `perfect-bot boss fight exceeded 75 seconds; observed ${bossFightSeconds.toFixed(1)} seconds`
   );
 
   // Cross the victory gate and interact with the authored exit marker.
@@ -444,7 +440,7 @@ test("deterministic bot completes the authored full level through real movement 
   assert.equal(state.status, "complete");
   assert.equal(state.progress.exited, true);
   assert.equal(state.stats.enemiesDefeated, 21);
-  assert.equal(simulationStats(state).honor, 5250);
+  assert.equal(simulationStats(state).honor, 4500);
   assert.equal(
     trace.events.filter((event) => event.type === "enemy-defeated" || event.type === "boss-defeated").length,
     21,
@@ -466,7 +462,6 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
   moveTo(state, { x: 12.6, z: 35 }, "club-entrance", trace);
   moveTo(state, { x: 16.2, z: 35 }, "movement-hall", trace);
   huntEnemiesEvasively(state, (enemy) => enemy.id.startsWith("tutorial-"), trace, "Standard tutorial");
-  interactWithMarker(state, "secret-biscuit", "secret-found", trace);
   moveTo(state, { x: 31, z: 35 }, "main-cardroom", trace);
 
   const doorwayDodge = [{ x: 30, z: 44.5 }, { x: 40, z: 44.5 }];
@@ -491,7 +486,6 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     12000
   );
   collectSlipByContact(state, "review-slip-a", trace);
-  interactWithMarker(state, "secret-dummy", "secret-found", trace);
   interactWithMarker(state, "lift-control-wing-a", "lift-called", trace);
   waitForEvent(state, "lift-ready", trace);
   moveTo(state, { x: 50, z: 49.1 }, "wing-a-chalkboard", trace);
@@ -502,7 +496,6 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     moveTo(state, coffee.position, coffee.spaceId, trace, { tolerance: 0.45 });
   }
 
-  assert.equal(state.progress.rapidDealRemaining, 0, "the slice has no 7NT rapid-deal secret");
   moveTo(state, { x: 54, z: 28 }, "main-cardroom", trace);
   moveTo(state, { x: 59, z: 28 }, "traveler-vault", trace);
   assert.equal(state.progress.bossActive, true);

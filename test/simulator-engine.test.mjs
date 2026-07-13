@@ -331,37 +331,14 @@ test("Restart Run clears all progress and encounter state", () => {
   assert.equal(state.mode, "standard");
 });
 
-test("persistent checkpoints cannot respawn banked enemies or farm Honor", () => {
-  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL, mode: "practice" });
-  const first = state.enemies.find((enemy) => enemy.wingId === "a");
-  const second = state.enemies.find((enemy) => enemy.wingId === "a" && enemy.id !== first.id);
-  state.player.spaceId = "wing-a-chalkboard";
-  state.player.position = { x: 50, y: 0.35, z: 54 };
-  state.encounter.kind = "wing";
-  state.encounter.wingId = "a";
-  first.alive = false;
-  first.health = 0;
-  state.player.honor = 100;
-  state.stats.honor = 100;
-  state.stats.enemiesDefeated = 1;
-
-  const secret = state.secrets.find((entry) => entry.secretId === "dummys-hand");
-  state.player.position = { ...secret.position };
-  stepSimulation(state, { interact: true }, FIXED_DT);
-  assert.equal(state.player.honor, 350);
-
-  second.alive = false;
-  second.health = 0;
-  state.player.honor += 100;
-  state.stats.honor = state.player.honor;
-  state.stats.enemiesDefeated += 1;
-  resetEncounter(state, "test");
-
-  assert.equal(first.alive, false, "enemy defeated before the persistent checkpoint stays down");
-  assert.equal(second.alive, true, "enemy defeated after the checkpoint is restored");
-  assert.equal(state.player.honor, 350);
-  assert.equal(state.stats.enemiesDefeated, 1);
-  assert.equal(secret.collected, true);
+test("simulation state and snapshots expose no secret pickups or bonus state", () => {
+  const state = createSimulation({ scenario: SCENARIO, level: FULL_LEVEL, mode: "standard" });
+  const snapshot = getSimulationSnapshot(state);
+  assert.equal(Object.hasOwn(state, "secrets"), false);
+  assert.equal(Object.hasOwn(state.progress, "secrets"), false);
+  assert.equal(Object.hasOwn(state.progress, "rapidDealRemaining"), false);
+  assert.equal(Object.hasOwn(state.stats, "secrets"), false);
+  assert.equal(snapshot.entities.some((entity) => entity.kind === "secret"), false);
 });
 
 test("reset after a completed wing preserves completed actors and awards", () => {
