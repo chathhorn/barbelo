@@ -19,6 +19,12 @@ const MATERIAL_COLORS = {
   "auction-wall": 0x674529,
   "trickworks-wall": 0x284a68,
   "lead-mine-wall": 0x583438,
+  "auction-ceiling": 0x9a7540,
+  "trickworks-ceiling": 0x426b80,
+  "lead-mine-ceiling": 0x6f4144,
+  "auction-trim": 0xa97b32,
+  "trickworks-trim": 0x397a94,
+  "lead-mine-timber": 0x4d2d28,
   "chalk-wall": 0x1d5945,
   "vulnerability-wall": 0x683d3b,
   "vault-wall": 0x524a34,
@@ -63,6 +69,9 @@ function scaledColor(hex, light = 1, surface = "wall") {
 function textureForMaterial(textures, key, surface) {
   if (surface === "floor") return textures.carpetSuits;
   if (surface === "ceiling") return textures.paperPanel;
+  if (/auction/.test(key)) return textures.auctionWall;
+  if (/trickworks/.test(key)) return textures.trickworksWall;
+  if (/lead-mine/.test(key)) return textures.leadMineWall;
   if (/chalk/.test(key)) return textures.chalkboard;
   if (/vault|gate|door|lift/.test(key)) return textures.vaultDoor;
   if (/results|paper/.test(key)) return textures.paperPanel;
@@ -343,6 +352,86 @@ function horizontalMesh(space, height, material, ceiling = false) {
   return mesh;
 }
 
+function boundsForWing(spaces, wingId) {
+  const wingSpaces = spaces.filter((space) => space.wingId === wingId);
+  if (!wingSpaces.length) return null;
+  const points = wingSpaces.flatMap((space) => space.polygon);
+  return {
+    minX: Math.min(...points.map((point) => point.x)),
+    maxX: Math.max(...points.map((point) => point.x)),
+    minZ: Math.min(...points.map((point) => point.z)),
+    maxZ: Math.max(...points.map((point) => point.z)),
+    floor: Math.min(...wingSpaces.map((space) => space.floor)),
+    ceiling: Math.min(...wingSpaces.map((space) => space.ceiling)),
+  };
+}
+
+function decorationBox(spec, material) {
+  const mesh = new Mesh(new BoxGeometry(spec.width, spec.height, spec.depth), material);
+  mesh.position.set(spec.x, spec.y, spec.z);
+  return mesh;
+}
+
+// Each coaching wing gets one merged decorative batch. These silhouettes sit
+// overhead or against an existing boundary, so they add visual identity without
+// changing collision/navigation or turning every beam into a separate draw call.
+function createWingDecorations(level, materials) {
+  const decorations = [];
+  ["a", "b", "c"].forEach((wingId) => {
+    const bounds = boundsForWing(level.spaces, wingId);
+    if (!bounds) return;
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const width = bounds.maxX - bounds.minX;
+    const depth = bounds.maxZ - bounds.minZ;
+    let materialKey;
+    let specs;
+
+    if (wingId === "a") {
+      materialKey = "auction-trim";
+      const y = bounds.ceiling - 0.16;
+      // A light coffered auction-gallery ceiling.
+      specs = [
+        { x: centerX, y, z: bounds.minZ + depth / 3, width: width - 0.35, height: 0.2, depth: 0.18 },
+        { x: centerX, y, z: bounds.maxZ - depth / 3, width: width - 0.35, height: 0.2, depth: 0.18 },
+        { x: bounds.minX + width / 3, y, z: centerZ, width: 0.18, height: 0.2, depth: depth - 0.35 },
+        { x: bounds.maxX - width / 3, y, z: centerZ, width: 0.18, height: 0.2, depth: depth - 0.35 },
+      ];
+    } else if (wingId === "b") {
+      materialKey = "trickworks-trim";
+      const y = bounds.ceiling - 0.23;
+      // Deep blue counting gantries divide the long mechanical hall.
+      specs = [0.2, 0.5, 0.8].map((fraction) => ({
+        x: bounds.minX + width * fraction,
+        y,
+        z: centerZ,
+        width: 0.38,
+        height: 0.34,
+        depth: depth - 0.3,
+      }));
+    } else {
+      materialKey = "lead-mine-timber";
+      const frameXs = [0.2, 0.45, 0.7, 0.95].map((fraction) => bounds.minX + width * fraction);
+      const postHeight = bounds.ceiling - bounds.floor - 0.12;
+      specs = frameXs.flatMap((x) => [
+        // Timber uprights remain inside the depth of the perimeter walls.
+        { x, y: bounds.floor + postHeight / 2, z: bounds.minZ + 0.13, width: 0.34, height: postHeight, depth: 0.26 },
+        { x, y: bounds.floor + postHeight / 2, z: bounds.maxZ - 0.13, width: 0.34, height: postHeight, depth: 0.26 },
+        { x, y: bounds.ceiling - 0.17, z: centerZ, width: 0.34, height: 0.32, depth: depth - 0.12 },
+      ]);
+    }
+
+    const light = Math.max(...level.spaces.filter((space) => space.wingId === wingId).map((space) => space.light));
+    const material = materials.get(materialKey, light, "wall");
+    const batch = mergeWallMeshes(specs.map((spec) => decorationBox(spec, material)));
+    batch.userData.kind = "wing-decoration";
+    batch.userData.wingId = wingId;
+    batch.userData.decorationCount = specs.length;
+    decorations.push(batch);
+  });
+  return decorations;
+}
+
 function portalFloor(level, portal) {
   const from = level.spaces.find((space) => space.id === portal.from);
   const to = level.spaces.find((space) => space.id === portal.to);
@@ -389,6 +478,7 @@ function createLevelMeshes(level, textures) {
     wallFaceMaterials(physical, materialForWall, spaceById)
   ));
   root.add(mergeWallMeshes(physicalWalls));
+  createWingDecorations(level, materials).forEach((mesh) => root.add(mesh));
 
   level.portals.forEach((portal) => {
     if (portal.kind === "open" || (portal.kind === "stairs" && portal.initialOpen !== false)) return;

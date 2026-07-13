@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <title>Trickworks wall</title>
+  <desc>Cool blue counting machinery, steel rails, and interlocking trick markers for the Trickworks wing.</desc>
+  <metadata>tile=true;tileWidth=64;tileHeight=64;surface=wall;wing=b</metadata>
+  <rect width="64" height="64" fill="#183b59"/>
+  <path fill="#275b78" d="M0 7h64v18H0zM0 39h64v18H0z"/>
+  <path fill="#10293e" d="M0 0h64v7H0zM0 25h64v14H0zM0 57h64v7H0z"/>
+  <path fill="#77bad0" d="M0 10h64v3H0zM0 51h64v3H0z"/>
+  <path fill="#d7a843" d="M4 28h56v8H4z"/>
+  <path fill="#213c4d" d="M7 30h8v4H7zM19 30h8v4h-8zM31 30h8v4h-8zM43 30h8v4h-8z"/>
+  <g fill="#dce8e7">
+    <path d="m12 16 7 0 5 4-5 4h-7l5-4Z"/>
+    <path d="m52 42-7 0-5 4 5 4h7l-5-4Z"/>
+  </g>
+  <g fill="#0c1c2a">
+    <rect x="31" y="15" width="4" height="8"/>
+    <rect x="29" y="17" width="8" height="4"/>
+    <rect x="27" y="43" width="4" height="8"/>
+    <rect x="25" y="45" width="8" height="4"/>
+  </g>
+</svg>

@@ -82,6 +82,9 @@ or resize the source into a larger baked bitmap.
 | File | Intrinsic size | Suggested use |
 | --- | ---: | --- |
 | `textures/felt-wall.svg` | 64×64 | Repeating cardroom wall |
+| `textures/auction-wall.svg` | 64×64 | Warm paneled Auction Gallery wall |
+| `textures/trickworks-wall.svg` | 64×64 | Blue mechanical Trickworks wall |
+| `textures/lead-mine-wall.svg` | 64×64 | Oxide stone and timber Lead Mines wall |
 | `textures/carpet-suits.svg` | 64×64 | Repeating floor carpet |
 | `textures/paper-panel.svg` | 64×64 | Traveler/paper wall |
 | `textures/coach-chalkboard.svg` | 96×64 | Semantic-terminal backdrop |

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FULL_LEVEL, SLICE_LEVEL } from "../src/core/simulator/level.js";
+import { ARCHETYPE_STATS, createEnemyFromMarker } from "../src/core/simulator/ai.js";
 import {
   applyDamageToPlayer,
   createCombatState,
@@ -27,6 +28,25 @@ const SCENARIO = Object.freeze({
   representativeHand: { source: "pbn", cards: CARDS },
   wings: [{ slot: "A" }, { slot: "B" }, { slot: "C" }],
   boss: { title: "The Bottom Board" },
+});
+
+test("the boss has thirty percent less health without changing ordinary enemies", () => {
+  assert.equal(ARCHETYPE_STATS["bottom-board"].maxHealth, 6500 * 0.7);
+  assert.deepEqual(
+    Object.fromEntries(["kibitzer", "overtrick-imp", "red-x-sentinel"]
+      .map((archetype) => [archetype, ARCHETYPE_STATS[archetype].maxHealth])),
+    { kibitzer: 68, "overtrick-imp": 60, "red-x-sentinel": 112 }
+  );
+
+  const boss = createEnemyFromMarker({
+    id: "balance-test-boss",
+    type: "bossSpawn",
+    archetype: "bottom-board",
+    position: { x: 0, y: 0, z: 0 },
+    spaceId: "traveler-vault",
+  });
+  assert.equal(boss.maxHealth, 4550);
+  assert.equal(boss.health, boss.maxHealth);
 });
 
 function walkTo(state, target, expectedSpaceId, maxTicks = 1200) {

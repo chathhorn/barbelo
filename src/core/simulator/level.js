@@ -94,36 +94,42 @@ const SPACES = [
     wingId: "a",
     material: "auction-wall",
     floorMaterial: "auction-carpet",
+    ceilingMaterial: "auction-ceiling",
     light: 0.68
   }),
   space("wing-a-chalkboard", "Theme Wing A: Coach's Chalkboard", rectangle(42, 48, 56, 60), 0.75, 4.5, {
     wingId: "a",
-    material: "chalk-wall",
+    material: "auction-wall",
     floorMaterial: "auction-carpet",
+    ceilingMaterial: "auction-ceiling",
     light: 0.74
   }),
   space("wing-b-entry", "Theme Wing B: Entrance", rectangle(56, 34, 70, 48), 0, 4.2, {
     wingId: "b",
     material: "trickworks-wall",
     floorMaterial: "blue-carpet",
+    ceilingMaterial: "trickworks-ceiling",
     light: 0.64
   }),
   space("wing-b-chalkboard", "Theme Wing B: Coach's Chalkboard", rectangle(70, 34, 84, 48), 0, 4.2, {
     wingId: "b",
-    material: "chalk-wall",
+    material: "trickworks-wall",
     floorMaterial: "blue-carpet",
+    ceilingMaterial: "trickworks-ceiling",
     light: 0.72
   }),
   space("wing-c-entry", "Theme Wing C: Entrance", rectangle(28, 10, 42, 22), -0.35, 4.0, {
     wingId: "c",
     material: "lead-mine-wall",
     floorMaterial: "red-carpet",
+    ceilingMaterial: "lead-mine-ceiling",
     light: 0.58
   }),
   space("wing-c-chalkboard", "Theme Wing C: Coach's Chalkboard", rectangle(42, 10, 56, 22), -0.35, 4.0, {
     wingId: "c",
-    material: "chalk-wall",
+    material: "lead-mine-wall",
     floorMaterial: "red-carpet",
+    ceilingMaterial: "lead-mine-ceiling",
     light: 0.66
   }),
   space("vulnerability-passage", "Vulnerability Passage", [

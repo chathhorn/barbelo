@@ -426,7 +426,7 @@ function renderMatchOver(modal) {
   modal.innerHTML = `
     <section class="simulator-modal simulator-match-over" aria-labelledby="simulator-match-over-title">
       <h2 id="simulator-match-over-title">Match over!</h2>
-      <p>Your Composure reached zero. The Coach has returned you to the encounter checkpoint.</p>
+      <p>Your Composure reached zero.</p>
       <div class="simulator-modal-actions">
         <button type="button" class="primary" data-simulator-try-again>Try again?</button>
       </div>

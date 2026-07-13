@@ -44,7 +44,7 @@ const ARCHETYPE_STATS = Object.freeze({
     radius: 0.38
   }),
   "bottom-board": Object.freeze({
-    maxHealth: 6500,
+    maxHealth: 4550,
     speed: 1.5,
     damage: 18,
     attackRange: 14,

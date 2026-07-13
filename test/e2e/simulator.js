@@ -256,6 +256,7 @@ function check(ok, label) {
   await page.evaluate(() => { window.__bridgeSimulatorTest.state.player.composure = 0; });
   await page.waitForSelector("#simulator-match-over-title");
   check((await page.locator("#simulator-match-over-title").innerText()).toLowerCase() === "match over!", "zero Composure presents the Match over screen");
+  check(!(await page.locator(".simulator-match-over").innerText()).includes("Coach has returned"), "Match over omits the checkpoint-return explanation");
   check(await page.locator("[data-simulator-try-again]").textContent() === "Try again?", "Match over offers an explicit retry action");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "Match over stops the simulation loop");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.state.player.composure) === 100, "defeat prepares the encounter checkpoint for retry");

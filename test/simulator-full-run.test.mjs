@@ -524,7 +524,10 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
   assert.deepEqual(resetEvents, [], "Standard validation must not pass through a checkpoint defeat/reset");
   assert.equal(state.status, "complete");
   assert.ok(state.player.composure > 0, "the Standard bot should survive with positive Composure");
-  assert.ok(bossSeconds >= 45 && bossSeconds <= 75, `unassisted boss took ${bossSeconds.toFixed(1)} seconds`);
+  assert.ok(
+    bossSeconds >= 30 && bossSeconds <= 55,
+    `reduced-health unassisted boss took ${bossSeconds.toFixed(1)} seconds`
+  );
 
   const hitsByEnemy = new Map();
   trace.events.filter((event) => event.type === "enemy-hit").forEach((event) => {

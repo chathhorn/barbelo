@@ -72,6 +72,7 @@ async function stopAnimationLoopForSamples(page) {
     const app = window.__performanceSimulator;
     if (app.raf) cancelAnimationFrame(app.raf);
     app.raf = 0;
+    app.slowFrameMonitor.resetStreak();
   });
 }
 

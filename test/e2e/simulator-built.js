@@ -187,7 +187,8 @@ function check(ok, label) {
   await page.waitForSelector("#simulator-match-over-title");
   check(
     await page.getByRole("heading", { name: "Match over!", exact: true }).count() === 1 &&
-      await page.getByRole("button", { name: "Try again?", exact: true }).count() === 1,
+      await page.getByRole("button", { name: "Try again?", exact: true }).count() === 1 &&
+      !(await page.locator(".simulator-match-over").innerText()).includes("Coach has returned"),
     "built simulator presents the Match over retry screen at zero Composure"
   );
   await page.getByRole("button", { name: "Try again?", exact: true }).click();

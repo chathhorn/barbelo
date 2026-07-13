@@ -125,6 +125,59 @@ test("wall and floor tints preserve readable ambient brightness", () => {
   meshes.destroy();
 });
 
+test("coaching wings have distinct surface palettes and batched architectural silhouettes", () => {
+  const wingSpaces = ["a", "b", "c"].map((wingId) =>
+    FULL_LEVEL.spaces.filter((space) => space.wingId === wingId));
+  const wallMaterials = wingSpaces.map((spaces) => new Set(spaces.map((space) => space.material)));
+  const floorMaterials = wingSpaces.map((spaces) => new Set(spaces.map((space) => space.floorMaterial)));
+  const ceilingMaterials = wingSpaces.map((spaces) => new Set(spaces.map((space) => space.ceilingMaterial)));
+
+  assert.deepEqual(wallMaterials.map((materials) => [...materials]), [
+    ["auction-wall"],
+    ["trickworks-wall"],
+    ["lead-mine-wall"],
+  ]);
+  assert.deepEqual(floorMaterials.map((materials) => [...materials]), [
+    ["auction-carpet"],
+    ["blue-carpet"],
+    ["red-carpet"],
+  ]);
+  assert.deepEqual(ceilingMaterials.map((materials) => [...materials]), [
+    ["auction-ceiling"],
+    ["trickworks-ceiling"],
+    ["lead-mine-ceiling"],
+  ]);
+
+  assert.equal(SPRITE_PATHS.auctionWall, "textures/auction-wall.svg");
+  assert.equal(SPRITE_PATHS.trickworksWall, "textures/trickworks-wall.svg");
+  assert.equal(SPRITE_PATHS.leadMineWall, "textures/lead-mine-wall.svg");
+
+  const wingTextures = {
+    a: { id: "auction-texture" },
+    b: { id: "trickworks-texture" },
+    c: { id: "lead-mine-texture" },
+  };
+  const meshes = createLevelMeshes(FULL_LEVEL, {
+    auctionWall: wingTextures.a,
+    trickworksWall: wingTextures.b,
+    leadMineWall: wingTextures.c,
+  });
+  const decorations = meshes.root.children.filter((child) => child.userData.kind === "wing-decoration");
+  assert.deepEqual(decorations.map((mesh) => mesh.userData.wingId), ["a", "b", "c"]);
+  assert.deepEqual(decorations.map((mesh) => mesh.userData.decorationCount), [4, 3, 12]);
+  decorations.forEach((mesh) => {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    assert.equal(materials.length, 1, `${mesh.userData.wingId} decorations should remain one draw-call group`);
+    assert.equal(materials[0].map, wingTextures[mesh.userData.wingId]);
+  });
+  meshes.destroy();
+
+  const sliceMeshes = createLevelMeshes(SLICE_LEVEL, {});
+  const sliceDecorations = sliceMeshes.root.children.filter((child) => child.userData.kind === "wing-decoration");
+  assert.deepEqual(sliceDecorations.map((mesh) => mesh.userData.wingId), ["a"]);
+  sliceMeshes.destroy();
+});
+
 test("the authored next-round exit reaches the renderer as a visible door billboard", () => {
   const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL, mode: "practice" });
   const snapshot = getSimulationSnapshot(state);

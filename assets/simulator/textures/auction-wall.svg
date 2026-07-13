@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <title>Auction gallery wall</title>
+  <desc>Warm amber wood panels, brass bidding rails, and abstract bid cards for the Auction Gallery wing.</desc>
+  <metadata>tile=true;tileWidth=64;tileHeight=64;surface=wall;wing=a</metadata>
+  <rect width="64" height="64" fill="#6b4528"/>
+  <path fill="#916238" d="M3 3h27v25H3zM34 3h27v25H34zM3 36h27v25H3zM34 36h27v25H34z"/>
+  <path fill="#4e3020" d="M0 0h64v4H0zM0 29h64v7H0zM0 60h64v4H0zM29 0h5v64h-5z"/>
+  <path fill="#e2ad45" d="M0 29h64v3H0zM0 35h64v2H0zM29 0h2v64h-2zM34 0h2v64h-2z"/>
+  <g fill="#f0dfbd">
+    <rect x="8" y="8" width="15" height="14"/>
+    <rect x="41" y="41" width="14" height="13"/>
+  </g>
+  <g fill="#b83f43">
+    <path d="m15 11 5 4-5 5-5-5Z"/>
+    <path d="m48 44 5 4-5 4-5-4Z"/>
+  </g>
+  <g fill="#2b2521">
+    <rect x="40" y="9" width="13" height="3"/>
+    <rect x="40" y="15" width="9" height="3"/>
+    <rect x="10" y="43" width="12" height="3"/>
+    <rect x="10" y="49" width="8" height="3"/>
+  </g>
+</svg>

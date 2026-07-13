@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <title>Lead Mines wall</title>
+  <desc>Oxide-red stonework, dark timber braces, and yellow hazard marks for the Lead Mines wing.</desc>
+  <metadata>tile=true;tileWidth=64;tileHeight=64;surface=wall;wing=c</metadata>
+  <rect width="64" height="64" fill="#572f32"/>
+  <path fill="#784146" d="M3 3h18v14H3zM25 3h22v14H25zM51 3h10v14H51zM3 21h28v16H3zM35 21h26v16H35zM3 41h14v20H3zM21 41h24v20H21zM49 41h12v20H49z"/>
+  <path fill="#301f23" d="M0 0h64v3H0zM0 17h64v4H0zM0 37h64v4H0zM17 41h4v23h-4zM45 41h4v23h-4zM21 0h4v17h-4zM47 0h4v17h-4zM31 21h4v16h-4z"/>
+  <path fill="#322420" d="M5 0h8v64H5zM51 0h8v64h-8z"/>
+  <path fill="#d9a735" d="M5 8h8v5H5zM5 27h8v5H5zM5 48h8v5H5zM51 8h8v5h-8zM51 27h8v5h-8zM51 48h8v5h-8z"/>
+  <path fill="#ba5b4b" d="M27 7h16v5H27zM19 27h11v5H19zM27 49h15v5H27z"/>
+</svg>
