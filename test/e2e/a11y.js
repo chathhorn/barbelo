@@ -144,6 +144,26 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
     simulatorModal.visibleModals === 1 && simulatorModal.appInert && simulatorModal.focusInside,
     `simulator launch owns one modal and focus (${JSON.stringify(simulatorModal)})`
   );
+  const simulatorPreflight = await page.evaluate(() => ({
+    startCount: document.querySelectorAll("[data-simulator-start]").length,
+    startName: document.querySelector("[data-simulator-start]")?.textContent?.trim(),
+    clipboardHeading: document.querySelector(".simulator-clipboard h3")?.textContent?.trim(),
+    inlineSettings: document.querySelectorAll(".simulator-preflight [data-simulator-setting]").length,
+  }));
+  check(
+    simulatorPreflight.startCount === 1 && simulatorPreflight.startName === "Start!" &&
+      simulatorPreflight.clipboardHeading === "Coach's clipboard" && simulatorPreflight.inlineSettings === 0,
+    `simulator preflight has one Start and semantic clipboard (${JSON.stringify(simulatorPreflight)})`
+  );
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
+  check(
+    await page.evaluate(() => document.querySelector(".bridge-simulator-overlay").contains(document.activeElement)),
+    "initial Settings keeps focus inside the simulator"
+  );
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector(".simulator-preflight");
+  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-settings]")), "Settings returns focus to its preflight button");
   let simulatorFocusEscaped = false;
   for (let i = 0; i < 30; i += 1) {
     await page.keyboard.press("Tab");

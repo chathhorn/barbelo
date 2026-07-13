@@ -101,9 +101,12 @@ async function stopAnimationLoopForSamples(page) {
     window.__performanceSimulator = await simulator.openBridgeSimulator({ levelId: "slice" });
   });
   await page.waitForSelector(".simulator-preflight");
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
-  await page.check('[data-simulator-setting="skipTutorial"]');
-  await page.click('[data-simulator-start="practice"]');
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector(".simulator-preflight");
+  await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   await page.evaluate(() => { window.__performanceRunOne = window.__performanceSimulator.state; });
 
@@ -131,7 +134,7 @@ async function stopAnimationLoopForSamples(page) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   await page.click("[data-simulator-back-preflight]");
-  await page.click('[data-simulator-start="practice"]');
+  await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   await page.evaluate(() => { window.__performanceRunTwo = window.__performanceSimulator.state; });
   await stopAnimationLoopForSamples(page);

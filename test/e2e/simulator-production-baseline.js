@@ -291,9 +291,12 @@ function check(ok, label) {
   }, { cacheVersion: version });
   await page.waitForSelector(".simulator-preflight");
 
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
-  await page.check('[data-simulator-setting="skipTutorial"]');
-  await page.click('[data-simulator-start="practice"]');
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector(".simulator-preflight");
+  await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   const sceneSetup = await page.evaluate(async (scene) => {
     if (scene === "ordinary") {

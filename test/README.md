@@ -50,7 +50,8 @@ PLAYWRIGHT_BROWSER=webkit node test/e2e/simulator-responsive.js
 ```
 
 It crosses the 960×540 CSS-pixel threshold in both directions and verifies
-that the visible preflight immediately updates Standard/Practice availability.
+that the visible preflight immediately updates the single Start! action while
+keeping the Coach's clipboard and Settings available.
 An FPS run that was already active is deliberately preserved after a later
 compact resize: resize/zoom does not erase progress or tear down WebGL in the
 middle of play. The newly measured capability applies when the player next
@@ -86,9 +87,10 @@ Chromium v1228, Firefox v1532, and WebKit v2311, respectively.
 
 The script starts its own static server on an ephemeral loopback port, loads
 synthetic PBN/results through the real app, and exercises source-mode loading,
-Coach-only coaching, keyboard play, all three checkpoints, the boss/debrief,
-failure recovery, the compact/results-only Coach-only route, renderer draw-call
-budget, cleanup, and same-origin requests.
+the preflight clipboard and Settings flows, keyboard play, all three
+checkpoints, the boss/debrief, failure recovery, the compact/results-only
+disabled-Start route, renderer draw-call budget, cleanup, and same-origin
+requests.
 A passing run ends with `SIMULATOR E2E PASSED (<browser>)`. To retain a
 gameplay screenshot from the run:
 
@@ -104,9 +106,9 @@ generated static site. Firefox remains supported by the local harnesses, but
 the GPU-less GitHub Ubuntu runner exposes no Firefox WebGL context even with
 `webgl.force-enabled`; CI therefore leaves that renderer leg disabled instead
 of treating missing runner hardware as an application failure. Separate
-failure-path coverage still verifies the Coach-only fallback when WebGL is
-unavailable. To run the built gate locally after preparing `_site` with the
-Pages workflow commands:
+failure-path coverage verifies that unavailable WebGL leaves an explanatory
+preflight with Start! disabled and Settings accessible. To run the built gate
+locally after preparing `_site` with the Pages workflow commands:
 
 ```sh
 PLAYWRIGHT_BROWSER=chromium SERVE_ROOT=_site node test/e2e/simulator-built.js
@@ -146,8 +148,9 @@ The harness starts `safaridriver` and a loopback source server, records the real
 Safari version/user agent, loads synthetic PBN/results entirely in memory, and
 opens the simulator through the real Pair Improvement Report launch control
 before using its internal lifecycle for focused game states. It smoke-tests
-WebGL preflight, launch focus restoration, Coach-only, Keyboard Look movement
-and arrow turning without Pointer Lock, cleanup, same-origin requests,
+WebGL preflight, launch focus restoration, the clipboard/Settings flow,
+Keyboard Look movement and arrow turning without Pointer Lock, cleanup,
+same-origin requests,
 session-data non-persistence, and captured console/page errors. It deletes the
 WebDriver session and terminates the driver and server on success or failure.
 

@@ -129,12 +129,20 @@ function check(ok, label) {
   }, { csv: CSV, pbn: PBN });
   await page.waitForSelector(".simulator-preflight");
   check(await page.locator(".simulator-preflight").count() === 1, "built bundle reaches mission preflight");
-  await page.click('[data-simulator-start="coach"]');
-  check(await page.locator(".simulator-coaching-card").count() >= 4, "built Coach-only path retains all coaching checkpoints");
-  await page.click("[data-simulator-back-preflight]");
+  check(await page.locator(".simulator-clipboard").count() === 1, "built preflight displays the Coach's clipboard");
+  const clipboardText = await page.locator(".simulator-clipboard").innerText();
+  check(clipboardText.includes("Throwing hand") && clipboardText.includes("Composure"), "built preflight clipboard includes the mission hand and survival guidance");
+  check(
+    await page.locator("[data-simulator-start]").count() === 1 &&
+      await page.getByRole("button", { name: "Start!", exact: true }).count() === 1,
+    "built preflight exposes one Start! launcher"
+  );
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
-  await page.check('[data-simulator-setting="skipTutorial"]');
-  await page.click('[data-simulator-start="practice"]');
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector(".simulator-preflight");
+  await page.getByRole("button", { name: "Start!", exact: true }).click();
   await page.locator("canvas.simulator-canvas").focus();
   const startX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
   await page.keyboard.down("w");

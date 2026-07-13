@@ -129,22 +129,27 @@ function check(ok, label) {
   check(await page.evaluate(() => window.__bridgeSimulatorConcurrentController), "concurrent opens share one controller");
   check(await page.locator(".bridge-simulator-overlay").getAttribute("role") === "dialog", "simulator opens as a modal dialog");
   check(await page.evaluate(() => document.querySelector(".app-shell").inert), "app shell is inert while simulator is open");
+  check(await page.locator('[data-simulator-start="standard"]').count() === 1, "preflight exposes one gameplay mode");
+  check((await page.locator('[data-simulator-start="standard"]').textContent()).trim() === "Start!", "single gameplay button is labeled Start!");
+  check(!await page.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "Practice and Coach-only launch modes are absent");
+  const clipboardText = await page.locator(".simulator-clipboard").textContent();
+  check(clipboardText.includes("Coach's clipboard") && clipboardText.includes("Throwing hand") && clipboardText.includes("WASD"), "Mission preflight displays the Coach's clipboard");
+  check(!await page.locator(".simulator-preflight [data-simulator-setting]").count(), "Mission preflight does not expose inline settings");
 
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
+  check(await page.locator('[data-simulator-setting="inputMode"]').count() === 1, "initial Settings exposes input configuration");
   await page.check('[data-simulator-setting="highContrast"]');
   check(await page.locator(".bridge-simulator-overlay").evaluate((element) => element.classList.contains("high-contrast")), "high contrast applies to the full simulator shell");
   await page.uncheck('[data-simulator-setting="highContrast"]');
-
-  await page.click('[data-simulator-start="coach"]');
-  check(await page.locator(".simulator-coaching-card").count() >= 4, "Coach-only path exposes all checkpoints and practice action");
-  const coachOnlyText = (await page.locator(".simulator-coach-only").innerText()).toLowerCase();
-  check(coachOnlyText.includes("opening orders") && coachOnlyText.includes("metaphorically"), "Coach-only retains the coach's opening bark");
-  check(coachOnlyText.includes("your actual session") && coachOnlyText.includes("fictional"), "Coach-only includes the actual-session debrief and fictional-score boundary");
-  await page.click("[data-simulator-back-preflight]");
-
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
-  await page.check('[data-simulator-setting="skipTutorial"]');
-  await page.click('[data-simulator-start="practice"]');
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector(".simulator-preflight");
+  check(await page.evaluate(() => document.activeElement?.matches("[data-simulator-settings]")), "closing initial Settings restores Settings-button focus");
+
+  await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.state.mode === "standard"), "Start! launches Standard rules");
   const renderInfo = await page.evaluate(() => window.__bridgeSimulatorTest.renderer.resourceInfo());
   check(renderInfo.calls < 100, `retro renderer stays below 100 draw calls (${renderInfo.calls})`);
   const startX = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.position.x);
@@ -226,7 +231,7 @@ function check(ok, label) {
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
     { type: "player-hit", composureLost: 0, practice: true },
   ]));
-  check(!await page.locator("[data-simulator-damage]").evaluate((element) => element.classList.contains("active")), "Practice Mode suppresses false damage feedback");
+  check(!await page.locator("[data-simulator-damage]").evaluate((element) => element.classList.contains("active")), "zero-damage events suppress false damage feedback");
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
     { type: "coach-hit", entityId: "border-collie-coach", friendly: true },
   ]));
@@ -236,9 +241,27 @@ function check(ok, label) {
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Composure -7"), "damage has a captioned non-color cue");
 
+  const shortcutBaseline = await page.evaluate(() => {
+    const app = window.__bridgeSimulatorTest;
+    app.state.player.position.x += 0.75;
+    return { x: app.state.player.position.x, muted: app.settings.muted };
+  });
+  await page.locator("canvas.simulator-canvas").focus();
+  await page.keyboard.press("r");
+  await page.keyboard.press("m");
+  await page.waitForTimeout(80);
+  const shortcutAfter = await page.evaluate(() => ({
+    x: window.__bridgeSimulatorTest.state.player.position.x,
+    muted: window.__bridgeSimulatorTest.settings.muted,
+  }));
+  check(Math.abs(shortcutAfter.x - shortcutBaseline.x) < 0.001, "R is not bound to reset the encounter");
+  check(shortcutAfter.muted === shortcutBaseline.muted, "M is not bound to mute effects");
+
   await page.keyboard.press("h");
   await page.waitForSelector("#simulator-help-title");
-  check((await page.locator(".simulator-modal").innerText()).includes("Throwing hand"), "Help keeps the throwing hand readable");
+  const helpText = await page.locator(".simulator-modal").innerText();
+  check(helpText.includes("Throwing hand"), "Help keeps the throwing hand readable");
+  check(!helpText.includes("R resets") && !helpText.includes("M mutes"), "Coach's clipboard does not advertise removed shortcuts");
   check(await page.locator('[role="dialog"][aria-modal="true"]:visible').count() === 1, "Help keeps one unambiguous modal root");
   await page.locator("[data-simulator-help-close]").focus();
   await page.keyboard.press("Tab");
@@ -251,6 +274,15 @@ function check(ok, label) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "paused simulation stops scheduling render frames");
+  check(await page.locator("[data-simulator-reset]").count() === 1, "Reset encounter remains an explicit pause action");
+  check(!await page.locator("[data-simulator-mute]").count(), "Pause no longer exposes a separate mute action");
+  await page.click("[data-simulator-settings]");
+  await page.waitForSelector("#simulator-settings-title");
+  await page.check('[data-simulator-setting="muted"]');
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.settings.muted), "pause Settings applies mute without a keyboard binding");
+  await page.click("[data-simulator-settings-close]");
+  await page.waitForSelector("#simulator-pause-title");
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "Settings opened from Pause returns to the idle pause menu");
   await page.click("[data-simulator-help]");
   await page.waitForSelector("#simulator-help-title");
   await page.click("[data-simulator-help-close]");
@@ -289,7 +321,8 @@ function check(ok, label) {
   });
   await page.waitForSelector("#simulator-pause-title");
   check((await page.locator(".simulator-modal").innerText()).includes("fresh renderer"), "context loss exposes a real preflight recovery path");
-  check(await page.locator('[data-simulator-start="coach"]').count() === 1, "context-loss pause offers Coach-only mode");
+  check(!await page.locator('[data-simulator-start="coach"]').count(), "context-loss pause does not restore the removed Coach-only mode");
+  check(await page.locator("[data-simulator-settings]").count() === 1, "context-loss pause retains Settings access");
   await page.click("[data-simulator-back-preflight]");
   await page.waitForSelector(".simulator-preflight");
 
@@ -314,9 +347,10 @@ function check(ok, label) {
     window.__bridgeSimulatorFull = await simulator.openBridgeSimulator();
   });
   await page.waitForSelector(".simulator-preflight");
+  await page.click("[data-simulator-settings]");
   await page.selectOption('[data-simulator-setting="inputMode"]', "keyboard");
-  await page.check('[data-simulator-setting="skipTutorial"]');
-  await page.click('[data-simulator-start="practice"]');
+  await page.click("[data-simulator-settings-close]");
+  await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   const fullRenderInfo = await page.evaluate(() => window.__bridgeSimulatorFull.renderer.resourceInfo());
   check(fullRenderInfo.calls < 100, `full level stays below 100 draw calls (${fullRenderInfo.calls})`);
@@ -407,17 +441,20 @@ function check(ok, label) {
   });
   await compactPage.waitForSelector(".simulator-preflight");
   check(await compactPage.locator('[data-simulator-start="standard"]').isDisabled(), "post-zoom viewport below 960×540 disables Standard FPS");
-  check(await compactPage.locator('[data-simulator-start="practice"]').isDisabled(), "post-zoom viewport below 960×540 disables Practice FPS");
-  check(!await compactPage.locator('[data-simulator-start="coach"]').isDisabled(), "compact viewport retains the complete Coach-only route");
+  check(!await compactPage.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "compact viewport does not restore removed modes");
+  check(!await compactPage.locator("[data-simulator-settings]").isDisabled(), "compact viewport retains Settings access");
   const compactPreflight = (await compactPage.locator(".simulator-preflight").innerText()).toLowerCase();
-  check(compactPreflight.includes("below the 960 × 540") && compactPreflight.includes("practice deck"), "compact results-only preflight explains routing and Practice Deck provenance");
-  await compactPage.click('[data-simulator-start="coach"]');
-  check(await compactPage.locator(".simulator-coaching-card").count() >= 5, "compact Coach-only mode exposes checkpoints, practice, and debrief");
-  check(await compactPage.locator(".bridge-simulator-overlay").evaluate((element) => element.scrollWidth <= element.clientWidth), "Coach-only remains horizontally readable at a 200% zoom-equivalent viewport");
+  check(compactPreflight.includes("below the 960 × 540") && compactPreflight.includes("practice deck"), "compact results-only preflight explains disabled Start and Practice Deck provenance");
+  check(compactPreflight.includes("coach's clipboard") && compactPreflight.includes("throwing hand"), "compact preflight retains the Coach's clipboard");
+  await compactPage.click("[data-simulator-settings]");
+  await compactPage.waitForSelector("#simulator-settings-title");
+  check(await compactPage.locator(".bridge-simulator-overlay").evaluate((element) => element.scrollWidth <= element.clientWidth), "compact Settings remains horizontally readable at a 200% zoom-equivalent viewport");
+  await compactPage.click("[data-simulator-settings-close]");
+  await compactPage.waitForSelector(".simulator-preflight");
   await compactPage.keyboard.press("Escape");
   await compactPage.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
-  check(await compactPage.evaluate(() => document.activeElement === window.__compactReturnFocus), "compact Coach-only exit restores focus");
-  check(compactErrors.length === 0, `compact Coach-only run has no console/page errors (${compactErrors.join("; ")})`);
+  check(await compactPage.evaluate(() => document.activeElement === window.__compactReturnFocus), "compact preflight exit restores focus");
+  check(compactErrors.length === 0, `compact preflight run has no console/page errors (${compactErrors.join("; ")})`);
   await compactPage.close();
 
   await browser.close();

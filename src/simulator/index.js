@@ -16,12 +16,12 @@ import { createAudioController } from "./audio.js";
 import {
   createGameShell,
   renderChalkboard,
-  renderCoachOnly,
   renderDebrief,
   renderHelp,
   renderPause,
   renderPreflight,
   renderReducedEffectsOffer,
+  renderSettings,
   updateHud,
 } from "./hud.js";
 import { createInputController } from "./input.js";
@@ -49,7 +49,6 @@ function defaultSettings() {
     volume: 45,
     reducedEffects: reduced,
     highContrast: false,
-    skipTutorial: false,
     muted: false,
   };
 }
@@ -67,7 +66,6 @@ function loadSettings() {
       volume: Math.max(0, Math.min(100, Number(parsed.volume) || 0)),
       reducedEffects: Boolean(parsed.reducedEffects),
       highContrast: Boolean(parsed.highContrast),
-      skipTutorial: Boolean(parsed.skipTutorial),
       muted: Boolean(parsed.muted),
     };
   } catch (error) {
@@ -145,6 +143,8 @@ class SimulatorApp {
     this.modalKind = "";
     this.modalReturnFocus = null;
     this.helpReturnKind = "";
+    this.settingsReturnKind = "";
+    this.launchError = "";
     this.timers = new Set();
     this.capabilityTimer = 0;
     this.slowFrameMonitor = createSlowFrameMonitor();
@@ -159,7 +159,7 @@ class SimulatorApp {
     this.boundContextLost = (event) => {
       event.preventDefault();
       this.pause("context-lost", { force: true });
-      this.showCaption("WebGL context lost. Return to preflight or use Coach-only mode.", 6000);
+      this.showCaption("WebGL context lost. Return to preflight to create a fresh renderer.", 6000);
     };
     this.host.addEventListener("click", this.boundClick);
     this.host.addEventListener("change", this.boundChange);
@@ -200,41 +200,51 @@ class SimulatorApp {
     const active = document.activeElement instanceof HTMLElement && this.host.contains(document.activeElement)
       ? document.activeElement
       : null;
-    let focusToken = null;
+    let focusSelector = "";
     if (active?.hasAttribute("data-simulator-start")) {
-      focusToken = { key: "simulatorStart", value: active.dataset.simulatorStart };
-    } else if (active?.hasAttribute("data-simulator-setting")) {
-      focusToken = { key: "simulatorSetting", value: active.dataset.simulatorSetting };
+      focusSelector = `[data-simulator-start="${active.dataset.simulatorStart}"]`;
+    } else if (active?.hasAttribute("data-simulator-settings")) {
+      focusSelector = "[data-simulator-settings]";
     }
-    this.renderPreflightView({ focusToken });
+    this.renderPreflightView({ focusSelector });
   }
 
-  renderPreflightView({ focusFirst = false, focusToken = null } = {}) {
-    renderPreflight(this.host, this.scenario, this.settings, this.assetUrl, {
-      fpsAvailable: this.capability.available,
+  renderPreflightView({ focusFirst = false, focusSelector = "" } = {}) {
+    const fpsAvailable = this.capability.available && !this.launchError;
+    renderPreflight(this.host, this.scenario, this.assetUrl, {
+      fpsAvailable,
       requiredSlips: this.requiredSlips(),
-      unavailableReason: this.capability.reason,
+      unavailableReason: this.launchError || this.capability.reason,
     });
-    this.options.onStatus?.(this.capability.available ? "Ready for preflight" : "Coach-only mode available");
+    this.options.onStatus?.(fpsAvailable ? "Ready for preflight" : "3D mission unavailable");
 
-    let target = null;
-    if (focusToken) {
-      target = [...this.host.querySelectorAll("[data-simulator-start], [data-simulator-setting]")]
-        .find((element) => element.dataset[focusToken.key] === focusToken.value);
-    }
+    let target = focusSelector ? this.host.querySelector(focusSelector) : null;
     if (!target || target.disabled) {
-      target = focusFirst || focusToken
-        ? this.host.querySelector("[data-simulator-start]:not([disabled])")
+      target = focusFirst || focusSelector
+        ? this.host.querySelector("[data-simulator-start]:not([disabled]), [data-simulator-settings]")
         : null;
     }
     target?.focus();
   }
 
-  showPreflight() {
+  showPreflight({ preserveLaunchError = false, focusSettings = false } = {}) {
     this.stopGame();
     this.modalKind = "";
+    this.settingsReturnKind = "";
+    if (!preserveLaunchError) this.launchError = "";
     this.refreshCapability();
-    this.renderPreflightView({ focusFirst: true });
+    this.renderPreflightView({ focusFirst: true, focusSelector: focusSettings ? "[data-simulator-settings]" : "" });
+  }
+
+  showSettings({ returnToPause = false } = {}) {
+    this.settingsReturnKind = returnToPause ? "pause" : "preflight";
+    this.modalKind = "settings";
+    if (returnToPause && this.elements) {
+      renderSettings(this.elements.modal, this.settings, { returnToPause: true });
+    } else {
+      renderSettings(this.host, this.settings);
+    }
+    this.options.onStatus?.("Settings");
   }
 
   applyDisplaySettings() {
@@ -248,7 +258,7 @@ class SimulatorApp {
     const control = event.target.closest("[data-simulator-setting]");
     if (!control) return;
     const key = control.dataset.simulatorSetting;
-    if (["reducedEffects", "highContrast", "skipTutorial", "muted"].includes(key)) {
+    if (["reducedEffects", "highContrast", "muted"].includes(key)) {
       this.settings[key] = control.checked;
     } else if (key === "inputMode") {
       this.settings.inputMode = control.value === "keyboard" ? "keyboard" : "mouse";
@@ -275,9 +285,18 @@ class SimulatorApp {
   handleClick(event) {
     const start = event.target.closest("[data-simulator-start]");
     if (start) {
-      const mode = start.dataset.simulatorStart;
-      if (mode === "coach") this.showCoachOnly();
-      else this.startGame(mode);
+      this.startGame();
+      return;
+    }
+    if (event.target.closest("[data-simulator-settings-close]")) {
+      const returnToPause = this.settingsReturnKind === "pause";
+      this.settingsReturnKind = "";
+      if (returnToPause) this.showPause();
+      else this.showPreflight({ preserveLaunchError: Boolean(this.launchError), focusSettings: true });
+      return;
+    }
+    if (event.target.closest("[data-simulator-settings]")) {
+      this.showSettings({ returnToPause: Boolean(this.elements && this.modalKind === "pause") });
       return;
     }
     if (event.target.closest("[data-simulator-close]")) {
@@ -313,11 +332,6 @@ class SimulatorApp {
       }
       return;
     }
-    if (event.target.closest("[data-simulator-mute]")) {
-      this.toggleMute();
-      this.showPause();
-      return;
-    }
     if (event.target.closest("[data-simulator-reset]")) {
       resetEncounter(this.state, "manual");
       drainSimulationEvents(this.state);
@@ -330,9 +344,9 @@ class SimulatorApp {
         restartRun(this.state);
         drainSimulationEvents(this.state);
         if (this.elements) this.resume();
-        else this.startGame(this.state.mode);
+        else this.startGame();
       } else {
-        this.startGame("standard");
+        this.startGame();
       }
       return;
     }
@@ -364,7 +378,10 @@ class SimulatorApp {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (this.modalKind === "reduced-effects") return;
-    if (this.modalKind === "help" && this.helpReturnKind === "pause") {
+    if (this.modalKind === "settings" && this.settingsReturnKind === "pause") {
+      this.settingsReturnKind = "";
+      this.showPause();
+    } else if (this.modalKind === "help" && this.helpReturnKind === "pause") {
       this.helpReturnKind = "";
       this.showPause();
     } else if (this.modalKind === "chalkboard") this.closeModal({ resume: true });
@@ -372,16 +389,17 @@ class SimulatorApp {
     else this.pause("escape");
   }
 
-  startGame(mode = "standard") {
+  startGame() {
     this.refreshCapability();
-    if (!this.capability.available) {
-      this.showCoachOnly();
+    if (!this.capability.available || this.launchError) {
+      this.showPreflight({ preserveLaunchError: Boolean(this.launchError) });
       return;
     }
     this.stopGame();
     this.slowFrameMonitor.resetRun();
     try {
-      this.state = createSimulation({ scenario: this.scenario, level: this.level, mode });
+      this.launchError = "";
+      this.state = createSimulation({ scenario: this.scenario, level: this.level, mode: "standard" });
       this.elements = createGameShell(this.host, this.scenario, this.assetUrl);
       this.audio = createAudioController({ volume: this.settings.volume / 100, muted: this.settings.muted });
       this.renderer = createSimulatorRenderer({
@@ -399,37 +417,26 @@ class SimulatorApp {
         sensitivity: this.mouseSensitivity(),
         onPause: () => this.pause("pointer-lock"),
         onHelp: () => this.showHelp(),
-        onMute: () => this.toggleMute(),
         onPointerLockUnavailable: () => {
           this.showCaption("Mouse Lock unavailable. Arrow keys turn, and click or Space still throws.", 4500);
         },
       });
       this.elements.canvas.addEventListener("webglcontextlost", this.boundContextLost);
       this.audio.resume().catch(() => {});
-      this.paused = false;
+      this.paused = true;
       this.pauseReason = "";
       this.lastFrame = performance.now();
       this.accumulator = 0;
-      this.options.onStatus?.(mode === "practice" ? "Practice Mode" : "Standard Mode");
+      this.options.onStatus?.("Mission starting");
       const snapshot = this.renderSnapshot();
       this.renderer.render(snapshot);
       updateHud(this.elements, snapshot, this.scenario);
-      this.raf = requestAnimationFrame((now) => this.frame(now));
-      if (this.settings.skipTutorial) this.resume();
-      else {
-        this.paused = true;
-        this.modalKind = "tutorial";
-        this.setGameInert(true);
-        renderHelp(this.elements.modal, {
-          requiredSlips: this.requiredSlips(),
-          bossTitle: this.scenario.boss && this.scenario.boss.title,
-          cards: this.scenario.representativeHand.cards,
-        });
-      }
+      this.resume();
     } catch (error) {
       this.stopGame();
-      this.options.onStatus?.("Coach-only mode available");
-      this.showCoachOnly();
+      const detail = error && error.message ? ` ${error.message}` : "";
+      this.launchError = `The 3D mission could not start.${detail}`;
+      this.showPreflight({ preserveLaunchError: true });
     }
   }
 
@@ -556,7 +563,6 @@ class SimulatorApp {
     this.modalKind = "pause";
     this.setGameInert(true);
     renderPause(this.elements.modal, {
-      muted: this.audio ? this.audio.isMuted() : this.settings.muted,
       cards: this.scenario.representativeHand.cards,
       reason: this.pauseReason,
     });
@@ -636,7 +642,7 @@ class SimulatorApp {
     this.lastFrame = performance.now();
     this.accumulator = 0;
     this.audio?.resume().catch(() => {});
-    this.options.onStatus?.(this.state.mode === "practice" ? "Practice Mode" : "Standard Mode");
+    this.options.onStatus?.("Mission running");
     this.elements.live.textContent = "Simulation resumed.";
     this.elements.canvas.focus();
     if (this.settings.inputMode === "mouse") this.input?.requestPointerLock();
@@ -653,13 +659,6 @@ class SimulatorApp {
     this.modalReturnFocus = null;
     if (resume) this.resume();
     else if (focus && document.contains(focus)) focus.focus();
-  }
-
-  toggleMute() {
-    this.settings.muted = !(this.audio ? this.audio.isMuted() : this.settings.muted);
-    this.audio?.setMuted(this.settings.muted);
-    saveSettings(this.settings);
-    if (this.elements) this.elements.live.textContent = this.settings.muted ? "Effects muted." : "Effects unmuted.";
   }
 
   showCaption(text, duration = 2400) {
@@ -694,12 +693,6 @@ class SimulatorApp {
     this.options.onStatus?.("Mission complete");
   }
 
-  showCoachOnly() {
-    this.stopGame();
-    renderCoachOnly(this.host, this.scenario, this.assetUrl);
-    this.options.onStatus?.("Coach-only mode");
-  }
-
   stopGame({ keepState = false } = {}) {
     this.slowFrameMonitor.resetStreak();
     if (this.raf) cancelAnimationFrame(this.raf);
@@ -718,6 +711,7 @@ class SimulatorApp {
     this.pauseReason = "";
     this.modalKind = "";
     this.helpReturnKind = "";
+    this.settingsReturnKind = "";
     if (!keepState) this.state = null;
   }
 

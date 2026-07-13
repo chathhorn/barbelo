@@ -135,10 +135,14 @@ function check(condition, label) {
     overlay: Boolean(document.querySelector(".bridge-simulator-overlay")),
     inert: document.querySelector(".app-shell").inert,
     focused: document.querySelector(".bridge-simulator-overlay").contains(document.activeElement),
+    starts: document.querySelectorAll("[data-simulator-start]").length,
+    startName: document.querySelector("[data-simulator-start]")?.textContent?.trim(),
+    clipboard: Boolean(document.querySelector(".simulator-clipboard")),
   }));
   const simulatorAfter = requests.filter((url) => /bridge-simulator\.js|src\/simulator\/index\.js/.test(url)).length;
   check(
-    simulatorBefore === 0 && simulatorAfter > simulatorBefore && simulatorLaunchCheck.overlay && simulatorLaunchCheck.inert && simulatorLaunchCheck.focused,
+    simulatorBefore === 0 && simulatorAfter > simulatorBefore && simulatorLaunchCheck.overlay && simulatorLaunchCheck.inert &&
+      simulatorLaunchCheck.focused && simulatorLaunchCheck.starts === 1 && simulatorLaunchCheck.startName === "Start!" && simulatorLaunchCheck.clipboard,
     `real simulator launch is lazy and modal (${JSON.stringify(simulatorLaunchCheck)})`
   );
   await page.click(".bridge-simulator-exit");

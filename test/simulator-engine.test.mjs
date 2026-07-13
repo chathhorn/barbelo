@@ -56,7 +56,7 @@ test("thirteen card throws always recover through a bounded shuffle", () => {
   assert.equal(tryThrowCard(combat, { tick: 14 }).fired, true);
 });
 
-test("System Notes absorb half of damage and Practice Mode is invulnerable", () => {
+test("System Notes absorb half of damage and the test harness can run invulnerably", () => {
   const player = { composure: 100, systemNotes: 20 };
   assert.deepEqual(applyDamageToPlayer(player, 30, "standard"), {
     rawDamage: 30,

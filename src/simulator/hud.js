@@ -44,7 +44,46 @@ function renderHand(cards, used = 0) {
   }).join("");
 }
 
-function renderPreflight(host, scenario, settings, assetUrl, {
+function renderSettingsControls(settings) {
+  return `
+    <div class="simulator-settings">
+      <label class="simulator-setting">Input mode
+        <select data-simulator-setting="inputMode">
+          <option value="mouse"${settings.inputMode === "mouse" ? " selected" : ""}>Mouse Lock</option>
+          <option value="keyboard"${settings.inputMode === "keyboard" ? " selected" : ""}>Keyboard Look</option>
+        </select>
+      </label>
+      <label class="simulator-setting">Field of view <span data-fov-value>${escapeHtml(settings.fov)}°</span>
+        <input type="range" min="55" max="90" step="1" value="${escapeHtml(settings.fov)}" data-simulator-setting="fov">
+      </label>
+      <label class="simulator-setting">Mouse sensitivity
+        <input type="range" min="1" max="10" step="1" value="${escapeHtml(settings.sensitivity)}" data-simulator-setting="sensitivity">
+      </label>
+      <label class="simulator-setting">Effects volume
+        <input type="range" min="0" max="100" step="5" value="${escapeHtml(settings.volume)}" data-simulator-setting="volume">
+      </label>
+      <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="reducedEffects"${settings.reducedEffects ? " checked" : ""}> Reduced effects</label>
+      <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="highContrast"${settings.highContrast ? " checked" : ""}> High contrast</label>
+      <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="muted"${settings.muted ? " checked" : ""}> Mute effects</label>
+    </div>
+  `;
+}
+
+function renderClipboardContents({ requiredSlips = 3, bossTitle = "The Bottom Board", cards = [] } = {}) {
+  return `
+    <p>Recover ${escapeHtml(requiredSlips)} Review ${requiredSlips === 1 ? "Slip" : "Slips"}, enter the Traveler Vault, defeat ${escapeHtml(bossTitle)}, and move for the next round.</p>
+    <p><strong>Throwing hand:</strong> ${escapeHtml(handLabel(cards))}</p>
+    <ul>
+      <li>WASD moves; mouse or arrow keys turn.</li>
+      <li>Click or Space throws the next card. The hand shuffles forever.</li>
+      <li>E or Enter interacts with chalkboards and doors.</li>
+      <li>H reopens this clipboard. Escape pauses.</li>
+      <li>Composure is health. System Notes absorb half of incoming damage.</li>
+    </ul>
+  `;
+}
+
+function renderPreflight(host, scenario, assetUrl, {
   fpsAvailable = true,
   requiredSlips = scenario.wings ? scenario.wings.length : 3,
   unavailableReason = "This device or viewport cannot run the FPS safely.",
@@ -55,7 +94,7 @@ function renderPreflight(host, scenario, settings, assetUrl, {
   const provenance = segmentText(scenario.representativeHand && scenario.representativeHand.provenanceNote);
   const unavailable = fpsAvailable ? "" : `
     <div class="simulator-provenance" role="status">
-      ${escapeHtml(unavailableReason)} The complete Coach-only briefing remains available.
+      ${escapeHtml(unavailableReason)} Start is unavailable on this device or viewport.
     </div>`;
   host.innerHTML = `
     <section class="simulator-preflight" aria-labelledby="simulator-preflight-title">
@@ -78,46 +117,35 @@ function renderPreflight(host, scenario, settings, assetUrl, {
         ${pair.players ? `<p>${escapeHtml(pair.players)}: this greeting stays local and never appears on a hostile.</p>` : ""}
         <div class="simulator-provenance">${escapeHtml(provenance || "Practice Deck")}</div>
         ${unavailable}
-        <div class="simulator-settings">
-          <label class="simulator-setting">Input mode
-            <select data-simulator-setting="inputMode">
-              <option value="mouse"${settings.inputMode === "mouse" ? " selected" : ""}>Mouse Lock</option>
-              <option value="keyboard"${settings.inputMode === "keyboard" ? " selected" : ""}>Keyboard Look</option>
-            </select>
-          </label>
-          <label class="simulator-setting">Field of view <span data-fov-value>${escapeHtml(settings.fov)}°</span>
-            <input type="range" min="55" max="90" step="1" value="${escapeHtml(settings.fov)}" data-simulator-setting="fov">
-          </label>
-          <label class="simulator-setting">Mouse sensitivity
-            <input type="range" min="1" max="10" step="1" value="${escapeHtml(settings.sensitivity)}" data-simulator-setting="sensitivity">
-          </label>
-          <label class="simulator-setting">Effects volume
-            <input type="range" min="0" max="100" step="5" value="${escapeHtml(settings.volume)}" data-simulator-setting="volume">
-          </label>
-          <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="reducedEffects"${settings.reducedEffects ? " checked" : ""}> Reduced effects</label>
-          <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="highContrast"${settings.highContrast ? " checked" : ""}> High contrast</label>
-          <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="skipTutorial"${settings.skipTutorial ? " checked" : ""}> Skip tutorial</label>
-          <label class="simulator-checkbox"><input type="checkbox" data-simulator-setting="muted"${settings.muted ? " checked" : ""}> Mute effects</label>
-        </div>
+        <section class="simulator-clipboard" aria-labelledby="simulator-clipboard-title">
+          <h3 id="simulator-clipboard-title">Coach's clipboard</h3>
+          ${renderClipboardContents({
+            requiredSlips,
+            bossTitle: scenario.boss && scenario.boss.title,
+            cards: scenario.representativeHand && scenario.representativeHand.cards,
+          })}
+        </section>
         <div class="simulator-actions">
-          <button type="button" class="primary" data-simulator-start="standard"${fpsAvailable ? "" : " disabled"}>Start Standard</button>
-          <button type="button" data-simulator-start="practice"${fpsAvailable ? "" : " disabled"}>Practice Mode</button>
-          <button type="button" data-simulator-start="coach">Coach-only</button>
+          <button type="button" class="primary" data-simulator-start="standard"${fpsAvailable ? "" : " disabled"}>Start!</button>
+          <button type="button" data-simulator-settings>Settings</button>
         </div>
-        <details class="simulator-controls-summary">
-          <summary>Controls and objective</summary>
-          <p>Recover ${escapeHtml(requiredSlips)} Review ${requiredSlips === 1 ? "Slip" : "Slips"}, open the Traveler Vault, reseat ${escapeHtml(scenario.boss && scenario.boss.title || "The Bottom Board")}, and leave through Move for the Next Round.</p>
-          <p>Mouse Lock captures the pointer after Start; Escape releases it and opens Pause. If the browser refuses the lock, the arrow keys still turn.</p>
-          <ul>
-            <li>WASD: move</li><li>Mouse / ← →: turn</li>
-            <li>Click / Space: throw</li><li>E / Enter: interact</li>
-            <li>H: help</li><li>Escape: pause</li>
-            <li>R: reset encounter</li><li>M: mute</li>
-          </ul>
-        </details>
       </div>
     </section>
   `;
+}
+
+function renderSettings(host, settings, { returnToPause = false } = {}) {
+  host.hidden = false;
+  host.innerHTML = `
+    <section class="simulator-modal simulator-settings-screen" aria-labelledby="simulator-settings-title">
+      <h2 id="simulator-settings-title" tabindex="-1">Settings</h2>
+      ${renderSettingsControls(settings)}
+      <div class="simulator-modal-actions">
+        <button type="button" class="primary" data-simulator-settings-close>${returnToPause ? "Back to pause" : "Back to preflight"}</button>
+      </div>
+    </section>
+  `;
+  host.querySelector("#simulator-settings-title")?.focus();
 }
 
 function createGameShell(host, scenario, assetUrl) {
@@ -282,10 +310,10 @@ function renderReducedEffectsOffer(modal) {
   modal.querySelector("[data-simulator-enable-reduced-effects]").focus();
 }
 
-function renderPause(modal, { muted = false, cards = [], reason = "pause" } = {}) {
+function renderPause(modal, { cards = [], reason = "pause" } = {}) {
   const contextLost = reason === "context-lost";
   const contextNote = contextLost
-    ? "WebGL context was lost. Return to preflight to create a fresh renderer, or continue with Coach-only mode."
+    ? "WebGL context was lost. Return to preflight to create a fresh renderer, or exit to the report."
     : "The director has stopped the clock. Your Review Slips are safe.";
   const gameActions = contextLost ? "" : `
         <button type="button" class="primary" data-simulator-resume>Resume</button>
@@ -300,9 +328,8 @@ function renderPause(modal, { muted = false, cards = [], reason = "pause" } = {}
       <div class="simulator-modal-actions">
         ${gameActions}
         <button type="button" data-simulator-help>Help</button>
-        <button type="button" data-simulator-mute>${muted ? "Unmute" : "Mute"}</button>
+        <button type="button" data-simulator-settings>Settings</button>
         <button type="button"${contextLost ? ' class="primary"' : ""} data-simulator-back-preflight>Return to preflight</button>
-        <button type="button" data-simulator-start="coach">Coach-only</button>
         <button type="button" data-simulator-close>Exit to report</button>
       </div>
     </section>
@@ -316,62 +343,11 @@ function renderHelp(modal, { requiredSlips = 3, bossTitle = "The Bottom Board", 
   modal.innerHTML = `
     <section class="simulator-modal" aria-labelledby="simulator-help-title">
       <h2 id="simulator-help-title">Coach's clipboard</h2>
-      <p>Recover ${escapeHtml(requiredSlips)} Review ${requiredSlips === 1 ? "Slip" : "Slips"}, enter the Traveler Vault, defeat ${escapeHtml(bossTitle)}, and move for the next round.</p>
-      <p><strong>Throwing hand:</strong> ${escapeHtml(handLabel(cards))}</p>
-      <ul>
-        <li>WASD moves; mouse or arrow keys turn.</li>
-        <li>Click or Space throws the next card. The hand shuffles forever.</li>
-        <li>E or Enter interacts with chalkboards and doors.</li>
-        <li>Escape pauses. R resets the current encounter. M mutes.</li>
-        <li>Composure is health. System Notes absorb half of incoming damage.</li>
-      </ul>
+      ${renderClipboardContents({ requiredSlips, bossTitle, cards })}
       <div class="simulator-modal-actions"><button type="button" class="primary" data-simulator-help-close>Back</button></div>
     </section>
   `;
   modal.querySelector("[data-simulator-help-close]").focus();
-}
-
-function renderCoachOnly(host, scenario, assetUrl) {
-  const bark = segmentText(scenario.briefing && scenario.briefing.bark);
-  const briefing = segmentText(scenario.briefing && scenario.briefing.fullText);
-  const sessionFacts = scenario.debrief && scenario.debrief.sessionFacts || [];
-  host.innerHTML = `
-    <section class="simulator-coach-only" aria-labelledby="simulator-coach-only-title">
-      <h2 id="simulator-coach-only-title" tabindex="-1">Coach-only mission review</h2>
-      <article class="simulator-coach-card">
-        <img src="${escapeHtml(assetUrl("coach/coach-point.svg"))}" alt="Upright trench-coated Border Collie Bridge Coach pointing at the review">
-        <div>
-          <strong>Opening orders</strong>
-          <p>${escapeHtml(bark || briefing)}</p>
-          ${briefing && briefing !== bark ? `<strong>Briefing</strong><p>${escapeHtml(briefing)}</p>` : ""}
-        </div>
-      </article>
-      <div class="simulator-coaching-list">
-        ${(scenario.wings || []).map((wing) => `
-          <article class="simulator-coaching-card">
-            <h3>${escapeHtml(wing.title)}</h3>
-            ${renderSegments(wing.coachFeedback && wing.coachFeedback.summary)}
-            <details class="simulator-evidence"><summary>Expand evidence</summary>${evidenceRows(wing.featuredBoard)}${renderSegments(wing.coachFeedback && wing.coachFeedback.details)}</details>
-          </article>
-        `).join("")}
-      </div>
-      <article class="simulator-coaching-card">
-        <h3>Practice action</h3>
-        ${renderSegments(scenario.debrief && scenario.debrief.practiceAction)}
-      </article>
-      <article class="simulator-coaching-card">
-        <h3>Your Actual Session</h3>
-        ${sessionFacts.map((fact) => renderSegments(fact.segments)).join("")}
-      </article>
-      <p class="simulator-provenance">Coach-only mode skips fictional game statistics. Honor Reclaimed is fictional and does not change or restore real matchpoints.</p>
-      <div class="simulator-modal-actions">
-        <button type="button" data-simulator-back-preflight>Back to preflight</button>
-        <button type="button" class="primary" data-simulator-close>Return to report</button>
-      </div>
-    </section>
-  `;
-  const first = host.querySelector("#simulator-coach-only-title");
-  if (first) first.focus();
 }
 
 function renderDebrief(host, scenario, stats = {}, assetUrl) {
@@ -418,12 +394,12 @@ export {
   segmentText,
   renderSegments,
   renderPreflight,
+  renderSettings,
   createGameShell,
   updateHud,
   renderChalkboard,
   renderReducedEffectsOffer,
   renderPause,
   renderHelp,
-  renderCoachOnly,
   renderDebrief,
 };

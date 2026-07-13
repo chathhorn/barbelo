@@ -204,7 +204,7 @@ test("this-week card leads with the focus advice and top priorities", async () =
   assert.match(html, /this-week-list/);
   assert.match(html, /<button type="button" class="quiz-launch simulator-launch" data-simulator-open>/);
   assert.match(html, /Bridge Simulator &mdash; reclaim your matchpoints/);
-  assert.match(html, /One personalized 1990s-style mission built from this pair's session\./);
+  assert.doesNotMatch(html, /One personalized 1990s-style mission built from this pair's session\./);
   assert.ok(html.indexOf("data-quiz-open") < html.indexOf("data-simulator-open"), "simulator launch follows Table Time");
 });
 

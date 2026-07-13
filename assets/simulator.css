@@ -236,7 +236,6 @@
 }
 
 .simulator-preflight-panel h2,
-.simulator-coach-only h2,
 .simulator-debrief h2,
 .simulator-modal h2 {
   margin: 0 0 12px;
@@ -297,7 +296,7 @@
 
 .simulator-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 20px;
 }
@@ -308,24 +307,26 @@
   color: #fff5d6;
 }
 
-.simulator-controls-summary {
-  margin-top: 16px;
-  border-top: 1px solid #3e493f;
-  padding-top: 12px;
+.simulator-clipboard {
+  border: 2px solid #746441;
+  padding: 14px 16px;
+  background: #1a241d;
   color: var(--sim-muted);
 }
 
-.simulator-controls-summary summary {
-  cursor: pointer;
-  color: var(--sim-paper);
+.simulator-clipboard h3 {
+  margin: 0 0 8px;
+  color: var(--sim-gold);
+  font-size: 16px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
 
-.simulator-controls-summary ul {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 15px;
-  margin: 10px 0 0;
-  padding-left: 20px;
+.simulator-clipboard p { margin: 7px 0; }
+.simulator-clipboard ul { margin: 10px 0 0; padding-left: 20px; }
+
+.simulator-settings-screen {
+  margin: clamp(22px, 6vh, 70px) auto;
 }
 
 .simulator-game {
@@ -574,7 +575,6 @@
 .simulator-evidence dt { color: #d3c18d; }
 .simulator-evidence dd { margin: 0; }
 
-.simulator-coach-only,
 .simulator-debrief {
   width: min(1000px, calc(100% - 40px));
   margin: 28px auto;
@@ -582,20 +582,6 @@
   padding: clamp(18px, 4vw, 36px);
   background: #111914;
 }
-
-.simulator-coaching-list {
-  display: grid;
-  gap: 12px;
-}
-
-.simulator-coaching-card {
-  border: 1px solid #5c654f;
-  padding: 14px;
-  background: #18231d;
-}
-
-.simulator-coaching-card h3 { margin: 0 0 5px; color: #f1cc69; }
-.simulator-coaching-card p { margin: 5px 0; }
 
 .simulator-debrief-grid {
   display: grid;
@@ -639,13 +625,12 @@
 .bridge-simulator-overlay.high-contrast .simulator-preflight,
 .bridge-simulator-overlay.high-contrast .simulator-preflight-panel,
 .bridge-simulator-overlay.high-contrast .simulator-provenance,
+.bridge-simulator-overlay.high-contrast .simulator-clipboard,
 .bridge-simulator-overlay.high-contrast .simulator-hud,
 .bridge-simulator-overlay.high-contrast .simulator-modal,
 .bridge-simulator-overlay.high-contrast .simulator-chalkboard,
 .bridge-simulator-overlay.high-contrast .simulator-coach-card,
-.bridge-simulator-overlay.high-contrast .simulator-coach-only,
 .bridge-simulator-overlay.high-contrast .simulator-debrief,
-.bridge-simulator-overlay.high-contrast .simulator-coaching-card,
 .bridge-simulator-overlay.high-contrast .simulator-debrief-panel {
   border-color: #fff;
   background: #000;

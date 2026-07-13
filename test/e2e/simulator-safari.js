@@ -308,24 +308,27 @@ async function run() {
     await waitFor(client, "simulator preflight", "document.querySelector('.simulator-preflight')");
     check(await client.execute(`
       const app = window.__safariSmokeController;
-      return Boolean(app && app.capability.available && !document.querySelector('[data-simulator-start="practice"]').disabled);
+      const starts = document.querySelectorAll('[data-simulator-start]');
+      const start = starts[0];
+      return Boolean(app && app.capability.available && starts.length === 1 && start && !start.disabled && start.textContent.trim() === 'Start!');
     `), "real Safari reports a playable WebGL preflight");
+    check(await client.execute(`
+      const clipboard = document.querySelector('.simulator-clipboard');
+      return Boolean(clipboard && clipboard.textContent.includes("Coach's clipboard") && clipboard.textContent.includes('Throwing hand') && clipboard.textContent.includes('Composure'));
+    `), "real Safari preflight exposes the Coach's clipboard contents");
 
-    await client.execute("document.querySelector('[data-simulator-start=\"coach\"]').click();");
-    await waitFor(client, "Coach-only route", "document.querySelector('.simulator-coach-only')");
-    check(await client.execute("return document.querySelectorAll('.simulator-coaching-card').length >= 5;"), "real Safari Coach-only route exposes complete coaching");
-    await client.execute("document.querySelector('[data-simulator-back-preflight]').click();");
-    await waitFor(client, "preflight return", "document.querySelector('.simulator-preflight')");
-
+    await client.execute(`
+      document.querySelector('[data-simulator-settings]').click();
+    `);
+    await waitFor(client, "simulator settings", "document.querySelector('#simulator-settings-title')");
     await client.execute(`
       const select = document.querySelector('[data-simulator-setting="inputMode"]');
       select.value = "keyboard";
       select.dispatchEvent(new Event("change", { bubbles: true }));
-      const skip = document.querySelector('[data-simulator-setting="skipTutorial"]');
-      skip.checked = true;
-      skip.dispatchEvent(new Event("change", { bubbles: true }));
-      document.querySelector('[data-simulator-start="practice"]').click();
+      document.querySelector('[data-simulator-settings-close]').click();
     `);
+    await waitFor(client, "preflight return", "document.querySelector('.simulator-preflight')");
+    await client.execute("document.querySelector('[data-simulator-start]').click();");
     await waitFor(client, "Safari game canvas", "document.querySelector('canvas.simulator-canvas') && window.__safariSmokeController.renderer");
     const start = await client.execute(`
       document.querySelector('canvas.simulator-canvas').focus();
