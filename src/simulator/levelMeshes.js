@@ -47,6 +47,9 @@ const SURFACE_WHITE_MIX = Object.freeze({
   ceiling: 0.14,
 });
 
+const WALL_DEPTH = 0.24;
+const WALL_LINE_TOLERANCE = 1e-5;
+
 function scaledColor(hex, light = 1, surface = "wall") {
   const color = new Color(hex == null ? 0x555555 : hex);
   color.multiplyScalar(Math.max(0.25, Math.min(1.15, light)));
@@ -138,24 +141,142 @@ function solidWallSegments(level, wall) {
   }));
 }
 
-function wallMesh(segment, bottom, top, material) {
+function quantizedWallCoordinate(value) {
+  return Math.round(value / WALL_LINE_TOLERANCE);
+}
+
+function canonicalWallLine(segment) {
+  let dx = segment.b.x - segment.a.x;
+  let dz = segment.b.z - segment.a.z;
+  const length = Math.hypot(dx, dz);
+  if (!length) return null;
+  dx /= length;
+  dz /= length;
+  if (dx < -WALL_LINE_TOLERANCE || (Math.abs(dx) <= WALL_LINE_TOLERANCE && dz < 0)) {
+    dx *= -1;
+    dz *= -1;
+  }
+  const nx = -dz;
+  const nz = dx;
+  const offset = segment.a.x * nx + segment.a.z * nz;
+  const project = (point) => point.x * dx + point.z * dz;
+  const a = project(segment.a);
+  const b = project(segment.b);
+  return {
+    ux: dx,
+    uz: dz,
+    nx,
+    nz,
+    offset,
+    start: Math.min(a, b),
+    end: Math.max(a, b),
+    key: `${quantizedWallCoordinate(dx)}:${quantizedWallCoordinate(dz)}:${quantizedWallCoordinate(offset)}`,
+  };
+}
+
+// Every room authors its own perimeter, so a shared boundary can otherwise be
+// rendered two or three times at exactly the same depth. Split those collinear
+// spans into atomic intervals and turn each occupied interval into one physical
+// wall. This removes the coplanar faces that caused the striped z-fighting seen
+// while moving through the interior of the level.
+function physicalWallSegments(level) {
+  const lines = new Map();
+  level.walls.forEach((wall) => {
+    solidWallSegments(level, wall).forEach((segment) => {
+      const line = canonicalWallLine(segment);
+      if (!line) return;
+      if (!lines.has(line.key)) lines.set(line.key, { ...line, sources: [] });
+      lines.get(line.key).sources.push({ wall, start: line.start, end: line.end });
+    });
+  });
+
+  const physical = [];
+  lines.forEach((line) => {
+    const boundaries = [...new Set(line.sources.flatMap((source) => [source.start, source.end]))]
+      .sort((a, b) => a - b)
+      .filter((value, index, values) => index === 0 || value - values[index - 1] > WALL_LINE_TOLERANCE);
+    for (let index = 1; index < boundaries.length; index += 1) {
+      const start = boundaries[index - 1];
+      const end = boundaries[index];
+      if (end - start <= WALL_LINE_TOLERANCE) continue;
+      const midpoint = (start + end) / 2;
+      const contributors = line.sources
+        .filter((source) => source.start <= midpoint + WALL_LINE_TOLERANCE && source.end >= midpoint - WALL_LINE_TOLERANCE)
+        .map((source) => source.wall);
+      if (!contributors.length) continue;
+      physical.push({
+        segment: {
+          a: { x: line.ux * start + line.nx * line.offset, z: line.uz * start + line.nz * line.offset },
+          b: { x: line.ux * end + line.nx * line.offset, z: line.uz * end + line.nz * line.offset },
+        },
+        bottom: Math.min(...contributors.map((wall) => wall.bottom)),
+        top: Math.max(...contributors.map((wall) => wall.top)),
+        contributors,
+      });
+    }
+  });
+  return physical;
+}
+
+function polygonWinding(space) {
+  const twiceArea = space.polygon.reduce((area, point, index) => {
+    const next = space.polygon[(index + 1) % space.polygon.length];
+    return area + point.x * next.z - next.x * point.z;
+  }, 0);
+  return twiceArea >= 0 ? 1 : -1;
+}
+
+function wallFaceMaterials(physical, materialForWall, spaceById) {
+  const fallback = materialForWall(physical.contributors[0]);
+  const dx = physical.segment.b.x - physical.segment.a.x;
+  const dz = physical.segment.b.z - physical.segment.a.z;
+  let positive = null;
+  let negative = null;
+  physical.contributors.forEach((wall) => {
+    const space = spaceById.get(wall.spaceId);
+    if (!space) return;
+    const wallDx = wall.segment.b.x - wall.segment.a.x;
+    const wallDz = wall.segment.b.z - wall.segment.a.z;
+    const followsCanonicalDirection = dx * wallDx + dz * wallDz >= 0 ? 1 : -1;
+    const interiorSide = polygonWinding(space) * followsCanonicalDirection;
+    if (interiorSide > 0) positive = materialForWall(wall);
+    else negative = materialForWall(wall);
+  });
+  // BoxGeometry groups are +X, -X, +Y, -Y, +Z, -Z. The canonical
+  // segment runs along local +X, making the final two materials the room-facing
+  // surfaces. End caps, the top, and the underside use the fallback material.
+  return [fallback, fallback, fallback, fallback, positive || fallback, negative || fallback];
+}
+
+function wallMesh(segment, bottom, top, faceMaterials) {
   const dx = segment.b.x - segment.a.x;
   const dz = segment.b.z - segment.a.z;
   const length = Math.hypot(dx, dz);
   const height = Math.max(0.1, top - bottom);
-  const mesh = new Mesh(new BoxGeometry(length, height, 0.12), material);
+  const mesh = new Mesh(new BoxGeometry(length, height, WALL_DEPTH), faceMaterials);
   mesh.position.set((segment.a.x + segment.b.x) / 2, bottom + height / 2, (segment.a.z + segment.b.z) / 2);
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.userData.kind = "wall";
+  mesh.userData.depth = WALL_DEPTH;
   return mesh;
 }
 
-function mergeWallMeshes(meshes, material) {
+function mergeWallMeshes(meshes) {
   const positions = [];
   const uvs = [];
-  const indices = [];
+  const indicesByMaterial = [];
+  const materials = [];
+  const materialIndices = new Map();
   const point = new Vector3();
   let vertexOffset = 0;
+  function mergedMaterialIndex(material) {
+    if (!materialIndices.has(material)) {
+      materialIndices.set(material, materials.length);
+      materials.push(material);
+      indicesByMaterial.push([]);
+    }
+    return materialIndices.get(material);
+  }
   meshes.forEach((mesh) => {
     mesh.updateMatrix();
     const geometry = mesh.geometry;
@@ -167,23 +288,30 @@ function mergeWallMeshes(meshes, material) {
       if (uv) uvs.push(uv.getX(index), uv.getY(index));
       else uvs.push(0, 0);
     }
-    if (geometry.index) {
-      for (let index = 0; index < geometry.index.count; index += 1) {
-        indices.push(vertexOffset + geometry.index.getX(index));
+    const faceMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    geometry.groups.forEach((group) => {
+      const target = indicesByMaterial[mergedMaterialIndex(faceMaterials[group.materialIndex] || faceMaterials[0])];
+      for (let index = group.start; index < group.start + group.count; index += 1) {
+        target.push(vertexOffset + geometry.index.getX(index));
       }
-    } else {
-      for (let index = 0; index < position.count; index += 1) indices.push(vertexOffset + index);
-    }
+    });
     vertexOffset += position.count;
     geometry.dispose();
   });
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  const indices = [];
+  indicesByMaterial.forEach((materialIndicesForFaces, materialIndex) => {
+    geometry.addGroup(indices.length, materialIndicesForFaces.length, materialIndex);
+    indices.push(...materialIndicesForFaces);
+  });
   geometry.setIndex(indices);
   geometry.computeBoundingSphere();
-  const merged = new Mesh(geometry, material);
+  const merged = new Mesh(geometry, materials);
   merged.userData.kind = "wall-batch";
+  merged.userData.depth = WALL_DEPTH;
+  merged.userData.physicalWallCount = meshes.length;
   return merged;
 }
 
@@ -243,23 +371,24 @@ function createLevelMeshes(level, textures) {
   root.name = "bridge-level";
   const materials = createMaterialCache(textures);
   const portalMeshes = new Map();
-  const wallMeshesByMaterial = new Map();
+  const spaceById = new Map(level.spaces.map((space) => [space.id, space]));
+  const materialForWall = (wall) => {
+    const space = spaceById.get(wall.spaceId);
+    return materials.get(wall.material, space ? space.light : 0.75, "wall");
+  };
 
   level.spaces.forEach((space) => {
     root.add(horizontalMesh(space, space.floor, materials.get(space.floorMaterial, space.light, "floor")));
     root.add(horizontalMesh(space, space.ceiling, materials.get(space.ceilingMaterial, Math.min(1, space.light + 0.12), "ceiling"), true));
   });
 
-  level.walls.forEach((wall) => {
-    const space = level.spaces.find((entry) => entry.id === wall.spaceId);
-    const light = space ? space.light : 0.75;
-    const material = materials.get(wall.material, light, "wall");
-    if (!wallMeshesByMaterial.has(material)) wallMeshesByMaterial.set(material, []);
-    solidWallSegments(level, wall).forEach((segment) => {
-      wallMeshesByMaterial.get(material).push(wallMesh(segment, wall.bottom, wall.top, material));
-    });
-  });
-  wallMeshesByMaterial.forEach((meshes, material) => root.add(mergeWallMeshes(meshes, material)));
+  const physicalWalls = physicalWallSegments(level).map((physical) => wallMesh(
+    physical.segment,
+    physical.bottom,
+    physical.top,
+    wallFaceMaterials(physical, materialForWall, spaceById)
+  ));
+  root.add(mergeWallMeshes(physicalWalls));
 
   level.portals.forEach((portal) => {
     if (portal.kind === "open" || portal.kind === "stairs") return;
@@ -303,4 +432,4 @@ function createLevelMeshes(level, textures) {
   return { root, portalMeshes, updatePortals, destroy };
 }
 
-export { createLevelMeshes, solidWallSegments };
+export { WALL_DEPTH, createLevelMeshes, physicalWallSegments, solidWallSegments };

@@ -91,7 +91,6 @@ function renderPreflight(host, scenario, assetUrl, {
   const pair = scenario.identity || {};
   const mode = scenario.mode === "defend-crown" ? "Defend the Crown" : "Restore Honor";
   const bark = segmentText(scenario.briefing && scenario.briefing.bark);
-  const provenance = segmentText(scenario.representativeHand && scenario.representativeHand.provenanceNote);
   const unavailable = fpsAvailable ? "" : `
     <div class="simulator-provenance" role="status">
       ${escapeHtml(unavailableReason)} Start is unavailable on this device or viewport.
@@ -114,8 +113,6 @@ function renderPreflight(host, scenario, assetUrl, {
       </div>
       <div class="simulator-preflight-panel">
         <h2>Mission preflight</h2>
-        ${pair.players ? `<p>${escapeHtml(pair.players)}: this greeting stays local and never appears on a hostile.</p>` : ""}
-        <div class="simulator-provenance">${escapeHtml(provenance || "Practice Deck")}</div>
         ${unavailable}
         <section class="simulator-clipboard" aria-labelledby="simulator-clipboard-title">
           <h3 id="simulator-clipboard-title">Coach's clipboard</h3>
@@ -350,6 +347,20 @@ function renderHelp(modal, { requiredSlips = 3, bossTitle = "The Bottom Board", 
   modal.querySelector("[data-simulator-help-close]").focus();
 }
 
+function renderMatchOver(modal) {
+  modal.hidden = false;
+  modal.innerHTML = `
+    <section class="simulator-modal simulator-match-over" aria-labelledby="simulator-match-over-title">
+      <h2 id="simulator-match-over-title">Match over!</h2>
+      <p>Your Composure reached zero. The Coach has returned you to the encounter checkpoint.</p>
+      <div class="simulator-modal-actions">
+        <button type="button" class="primary" data-simulator-try-again>Try again?</button>
+      </div>
+    </section>
+  `;
+  modal.querySelector("[data-simulator-try-again]")?.focus();
+}
+
 function renderDebrief(host, scenario, stats = {}, assetUrl) {
   const sessionFacts = scenario.debrief && scenario.debrief.sessionFacts || [];
   host.innerHTML = `
@@ -401,5 +412,6 @@ export {
   renderReducedEffectsOffer,
   renderPause,
   renderHelp,
+  renderMatchOver,
   renderDebrief,
 };

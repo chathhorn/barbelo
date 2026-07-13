@@ -132,6 +132,8 @@ function check(ok, label) {
   check(await page.locator(".simulator-clipboard").count() === 1, "built preflight displays the Coach's clipboard");
   const clipboardText = await page.locator(".simulator-clipboard").innerText();
   check(clipboardText.includes("Throwing hand") && clipboardText.includes("Composure"), "built preflight clipboard includes the mission hand and survival guidance");
+  const preflightText = await page.locator(".simulator-preflight-panel").innerText();
+  check(!preflightText.includes("this greeting stays local") && !/Using .*hand from loaded PBN Board/i.test(preflightText), "built preflight omits internal greeting and hand-provenance copy");
   check(
     await page.locator("[data-simulator-start]").count() === 1 &&
       await page.getByRole("button", { name: "Start!", exact: true }).count() === 1,
@@ -153,6 +155,17 @@ function check(ok, label) {
   await page.keyboard.press("Space");
   await page.waitForTimeout(80);
   check(await page.evaluate(() => window.__builtSimulator.state.combat.shotsFired) === 1, "built simulator throws a card");
+
+  await page.evaluate(() => { window.__builtSimulator.state.player.composure = 0; });
+  await page.waitForSelector("#simulator-match-over-title");
+  check(
+    await page.getByRole("heading", { name: "Match over!", exact: true }).count() === 1 &&
+      await page.getByRole("button", { name: "Try again?", exact: true }).count() === 1,
+    "built simulator presents the Match over retry screen at zero Composure"
+  );
+  await page.getByRole("button", { name: "Try again?", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("[data-simulator-modal]").hidden);
+  check(await page.evaluate(() => window.__builtSimulator.state.player.composure) === 100, "built retry resumes from a refreshed encounter checkpoint");
 
   await page.evaluate(() => {
     window.__builtSimulator.destroy();

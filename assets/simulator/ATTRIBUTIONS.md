@@ -75,6 +75,7 @@ or resize the source into a larger baked bitmap.
 | `pickups/review-slip.svg` | 48×56 | Wing objective marker |
 | `cards/card-projectiles.svg` | 128×48 | Four 32×48 suit cells |
 | `cards/card-back.svg` | 32×48 | Spinning projectile reverse |
+| `cards/enemy-score-slip.svg` | 48×56 | Red/yellow outlined hostile projectile |
 | `cards/card-impact.svg` | 64×64 | Paper/suit impact burst |
 
 ### Environment surfaces

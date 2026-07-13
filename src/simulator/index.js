@@ -18,6 +18,7 @@ import {
   renderChalkboard,
   renderDebrief,
   renderHelp,
+  renderMatchOver,
   renderPause,
   renderPreflight,
   renderReducedEffectsOffer,
@@ -311,6 +312,10 @@ class SimulatorApp {
       this.resume();
       return;
     }
+    if (event.target.closest("[data-simulator-try-again]")) {
+      this.resume();
+      return;
+    }
     if (event.target.closest("[data-simulator-enable-reduced-effects]")) {
       this.resolveReducedEffectsOffer(true);
       return;
@@ -377,7 +382,7 @@ class SimulatorApp {
     if (this.pauseReason === "context-lost") return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (this.modalKind === "reduced-effects") return;
+    if (this.modalKind === "reduced-effects" || this.modalKind === "match-over") return;
     if (this.modalKind === "settings" && this.settingsReturnKind === "pause") {
       this.settingsReturnKind = "";
       this.showPause();
@@ -530,7 +535,7 @@ class SimulatorApp {
         this.audio?.play("victory");
         this.showCaption(`${this.scenario.boss.title} has been sent to the coffee table.`, 4500);
       } else if (event.type === "player-defeated") {
-        this.showCaption("Composure lost. The Coach returns you to the encounter checkpoint.", 4500);
+        this.showMatchOver();
       } else if (event.type === "run-complete") {
         this.finishRun();
         break;
@@ -566,6 +571,24 @@ class SimulatorApp {
       cards: this.scenario.representativeHand.cards,
       reason: this.pauseReason,
     });
+  }
+
+  showMatchOver() {
+    if (!this.state || !this.elements) return;
+    this.slowFrameMonitor.resetStreak();
+    this.paused = true;
+    this.pauseReason = "defeat";
+    this.input?.clear();
+    this.input?.releasePointerLock();
+    this.audio?.suspend();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.modalKind = "match-over";
+    this.modalReturnFocus = this.elements.canvas;
+    this.setGameInert(true);
+    renderMatchOver(this.elements.modal);
+    this.options.onStatus?.("Match over");
+    this.elements.live.textContent = "Match over. Composure reached zero. Try the encounter again.";
   }
 
   showReducedEffectsOffer() {

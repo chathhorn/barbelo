@@ -22,6 +22,7 @@ const SPRITE_PATHS = {
   systemNotes: "pickups/system-notes.svg",
   reviewSlip: "pickups/review-slip.svg",
   cardProjectile: "cards/card-projectiles.svg",
+  enemyProjectile: "cards/enemy-score-slip.svg",
   cardImpact: "cards/card-impact.svg",
   cardBack: "cards/card-back.svg",
   feltWall: "textures/felt-wall.svg",
@@ -82,6 +83,7 @@ function createBillboard(texture, { width = 1, height = 1, opacity = 1, depthTes
 function spriteKeyForEntity(entity) {
   const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
     .filter(Boolean).join(" ").toLowerCase();
+  if (entity && entity.owner === "enemy" && (kind.includes("projectile") || kind.includes("score-slip"))) return "enemyProjectile";
   if (kind.includes("coach") && kind.includes("victory")) return "coachVictory";
   if (kind.includes("coach") && kind.includes("point")) return "coachPoint";
   if (kind.includes("coach") && kind.includes("trot-2")) return "coachTrot2";
@@ -104,6 +106,9 @@ function spriteKeyForEntity(entity) {
 function spriteSizeForEntity(entity) {
   const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
     .filter(Boolean).join(" ").toLowerCase();
+  if (entity && entity.owner === "enemy" && (kind.includes("projectile") || kind.includes("score-slip"))) {
+    return { width: 0.38, height: 0.48 };
+  }
   if (kind.includes("coach") && (kind.includes("point") || kind.includes("victory"))) {
     return { width: 1.35, height: 1.8 };
   }

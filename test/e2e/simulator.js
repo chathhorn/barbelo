@@ -134,6 +134,8 @@ function check(ok, label) {
   check(!await page.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "Practice and Coach-only launch modes are absent");
   const clipboardText = await page.locator(".simulator-clipboard").textContent();
   check(clipboardText.includes("Coach's clipboard") && clipboardText.includes("Throwing hand") && clipboardText.includes("WASD"), "Mission preflight displays the Coach's clipboard");
+  const preflightText = await page.locator(".simulator-preflight-panel").innerText();
+  check(!preflightText.includes("this greeting stays local") && !/Using .*hand from loaded PBN Board/i.test(preflightText), "Mission preflight omits internal greeting and hand-provenance copy");
   check(!await page.locator(".simulator-preflight [data-simulator-setting]").count(), "Mission preflight does not expose inline settings");
 
   await page.click("[data-simulator-settings]");
@@ -240,6 +242,18 @@ function check(ok, label) {
     { type: "player-hit", composureLost: 7, absorbed: 3, practice: false },
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Composure -7"), "damage has a captioned non-color cue");
+
+  await page.evaluate(() => { window.__bridgeSimulatorTest.state.player.composure = 0; });
+  await page.waitForSelector("#simulator-match-over-title");
+  check((await page.locator("#simulator-match-over-title").innerText()).toLowerCase() === "match over!", "zero Composure presents the Match over screen");
+  check(await page.locator("[data-simulator-try-again]").textContent() === "Try again?", "Match over offers an explicit retry action");
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "Match over stops the simulation loop");
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.state.player.composure) === 100, "defeat prepares the encounter checkpoint for retry");
+  await page.keyboard.press("Escape");
+  check(await page.locator("#simulator-match-over-title").isVisible(), "Escape cannot bypass the Match over decision");
+  await page.click("[data-simulator-try-again]");
+  await page.waitForFunction(() => document.querySelector("[data-simulator-modal]").hidden);
+  check(!await page.evaluate(() => window.__bridgeSimulatorTest.paused), "Try again resumes the reset encounter");
 
   const shortcutBaseline = await page.evaluate(() => {
     const app = window.__bridgeSimulatorTest;
@@ -444,7 +458,8 @@ function check(ok, label) {
   check(!await compactPage.locator('[data-simulator-start="practice"], [data-simulator-start="coach"]').count(), "compact viewport does not restore removed modes");
   check(!await compactPage.locator("[data-simulator-settings]").isDisabled(), "compact viewport retains Settings access");
   const compactPreflight = (await compactPage.locator(".simulator-preflight").innerText()).toLowerCase();
-  check(compactPreflight.includes("below the 960 × 540") && compactPreflight.includes("practice deck"), "compact results-only preflight explains disabled Start and Practice Deck provenance");
+  check(compactPreflight.includes("below the 960 × 540"), "compact results-only preflight explains why Start is disabled");
+  check(!compactPreflight.includes("practice deck") && !compactPreflight.includes("this greeting stays local"), "compact preflight omits internal provenance copy");
   check(compactPreflight.includes("coach's clipboard") && compactPreflight.includes("throwing hand"), "compact preflight retains the Coach's clipboard");
   await compactPage.click("[data-simulator-settings]");
   await compactPage.waitForSelector("#simulator-settings-title");

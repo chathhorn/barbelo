@@ -548,6 +548,25 @@
   margin-top: 18px;
 }
 
+.simulator-match-over {
+  width: min(560px, 100%);
+  border-color: #f0bd33;
+  text-align: center;
+}
+
+.simulator-match-over h2 {
+  margin: 0 0 12px;
+  color: #ffd84d;
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: clamp(38px, 8vw, 72px);
+  letter-spacing: .045em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 3px 3px #651c18;
+}
+
+.simulator-match-over .simulator-modal-actions { justify-content: center; }
+
 .simulator-chalkboard {
   width: min(860px, 100%);
   border: 10px ridge #70542c;

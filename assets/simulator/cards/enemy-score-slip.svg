@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 56" width="48" height="56" shape-rendering="crispEdges">
+  <title>Hostile score-slip projectile</title>
+  <desc>Original cream score slip with a bright yellow warning border, red inner border, and red penalty mark.</desc>
+  <metadata>worldHeightMeters=0.48;anchor=center;role=enemy-projectile</metadata>
+  <path fill="#ffd93d" stroke="#ffef83" stroke-width="4" stroke-linejoin="miter" d="M5 3h30l10 11v39H5Z"/>
+  <path fill="#fff8dc" stroke="#f12f32" stroke-width="4" stroke-linejoin="miter" d="M9 7h24l8 9v33H9Z"/>
+  <path fill="#ffd93d" stroke="#f12f32" stroke-width="2" d="M32 7v11h9Z"/>
+  <g fill="#d51f2b">
+    <rect x="14" y="19" width="16" height="3"/>
+    <rect x="14" y="26" width="21" height="3"/>
+    <path d="m15 34 4-4 6 6 6-6 4 4-6 6 6 6-4 4-6-6-6 6-4-4 6-6Z"/>
+  </g>
+</svg>
