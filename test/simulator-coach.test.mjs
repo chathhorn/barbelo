@@ -80,7 +80,6 @@ test("enemy projectiles ignore the Coach and continue to the player", () => {
     spaceId: "club-entrance",
     radius: 0.38,
     composure: 100,
-    systemNotes: 0,
   };
   const projectile = {
     id: "enemy-card",

@@ -13,7 +13,7 @@ test("full and slice level manifests validate their declared scopes", () => {
     spaces: 7,
     primarySpaces: 7,
     portals: 7,
-    markers: 26,
+    markers: 25,
     ordinaryEnemies: 7,
     secrets: 2,
     reachableSpaces: 7,
@@ -22,6 +22,13 @@ test("full and slice level manifests validate their declared scopes", () => {
   assert.equal(full.metrics.ordinaryEnemies, 20);
   assert.equal(full.metrics.secrets, 3);
   assert.equal(full.metrics.reachableSpaces, 12);
+  [SLICE_LEVEL, FULL_LEVEL].forEach((level) => {
+    assert.equal(
+      level.markers.some((marker) => marker.pickupKind === "system-notes"),
+      false,
+      `${level.id} must not contain System Notes pickups`
+    );
+  });
 });
 
 test("validation catches a missing required slip and unreachable exit", () => {

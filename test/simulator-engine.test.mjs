@@ -86,18 +86,16 @@ test("the simulation turns reload input into an announced early shuffle", () => 
   assert.ok(events.some((event) => event.type === "shuffle-started" && event.early === true && event.duration === 1));
 });
 
-test("System Notes absorb half of damage and the test harness can run invulnerably", () => {
-  const player = { composure: 100, systemNotes: 20 };
+test("incoming damage reduces Composure and the test harness can run invulnerably", () => {
+  const player = { composure: 100 };
   assert.deepEqual(applyDamageToPlayer(player, 30, "standard"), {
     rawDamage: 30,
-    absorbed: 15,
-    composureLost: 15,
+    composureLost: 30,
     defeated: false,
     practice: false,
   });
-  assert.equal(player.composure, 85);
-  assert.equal(player.systemNotes, 5);
-  const practice = { composure: 100, systemNotes: 0 };
+  assert.equal(player.composure, 70);
+  const practice = { composure: 100 };
   assert.equal(applyDamageToPlayer(practice, 500, "practice").composureLost, 0);
   assert.equal(practice.composure, 100);
 });
@@ -206,15 +204,20 @@ test("render snapshots cannot mutate or drift with live simulation state", () =>
   assert.notEqual(state.enemies[0].position.x, 999);
 });
 
-test("cleared wing interaction awards one persistent Review Slip and fixed Honor", () => {
+test("moving over a cleared wing's Review Slip awards it once and preserves review access", () => {
   const state = createSimulation({ scenario: SCENARIO, level: SLICE_LEVEL });
-  state.enemies.filter((enemy) => enemy.wingId === "a").forEach((enemy) => { enemy.alive = false; });
   state.encounter = { ...state.encounter, kind: "wing", wingId: "a" };
   const slip = state.reviewSlips[0];
   state.player.position = { ...slip.position };
   state.player.spaceId = slip.spaceId;
-  const events = stepSimulation(state, { interact: true }, FIXED_DT);
+  const blockedEvents = stepSimulation(state, {}, FIXED_DT);
+  assert.ok(!blockedEvents.some((event) => event.type === "review-slip"));
+  assert.equal(state.progress.slips, 0, "contact cannot collect a slip while wing opponents remain");
+
+  state.enemies.filter((enemy) => enemy.wingId === "a").forEach((enemy) => { enemy.alive = false; });
+  const events = stepSimulation(state, {}, FIXED_DT);
   assert.ok(events.some((event) => event.type === "review-slip"));
+  assert.ok(!events.some((event) => event.type === "review-slip-reopened"));
   assert.equal(state.progress.slips, 1);
   assert.equal(state.player.honor, 500);
   assert.equal(state.portalStates["hub-to-vault"].open, true);

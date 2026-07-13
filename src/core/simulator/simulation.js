@@ -19,6 +19,7 @@ const FIXED_HZ = 35;
 const FIXED_DT = 1 / FIXED_HZ;
 const PLAYER_SPEED = 4.8;
 const INTERACT_RANGE = 1.35;
+const REVIEW_SLIP_CONTACT_RANGE = 0.8;
 
 function markerById(level, id) {
   return level.markers.find((marker) => marker.id === id) || null;
@@ -44,7 +45,6 @@ function createPlayer(level) {
     yaw: 0,
     maxComposure: 100,
     composure: 100,
-    systemNotes: 0,
     honor: 0,
     alive: true,
     blocking: true,
@@ -395,6 +395,12 @@ function collectNearbyPickups(state, events) {
   });
 }
 
+function collectNearbyReviewSlip(state, events) {
+  const slip = nearestActive(state.reviewSlips, state.player, REVIEW_SLIP_CONTACT_RANGE);
+  if (!slip || activeWingEnemies(state, slip.wingId).length) return;
+  collectReviewSlip(state, slip, events);
+}
+
 function collectReviewSlip(state, slip, events) {
   if (!slip || slip.collected) return false;
   if (activeWingEnemies(state, slip.wingId).length) {
@@ -476,9 +482,9 @@ function handleInteraction(state, events) {
   if (slip) {
     if (slip.collected) {
       emit(events, "review-slip-reopened", { slipId: slip.id, wingId: slip.wingId });
-      return;
+    } else if (activeWingEnemies(state, slip.wingId).length) {
+      emit(events, "interaction-blocked", { reason: "wing-enemies", wingId: slip.wingId });
     }
-    collectReviewSlip(state, slip, events);
     return;
   }
   const secret = nearestActive(state.secrets, state.player);
@@ -620,7 +626,6 @@ function positionPlayerAtHub(state, boss = false) {
   state.player.spaceId = "main-cardroom";
   state.player.yaw = boss ? 0 : Math.PI;
   state.player.composure = 100;
-  state.player.systemNotes = 0;
   state.player.alive = true;
   state.combat.nextCardIndex = 0;
   state.combat.cooldown = 0;
@@ -720,6 +725,7 @@ function stepSimulation(state, input = {}, dt = FIXED_DT) {
   movePlayer(state, input, step);
   collectNearbyPickups(state, events);
   if (input.interact) handleInteraction(state, events);
+  collectNearbyReviewSlip(state, events);
   activateBossIfNeeded(state, events);
   shuffleIfRequested(state, input, events);
   throwIfRequested(state, input, events);

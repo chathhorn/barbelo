@@ -19,7 +19,6 @@ const SPRITE_PATHS = {
   boss: "enemies/bottom-board.svg",
   biscuit: "pickups/biscuit.svg",
   coffee: "pickups/coffee.svg",
-  systemNotes: "pickups/system-notes.svg",
   reviewSlip: "pickups/review-slip.svg",
   cardProjectile: "cards/card-projectiles.svg",
   enemyProjectile: "cards/enemy-score-slip.svg",
@@ -94,8 +93,7 @@ function spriteKeyForEntity(entity) {
   if (kind.includes("sentinel") || kind.includes("red-x") || kind.includes("redx")) return "sentinel";
   if (kind.includes("biscuit")) return "biscuit";
   if (kind.includes("coffee")) return "coffee";
-  if (kind.includes("system") || kind.includes("armor")) return "systemNotes";
-  if (kind.includes("lift-control")) return "systemNotes";
+  if (kind.includes("lift-control")) return "reviewSlip";
   if (kind.includes("next-round") || kind.includes("exit")) return "vaultDoor";
   if (entity && entity.kind === "enemy" && kind.includes("score-slip")) return "kibitzer";
   if (kind.includes("card")) return "cardBack";

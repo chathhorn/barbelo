@@ -71,7 +71,6 @@ or resize the source into a larger baked bitmap.
 | --- | ---: | --- |
 | `pickups/biscuit.svg` | 48×48 | Composure pickup |
 | `pickups/coffee.svg` | 48×48 | Composure pickup variant |
-| `pickups/system-notes.svg` | 48×56 | Armor/System Notes pickup |
 | `pickups/review-slip.svg` | 48×56 | Wing objective marker |
 | `cards/card-projectiles.svg` | 128×48 | Four 32×48 suit cells |
 | `cards/card-back.svg` | 32×48 | Spinning projectile reverse |

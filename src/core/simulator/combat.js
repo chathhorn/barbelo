@@ -160,16 +160,12 @@ function createEnemyProjectile(enemy, target, id) {
 function applyDamageToPlayer(player, rawDamage, mode = "standard") {
   const damage = Math.max(0, Number(rawDamage) || 0);
   if (mode === "practice" || damage === 0) {
-    return { rawDamage: damage, absorbed: damage, composureLost: 0, defeated: false, practice: mode === "practice" };
+    return { rawDamage: damage, composureLost: 0, defeated: false, practice: mode === "practice" };
   }
-  const desiredAbsorption = Math.ceil(damage * 0.5);
-  const absorbed = Math.min(player.systemNotes || 0, desiredAbsorption);
-  player.systemNotes = Math.max(0, (player.systemNotes || 0) - absorbed);
-  const composureLost = damage - absorbed;
+  const composureLost = damage;
   player.composure = Math.max(0, player.composure - composureLost);
   return {
     rawDamage: damage,
-    absorbed,
     composureLost,
     defeated: player.composure <= 0,
     practice: false
@@ -194,11 +190,7 @@ function honorForDefeat(entity) {
 function collectPickup(player, pickup) {
   if (!pickup || pickup.collected) return { collected: false, kind: "", amount: 0 };
   let amount = pickup.amount || 0;
-  if (pickup.pickupKind === "system-notes") {
-    const before = player.systemNotes;
-    player.systemNotes = Math.min(100, player.systemNotes + amount);
-    amount = player.systemNotes - before;
-  } else if (["biscuit", "coffee"].includes(pickup.pickupKind)) {
+  if (["biscuit", "coffee"].includes(pickup.pickupKind)) {
     const before = player.composure;
     player.composure = Math.min(player.maxComposure, player.composure + amount);
     amount = player.composure - before;

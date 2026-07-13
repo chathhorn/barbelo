@@ -146,6 +146,11 @@ function check(ok, label) {
   await page.waitForSelector(".simulator-preflight");
   await page.getByRole("button", { name: "Start!", exact: true }).click();
   await page.locator("canvas.simulator-canvas").focus();
+  check(!await page.locator(".simulator-hud-coach, [data-hud-notes]").count(), "built gameplay HUD omits the Coach portrait and System Notes meter");
+  check(await page.evaluate(() =>
+    !("systemNotes" in window.__builtSimulator.state.player) &&
+    !window.__builtSimulator.level.markers.some((marker) => marker.pickupKind === "system-notes")
+  ), "built simulation contains no System Notes armor or pickups");
   check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "built simulator starts with a visible minimap HUD");
   const startX = await page.evaluate(() => window.__builtSimulator.state.player.position.x);
   await page.keyboard.down("w");
@@ -175,6 +180,7 @@ function check(ok, label) {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#simulator-pause-title");
   check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "built Pause omits encounter/run reset actions");
+  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "built Pause omits its redundant Exit to report action");
   await page.click("[data-simulator-resume]");
 
   await page.evaluate(() => { window.__builtSimulator.state.player.composure = 0; });

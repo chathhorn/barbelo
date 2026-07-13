@@ -412,7 +412,7 @@ class SimulatorApp {
     try {
       this.launchError = "";
       this.state = createSimulation({ scenario: this.scenario, level: this.level, mode: "standard" });
-      this.elements = createGameShell(this.host, this.scenario, this.assetUrl, this.level);
+      this.elements = createGameShell(this.host, this.scenario, this.level);
       this.audio = createAudioController({ volume: this.settings.volume / 100, muted: this.settings.muted });
       this.renderer = createSimulatorRenderer({
         canvas: this.elements.canvas,
@@ -509,12 +509,11 @@ class SimulatorApp {
         if ((event.composureLost || 0) > 0) {
           this.audio?.play("hurt");
           this.flashDamage();
-          const armor = event.absorbed ? `; System Notes absorbed ${event.absorbed}` : "";
-          this.showCaption(`Score slip hit: Composure -${event.composureLost}${armor}.`);
+          this.showCaption(`Score slip hit: Composure -${event.composureLost}.`);
         }
       } else if (event.type === "pickup-collected") {
         this.audio?.play("pickup");
-        this.showCaption(`${event.kind === "system-notes" ? "System Notes" : event.kind} +${event.amount}`);
+        this.showCaption(`${event.kind} +${event.amount}`);
       } else if (event.type === "review-slip") {
         this.audio?.play("slip");
         this.openChalkboard(event.wingId);
@@ -567,7 +566,7 @@ class SimulatorApp {
     this.modalKind = "chalkboard";
     this.modalReturnFocus = this.elements.canvas;
     this.setGameInert(true);
-    renderChalkboard(this.elements.modal, wing, { reopened });
+    renderChalkboard(this.elements.modal, wing);
     this.elements.live.textContent = reopened ? `Review reopened. ${wing.title}.` : `Review Slip recovered. ${wing.title}.`;
   }
 

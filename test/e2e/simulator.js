@@ -152,6 +152,11 @@ function check(ok, label) {
   await page.click('[data-simulator-start="standard"]');
   await page.waitForSelector("canvas.simulator-canvas");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.state.mode === "standard"), "Start! launches Standard rules");
+  check(!await page.locator(".simulator-hud-coach, [data-hud-notes]").count(), "gameplay HUD omits the Coach portrait and System Notes meter");
+  check(await page.evaluate(() =>
+    !("systemNotes" in window.__bridgeSimulatorTest.state.player) &&
+    !window.__bridgeSimulatorTest.level.markers.some((marker) => marker.pickupKind === "system-notes")
+  ), "simulation state and level contain no System Notes armor or pickups");
   check(await page.locator("[data-simulator-minimap-panel]").isVisible(), "gameplay starts with a visible minimap HUD");
   const initialMinimapTransform = await page.locator("[data-minimap-player]").getAttribute("transform");
   check(initialMinimapTransform, "minimap exposes the player's position and facing");
@@ -244,7 +249,7 @@ function check(ok, label) {
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Partner! I’m on your side."), "friendly Coach impact has a concise caption");
   await page.evaluate(() => window.__bridgeSimulatorTest.processEvents([
-    { type: "player-hit", composureLost: 7, absorbed: 3, practice: false },
+    { type: "player-hit", composureLost: 7, practice: false },
   ]));
   check((await page.locator("[data-simulator-caption]").innerText()).includes("Composure -7"), "damage has a captioned non-color cue");
 
@@ -305,6 +310,7 @@ function check(ok, label) {
   await page.waitForSelector("#simulator-pause-title");
   check(await page.evaluate(() => window.__bridgeSimulatorTest.raf === 0), "paused simulation stops scheduling render frames");
   check(!await page.locator("[data-simulator-reset], [data-simulator-restart]").count(), "Pause omits Reset encounter and Restart run actions");
+  check(!await page.locator(".simulator-modal [data-simulator-close]").count(), "Pause relies on the persistent top-right Exit to report control");
   check(!await page.locator("[data-simulator-mute]").count(), "Pause no longer exposes a separate mute action");
   await page.click("[data-simulator-settings]");
   await page.waitForSelector("#simulator-settings-title");
@@ -332,10 +338,8 @@ function check(ok, label) {
     state.player.position = { ...slip.position };
     state.player.spaceId = slip.spaceId;
   });
-  await page.locator("canvas.simulator-canvas").focus();
-  await page.keyboard.press("e");
   await page.waitForSelector("#simulator-chalkboard-title");
-  check(await page.evaluate(() => window.__bridgeSimulatorTest.state.progress.slips) === 1, "chalkboard interaction immediately awards its Review Slip");
+  check(await page.evaluate(() => window.__bridgeSimulatorTest.state.progress.slips) === 1, "moving over a cleared chalkboard immediately awards and opens its Review Slip");
   check((await page.locator(".simulator-chalkboard").innerText()).includes("Session evidence"), "chalkboard exposes semantic session evidence");
   await page.click("[data-simulator-chalkboard-close]");
   const checkpointHonor = await page.evaluate(() => window.__bridgeSimulatorTest.state.player.honor);
@@ -406,8 +410,6 @@ function check(ok, label) {
       state.player.position = { ...slip.position };
       state.player.spaceId = slip.spaceId;
     }, wingId);
-    await page.locator("canvas.simulator-canvas").focus();
-    await page.keyboard.press("e");
     await page.waitForSelector("#simulator-chalkboard-title");
     await page.click("[data-simulator-chalkboard-close]");
   }

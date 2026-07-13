@@ -326,6 +326,18 @@ function interactWithMarker(state, markerId, eventType, trace) {
   assert.ok(events.some((event) => event.type === eventType), `${markerId} should emit ${eventType}`);
 }
 
+function collectSlipByContact(state, markerId, trace) {
+  const marker = state.level.markers.find((entry) => entry.id === markerId);
+  assert.ok(marker, `missing authored marker ${markerId}`);
+  const eventStart = trace.events.length;
+  moveTo(state, marker.position, marker.spaceId, trace, { tolerance: 0.65 });
+  let events = trace.events.slice(eventStart);
+  if (!events.some((event) => event.type === "review-slip")) {
+    events = events.concat(advance(state, {}, trace));
+  }
+  assert.ok(events.some((event) => event.type === "review-slip"), `${markerId} should pop up on contact`);
+}
+
 function waitForEvent(state, eventType, trace, maxTicks = 200) {
   for (let tick = 0; tick < maxTicks; tick += 1) {
     const events = advance(state, {}, trace);
@@ -351,7 +363,7 @@ test("deterministic bot completes the authored full level through real movement 
   // Wing A, including the post-slip lift shortcut back to the hub.
   moveTo(state, { x: 35, z: 50.2 }, "wing-a-entry", trace);
   huntEnemies(state, (enemy) => enemy.wingId === "a", trace, "wing A");
-  interactWithMarker(state, "review-slip-a", "review-slip", trace);
+  collectSlipByContact(state, "review-slip-a", trace);
   interactWithMarker(state, "secret-dummy", "secret-found", trace);
   assert.equal(state.portalStates["wing-a-lift-shortcut"].open, false, "the lift must be called after wing completion");
   interactWithMarker(state, "lift-control-wing-a", "lift-called", trace);
@@ -368,14 +380,14 @@ test("deterministic bot completes the authored full level through real movement 
   // Wing B, then return through its ordinary doors.
   moveTo(state, { x: 58, z: 41 }, "wing-b-entry", trace);
   huntEnemies(state, (enemy) => enemy.wingId === "b", trace, "wing B");
-  interactWithMarker(state, "review-slip-b", "review-slip", trace);
+  collectSlipByContact(state, "review-slip-b", trace);
   moveTo(state, { x: 68.5, z: 41 }, "wing-b-entry", trace);
   moveTo(state, { x: 54, z: 41 }, "main-cardroom", trace);
 
   // Wing C and its shortcut into the vulnerability passage.
   moveTo(state, { x: 35, z: 20 }, "wing-c-entry", trace);
   huntEnemies(state, (enemy) => enemy.wingId === "c", trace, "wing C");
-  interactWithMarker(state, "review-slip-c", "review-slip", trace);
+  collectSlipByContact(state, "review-slip-c", trace);
   moveTo(state, { x: 54.4, z: 16 }, "wing-c-chalkboard", trace);
   moveTo(state, { x: 58, z: 16 }, "vulnerability-passage", trace);
 
@@ -469,12 +481,7 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
   );
 
   moveTo(state, { x: 35, z: 50.2 }, "wing-a-entry", trace);
-  const notes = state.level.markers.find((marker) => marker.id === "notes-a");
-  moveTo(state, notes.position, notes.spaceId, trace, { tolerance: 0.45 });
-  assert.ok(
-    trace.events.some((event) => event.type === "pickup-collected" && event.pickupId === "notes-a"),
-    "the Standard bot should collect authored System Notes before the wing fight"
-  );
+  moveTo(state, { x: 35, z: 58 }, "wing-a-entry", trace);
   moveTo(state, { x: 44, z: 54 }, "wing-a-chalkboard", trace);
   huntEnemiesEvasively(
     state,
@@ -483,7 +490,7 @@ test("evasive Standard bot survives the authored slice wing and unassisted boss"
     "Standard wing A chalkboard wave",
     12000
   );
-  interactWithMarker(state, "review-slip-a", "review-slip", trace);
+  collectSlipByContact(state, "review-slip-a", trace);
   interactWithMarker(state, "secret-dummy", "secret-found", trace);
   interactWithMarker(state, "lift-control-wing-a", "lift-called", trace);
   waitForEvent(state, "lift-ready", trace);

@@ -105,9 +105,9 @@ function renderClipboardContents({ requiredSlips = 3, bossTitle = "The Bottom Bo
     <ul>
       <li>WASD moves; mouse or arrow keys turn.</li>
       <li>Click or Space throws the next card. R shuffles early; empty hands shuffle automatically.</li>
-      <li>E or Enter interacts with chalkboards and doors.</li>
+      <li>Walk over Review Slips to open them. E or Enter reopens collected slips and activates nearby controls.</li>
       <li>M toggles the minimap. H reopens this clipboard. Escape pauses.</li>
-      <li>Composure is health. System Notes absorb half of incoming damage.</li>
+      <li>Composure is your health.</li>
     </ul>
   `;
 }
@@ -174,7 +174,7 @@ function renderSettings(host, settings, { returnToPause = false } = {}) {
   host.querySelector("#simulator-settings-title")?.focus();
 }
 
-function createGameShell(host, scenario, assetUrl, level) {
+function createGameShell(host, scenario, level) {
   const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
   host.innerHTML = `
     <section class="simulator-game" aria-label="Bridge Simulator game">
@@ -200,12 +200,10 @@ function createGameShell(host, scenario, assetUrl, level) {
       </div>
       <div class="simulator-hud" aria-label="Player status">
         <div class="simulator-hud-stat"><span>Composure</span><strong data-hud-composure>100</strong></div>
-        <div class="simulator-hud-stat"><span>System Notes</span><strong data-hud-notes>0</strong></div>
         <div class="simulator-hand-wrap">
           <div class="simulator-card-hand" data-hud-hand role="group" aria-label="Throwing hand: ${escapeHtml(handLabel(cards))}">${renderHand(cards)}</div>
           <span class="simulator-shuffle-label" data-hud-shuffle hidden>Shuffle</span>
         </div>
-        <img class="simulator-hud-coach" src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Coach status: upright and attentive in a trenchcoat">
         <div class="simulator-hud-stat"><span>Honor · Slips</span><strong><span data-hud-honor>0</span> · <span data-hud-slips>0</span></strong></div>
       </div>
       <div class="simulator-modal-backdrop" data-simulator-modal hidden></div>
@@ -232,7 +230,6 @@ function createGameShell(host, scenario, assetUrl, level) {
     modal: host.querySelector("[data-simulator-modal]"),
     live: host.querySelector("[data-simulator-live]"),
     composure: host.querySelector("[data-hud-composure]"),
-    notes: host.querySelector("[data-hud-notes]"),
     hand: host.querySelector("[data-hud-hand]"),
     shuffle: host.querySelector("[data-hud-shuffle]"),
     honor: host.querySelector("[data-hud-honor]"),
@@ -253,12 +250,10 @@ function valueFrom(snapshot, paths, fallback = 0) {
 function updateHud(elements, snapshot, scenario) {
   const cards = scenario.representativeHand && scenario.representativeHand.cards || [];
   const composure = valueFrom(snapshot, ["player.composure", "player.health", "hud.composure"], 100);
-  const notes = valueFrom(snapshot, ["player.systemNotes", "player.armor", "hud.systemNotes"], 0);
   const honor = valueFrom(snapshot, ["player.honor", "score.honor", "stats.honor", "hud.honor"], 0);
   const slips = valueFrom(snapshot, ["objectives.slips", "progress.slips", "stats.slips", "hud.slips"], 0);
   const used = valueFrom(snapshot, ["weapon.cardIndex", "weapon.used", "player.cardIndex", "hud.cardIndex"], 0);
   elements.composure.textContent = String(Math.max(0, Math.round(composure)));
-  elements.notes.textContent = String(Math.max(0, Math.round(notes)));
   elements.honor.textContent = String(Math.max(0, Math.round(honor)));
   elements.slips.textContent = String(Math.max(0, Math.round(slips)));
   elements.hand.innerHTML = renderHand(cards, Math.max(0, Math.min(cards.length, used)));
@@ -352,7 +347,7 @@ function evidenceRows(board) {
   return `<dl>${rows.map(([term, value]) => `<dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl>`;
 }
 
-function renderChalkboard(modal, wing, { reopened = false } = {}) {
+function renderChalkboard(modal, wing) {
   const feedback = wing && wing.coachFeedback || {};
   modal.hidden = false;
   modal.innerHTML = `
@@ -365,7 +360,7 @@ function renderChalkboard(modal, wing, { reopened = false } = {}) {
         ${renderSegments(feedback.details)}
       </details>
       <div class="simulator-modal-actions">
-        <button type="button" class="primary" data-simulator-chalkboard-close>${reopened ? "Return to mission" : "Take Review Slip and continue"}</button>
+        <button type="button" class="primary" data-simulator-chalkboard-close>Return to mission</button>
       </div>
     </article>
   `;
@@ -407,7 +402,6 @@ function renderPause(modal, { cards = [], reason = "pause" } = {}) {
         <button type="button" data-simulator-help>Help</button>
         <button type="button" data-simulator-settings>Settings</button>
         <button type="button"${contextLost ? ' class="primary"' : ""} data-simulator-back-preflight>Return to preflight</button>
-        <button type="button" data-simulator-close>Exit to report</button>
       </div>
     </section>
   `;

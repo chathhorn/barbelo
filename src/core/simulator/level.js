@@ -247,9 +247,6 @@ const MARKERS = [
 
   marker("biscuit-entry", "pickup", "club-entrance", 11, 39, { pickupKind: "biscuit", amount: 20, radius: 0.28 }),
   marker("coffee-hub", "pickup", "main-cardroom", 42, 28, { pickupKind: "coffee", amount: 35, radius: 0.28 }),
-  marker("notes-a", "pickup", "wing-a-entry", 35, 58, { wingId: "a", pickupKind: "system-notes", amount: 30, radius: 0.28 }),
-  marker("notes-b", "pickup", "wing-b-entry", 63, 36, { wingId: "b", pickupKind: "system-notes", amount: 30, radius: 0.28, manifests: ["full"] }),
-  marker("notes-c", "pickup", "wing-c-entry", 34, 12, { wingId: "c", pickupKind: "system-notes", amount: 30, radius: 0.28, manifests: ["full"] }),
   marker("coffee-passage", "pickup", "vulnerability-passage", 82, 12, { pickupKind: "coffee", amount: 35, radius: 0.28, manifests: ["full"] }),
 
   marker("cover-vault-1", "cover", "traveler-vault", 61, 24, { radius: 0.65 }),
