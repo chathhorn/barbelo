@@ -24,25 +24,32 @@ function init() {
   annotateTermTooltips(document.body);
 }
 
+const publicApi = {
+  parsePbn,
+  buildAnalysis,
+  parseBwsBuffer,
+  parseResultsCsv,
+  buildResultsAnalysis,
+  buildPairImprovementReport,
+  scoreDuplicateContract,
+  parseDeal,
+  getColumnDefs,
+  getCsvContexts,
+  csvCell,
+  decodeTextBuffer,
+  contractGlyphHtml
+};
+
 if (typeof window !== "undefined") {
-  window.PBNAnalyzer = {
-    parsePbn,
-    buildAnalysis,
-    parseBwsBuffer,
-    parseResultsCsv,
-    buildResultsAnalysis,
-    buildPairImprovementReport,
-    scoreDuplicateContract,
-    parseDeal,
-    getColumnDefs,
-    getCsvContexts,
-    csvCell,
-    decodeTextBuffer,
-    contractGlyphHtml
-  };
+  const appWindow = /** @type {Window & typeof globalThis & {
+   * PBNAnalyzer: typeof publicApi,
+   * BarbeloPbnParser: typeof pbnParser,
+   * BarbeloBwsParser: typeof bwsParser
+   * }} */ (window);
+  appWindow.PBNAnalyzer = publicApi;
   // Compatibility globals for the browser console and legacy callers; new
   // code should import from src/parsers/ directly.
-  window.BarbeloPbnParser = pbnParser;
-  window.BarbeloBwsParser = bwsParser;
-  window.addEventListener("DOMContentLoaded", init);
+  appWindow.BarbeloPbnParser = pbnParser;
+  appWindow.BarbeloBwsParser = bwsParser;
+  appWindow.addEventListener("DOMContentLoaded", init);
 }

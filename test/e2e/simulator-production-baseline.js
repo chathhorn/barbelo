@@ -1,17 +1,20 @@
-"use strict";
-
 // Optional production-bundle performance diagnostic. This is intentionally
 // separate from the correctness E2E gates: headless/software-WebGL numbers are
 // useful for regressions, but never count as the real-device acceptance run.
 
-const fs = require("node:fs");
-const http = require("node:http");
-const path = require("node:path");
+import fs from "node:fs";
+import path from "node:path";
+import {
+  REPO,
+  capturePageDiagnostics,
+  closeServer,
+  createCheckReporter,
+  loadPlaywright,
+  originFor,
+  serveStatic,
+} from "./simulator-harness.js";
 
-const REPO = path.resolve(__dirname, "..", "..");
 const SERVE_ROOT = path.resolve(process.env.SERVE_ROOT || path.join(REPO, "_site"));
-const BROWSER_NAME = String(process.env.PLAYWRIGHT_BROWSER || "chromium").toLowerCase();
-const SUPPORTED_BROWSERS = new Set(["chromium", "firefox", "webkit"]);
 const HEADED = process.env.SIMULATOR_HEADED === "1";
 const ENFORCE = process.env.SIMULATOR_ENFORCE_PERF === "1";
 const BASELINE_SCENE = String(process.env.SIMULATOR_BASELINE_SCENE || "ordinary").toLowerCase();
@@ -24,80 +27,21 @@ const THRESHOLDS = Object.freeze({
   drawCalls: boundedNumber(process.env.SIMULATOR_MAX_DRAW_CALLS, 99, 1, 10000),
 });
 
-let playwright;
-let browserType;
-try {
-  playwright = require(path.join(REPO, "node_modules", "playwright"));
-  browserType = playwright[BROWSER_NAME];
-} catch (error) {
-  console.log("SKIP: playwright not installed (npm install playwright)");
-  process.exit(0);
-}
-if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
-  throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
-}
-const BROWSER_LAUNCH_OPTIONS = BROWSER_NAME === "firefox"
-  ? { firefoxUserPrefs: { "webgl.force-enabled": true } }
-  : {};
+const playwrightHarness = loadPlaywright();
+if (!playwrightHarness) process.exit(0);
+const {
+  browserName: BROWSER_NAME,
+  browserType,
+  launchOptions: BROWSER_LAUNCH_OPTIONS,
+} = playwrightHarness;
 if (!SUPPORTED_SCENES.has(BASELINE_SCENE)) {
   throw new Error(`Unsupported SIMULATOR_BASELINE_SCENE ${JSON.stringify(BASELINE_SCENE)}; use ordinary or boss.`);
 }
-
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".json": "application/json",
-  ".md": "text/markdown; charset=utf-8",
-};
 
 function boundedNumber(value, fallback, minimum, maximum) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(minimum, Math.min(maximum, number));
-}
-
-function fileForRequest(requestUrl) {
-  const pathname = decodeURIComponent(new URL(requestUrl, "http://local").pathname);
-  const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
-  const file = path.resolve(SERVE_ROOT, relative);
-  if (file !== SERVE_ROOT && !file.startsWith(`${SERVE_ROOT}${path.sep}`)) return null;
-  return file;
-}
-
-function serve() {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((request, response) => {
-      const file = fileForRequest(request.url);
-      if (!file || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-        response.writeHead(404);
-        response.end("not found");
-        return;
-      }
-      const body = fs.readFileSync(file);
-      response.writeHead(200, {
-        "Cache-Control": "no-store",
-        "Content-Length": body.length,
-        "Content-Type": MIME[path.extname(file)] || "application/octet-stream",
-      });
-      response.end(body);
-    });
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve(server));
-  });
-}
-
-function closeServer(server) {
-  return new Promise((resolve) => {
-    if (!server || !server.listening) {
-      resolve();
-      return;
-    }
-    server.close(() => resolve());
-  });
 }
 
 function percentile(sorted, fraction) {
@@ -179,14 +123,9 @@ let browser = null;
 let context = null;
 let page = null;
 let exitCode = 0;
-const failures = [];
-const errors = [];
-const requests = [];
-
-function check(ok, label) {
-  console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
-  if (!ok) failures.push(label);
-}
+const { check, failures } = createCheckReporter();
+let errors = [];
+let requests = [];
 
 (async () => {
   if (!requiredBuildFilesExist()) {
@@ -197,16 +136,13 @@ function check(ok, label) {
     throw new Error(`Built Bridge Simulator site not found at ${SERVE_ROOT}`);
   }
 
-  server = await serve();
-  const port = server.address().port;
-  const origin = `http://127.0.0.1:${port}`;
+  server = await serveStatic(SERVE_ROOT);
+  const origin = originFor(server);
   browser = await browserType.launch({ ...BROWSER_LAUNCH_OPTIONS, headless: !HEADED });
   context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   page = await context.newPage();
   page.setDefaultTimeout(30000);
-  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("request", (request) => requests.push(request.url()));
+  ({ errors, requests } = capturePageDiagnostics(page));
 
   await page.goto(`${origin}/`, { waitUntil: "load" });
   await page.waitForFunction(() => Boolean(window.PBNAnalyzer));
@@ -480,7 +416,7 @@ function check(ok, label) {
     "baseline destroys controller, animation loop, overlay, and Pointer Lock");
   check(errors.length === 0, `baseline has no console/page errors (${errors.join("; ")})`);
 
-  const playwrightVersion = require(path.join(REPO, "node_modules", "playwright", "package.json")).version;
+  const playwrightVersion = playwrightHarness.version;
   const result = roundMetrics({
     classification: HEADED ? "headed-local-baseline" : "diagnostic-headless",
     realDeviceAcceptanceEligible: HEADED,

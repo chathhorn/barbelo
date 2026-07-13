@@ -7,13 +7,14 @@
 import { contractGlyphHtml, escapeHtml, plural } from "../core/format.js";
 import { SUITS } from "../core/constants.js";
 import { buildPairExercises } from "../core/exercises.js";
-import { renderBoardJump } from "./dom.js";
+import { activateModalLayer, deactivateModalLayer, renderBoardJump } from "./dom.js";
 import { renderHandBlock } from "./boardsView.js";
 import { renderLossAdvice } from "./reportView.js";
 
 const BISCUIT_SVG = `<svg viewBox="0 0 24 14" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><path d="M 5 3 A 2.6 2.6 0 0 1 8.4 5.2 L 15.6 5.2 A 2.6 2.6 0 1 1 19 8.8 A 2.6 2.6 0 1 1 15.6 8.8 L 8.4 8.8 A 2.6 2.6 0 1 1 5 5.2 A 2.6 2.6 0 0 1 5 3 Z" transform="translate(0 1)"/></svg>`;
 
 let quizState = null;
+let quizReturnFocus = null;
 
 /**
  * Builds the quiz deck for the current pair and resets progress.
@@ -27,7 +28,6 @@ function prepareQuiz(results, report) {
   if (!quiz.cards.length) return 0;
   quizState = {
     cards: quiz.cards,
-    report,
     index: 0,
     answers: quiz.cards.map(() => null)
   };
@@ -141,21 +141,28 @@ function quizOverlayElements() {
     body: document.getElementById("quizOverlayBody"),
     jar: document.getElementById("quizOverlayJar"),
     countLabel: document.getElementById("quizOverlayCount"),
-    prev: document.getElementById("quizPrevButton"),
-    next: document.getElementById("quizNextButton")
+    prev: /** @type {HTMLButtonElement | null} */ (document.getElementById("quizPrevButton")),
+    next: /** @type {HTMLButtonElement | null} */ (document.getElementById("quizNextButton"))
   };
+}
+
+function renderQuizProgress() {
+  const { jar } = quizOverlayElements();
+  if (!quizState || !jar) return;
+  const { cards, index, answers } = quizState;
+  jar.innerHTML = answers.map((answer, cardIndex) =>
+    `<span class="biscuit${answer ? " earned" : ""}${cardIndex === index ? " current" : ""}">${BISCUIT_SVG}</span>`).join("");
+  const earned = answers.filter(Boolean).length;
+  jar.setAttribute("aria-valuenow", String(earned));
+  jar.setAttribute("aria-valuemax", String(cards.length));
+  jar.setAttribute("aria-valuetext", `${earned} of ${cards.length} answered`);
 }
 
 function renderQuizStage() {
   const { body, jar, countLabel, prev, next } = quizOverlayElements();
   if (!quizState || !body) return;
   const { cards, index, answers } = quizState;
-  if (jar) {
-    jar.innerHTML = cards.map((card, i) =>
-      `<span class="biscuit${answers[i] ? " earned" : ""}${i === index ? " current" : ""}">${BISCUIT_SVG}</span>`).join("");
-    const earned = answers.filter(Boolean).length;
-    jar.setAttribute("aria-label", `Quiz progress: ${earned} of ${cards.length} answered`);
-  }
+  if (jar) renderQuizProgress();
   if (countLabel) countLabel.textContent = `Question ${index + 1} of ${cards.length}`;
   if (prev) prev.disabled = index === 0;
   if (next) next.disabled = index === cards.length - 1;
@@ -171,12 +178,10 @@ function renderQuizStage() {
 function openQuizOverlay() {
   if (!quizState) return;
   const { overlay } = quizOverlayElements();
-  if (!overlay) return;
-  openQuizOverlay.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (!overlay || !overlay.classList.contains("hidden")) return;
+  quizReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   overlay.classList.remove("hidden");
-  document.body.classList.add("modal-open");
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = true;
+  activateModalLayer(overlay);
   renderQuizStage();
   const closeButton = document.getElementById("quizOverlayClose");
   if (closeButton) closeButton.focus();
@@ -186,14 +191,12 @@ function closeQuizOverlay({ restoreFocus = true } = {}) {
   const { overlay, body } = quizOverlayElements();
   if (!overlay || overlay.classList.contains("hidden")) return;
   overlay.classList.add("hidden");
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = false;
+  deactivateModalLayer(overlay);
   if (body) body.innerHTML = "";
-  document.body.classList.remove("modal-open");
-  if (restoreFocus && openQuizOverlay.returnFocus && document.contains(openQuizOverlay.returnFocus)) {
-    openQuizOverlay.returnFocus.focus();
+  if (restoreFocus && quizReturnFocus && document.contains(quizReturnFocus)) {
+    quizReturnFocus.focus();
   }
-  openQuizOverlay.returnFocus = null;
+  quizReturnFocus = null;
 }
 
 function quizOverlayIsOpen() {
@@ -239,13 +242,7 @@ function handleQuizClick(event) {
 }
 
 function renderJarOnly() {
-  const { jar } = quizOverlayElements();
-  if (!quizState || !jar) return;
-  const { cards, index, answers } = quizState;
-  jar.innerHTML = cards.map((card, i) =>
-    `<span class="biscuit${answers[i] ? " earned" : ""}${i === index ? " current" : ""}">${BISCUIT_SVG}</span>`).join("");
-  const earned = answers.filter(Boolean).length;
-  jar.setAttribute("aria-label", `Quiz progress: ${earned} of ${cards.length} answered`);
+  renderQuizProgress();
 }
 
 /**

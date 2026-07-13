@@ -2,6 +2,9 @@
 // serializable data: the renderer may turn it into meshes, while collision and
 // validation use the same polygons, portals, and markers directly.
 
+import { polygonEdges } from "./collision.js";
+import { cloneSerializable, deepFreeze } from "./object.js";
+
 const LEVEL_SCHEMA_VERSION = 1;
 
 const PLAYER_RULES = Object.freeze({
@@ -294,13 +297,6 @@ const SLICE_LEVEL_MANIFEST = Object.freeze({
   expectedPrimarySpaces: 7
 });
 
-function polygonEdges(polygon) {
-  return polygon.map((point, index) => ({
-    a: { ...point },
-    b: { ...polygon[(index + 1) % polygon.length] }
-  }));
-}
-
 function wallsForSpaces(spaces, portals) {
   const portalIdsBySpace = new Map();
   portals.forEach((entry) => {
@@ -320,25 +316,14 @@ function wallsForSpaces(spaces, portals) {
   })));
 }
 
-function deepClone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function deepFreeze(value) {
-  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
-  Object.freeze(value);
-  Object.values(value).forEach(deepFreeze);
-  return value;
-}
-
 function buildLevel(manifest) {
   const spaceIds = new Set(manifest.spaceIds);
   const portalIds = new Set(manifest.portalIds);
-  const spaces = SPACES.filter((entry) => spaceIds.has(entry.id)).map(deepClone);
+  const spaces = SPACES.filter((entry) => spaceIds.has(entry.id)).map(cloneSerializable);
   const portals = PORTALS.filter((entry) =>
-    portalIds.has(entry.id) && spaceIds.has(entry.from) && spaceIds.has(entry.to)).map(deepClone);
+    portalIds.has(entry.id) && spaceIds.has(entry.from) && spaceIds.has(entry.to)).map(cloneSerializable);
   const markers = MARKERS.filter((entry) =>
-    spaceIds.has(entry.spaceId) && entry.manifests.includes(manifest.id)).map(deepClone);
+    spaceIds.has(entry.spaceId) && entry.manifests.includes(manifest.id)).map(cloneSerializable);
   markers.forEach((entry) => {
     const owner = spaces.find((candidate) => candidate.id === entry.spaceId);
     if (entry.position.y == null && owner) entry.position.y = owner.floor;
@@ -347,7 +332,7 @@ function buildLevel(manifest) {
     schemaVersion: LEVEL_SCHEMA_VERSION,
     id: `bridge-simulator-${manifest.id}`,
     label: manifest.label,
-    manifest: deepClone(manifest),
+    manifest: cloneSerializable(manifest),
     bounds: { minX: 0, minZ: 0, maxX: 100, maxZ: 70 },
     rules: { ...PLAYER_RULES },
     spaces,
@@ -376,12 +361,7 @@ function getAuthoredLevel(id = "full") {
 }
 
 export {
-  LEVEL_SCHEMA_VERSION,
-  PLAYER_RULES,
-  FULL_LEVEL_MANIFEST,
-  SLICE_LEVEL_MANIFEST,
   FULL_LEVEL,
   SLICE_LEVEL,
   getAuthoredLevel,
-  polygonEdges,
 };

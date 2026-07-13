@@ -117,11 +117,7 @@ function scoreDuplicateContract(contractText, resultText, declarerSide, vulnerab
 }
 
 export {
-  contractTrickScore,
-  overtrickValue,
   isVulnerable,
   normalizeVulnerability,
-  resultToTricks,
-  undertrickPenalty,
   scoreDuplicateContract,
 };

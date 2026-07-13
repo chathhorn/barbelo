@@ -2,11 +2,23 @@
   "compilerOptions": {
     "checkJs": true,
     "strict": false,
-    "target": "esnext",
+    "target": "es2023",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext", "dom", "dom.iterable"],
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noEmit": true
   },
-  "include": ["src/core", "src/content.js"]
+  "include": [
+    "src/assets.js",
+    "src/core",
+    "src/content.js",
+    "src/runtime/audio.js",
+    "src/runtime/capability.js",
+    "src/runtime/hud.js",
+    "src/runtime/input.js",
+    "src/runtime/performance.js",
+    "src/runtime/settings.js"
+  ]
 }

@@ -94,10 +94,6 @@ function createAudioController({ volume = 0.45, muted = false } = {}) {
     if (master) master.gain.value = muted ? 0 : volume;
   }
 
-  function isMuted() {
-    return muted;
-  }
-
   function suspend() {
     if (context && context.state === "running") context.suspend();
   }
@@ -112,7 +108,7 @@ function createAudioController({ volume = 0.45, muted = false } = {}) {
     context = null;
   }
 
-  return { resume, play, setVolume, setMuted, isMuted, suspend, destroy };
+  return { resume, play, setVolume, setMuted, suspend, destroy };
 }
 
 export { createAudioController };

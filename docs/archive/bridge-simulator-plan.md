@@ -1,6 +1,22 @@
 # Bridge Simulator: Product and Implementation Plan
 
-Status: Phase 9 report integration authorized and implemented. The renderer, deterministic scenario adapter, authored level, simulation, Coach/coaching UI, source and production lazy bundles, accessibility paths, and automated Chromium/Firefox/WebKit gates are implemented. The structured human playtest, a slower-device performance spot check, and the real-Safari manual gate below remain recorded release-readiness work; they were not represented as complete when the launch control was explicitly authorized.
+> **Archived design record (2026-07-13).** This document preserves the
+> original personalized-simulator proposal and its implementation history. It
+> is not current product or test documentation: the shipped simulator is now a
+> separate package with generic coaching, one Start action, and no Pair
+> Improvement Report or uploaded-session dependency. See
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md),
+> [`../../packages/bridge-simulator/README.md`](../../packages/bridge-simulator/README.md),
+> and [`../../test/README.md`](../../test/README.md) for the current design.
+
+Historical status at the time of archiving: Phase 9 report integration was
+authorized and implemented. The renderer, deterministic scenario adapter,
+authored level, simulation, Coach/coaching UI, source and production lazy
+bundles, accessibility paths, and automated Chromium/Firefox/WebKit gates were
+implemented. The structured human playtest, a slower-device performance spot
+check, and the real-Safari manual gate below remained recorded
+release-readiness work; they were not represented as complete when the launch
+control was explicitly authorized.
 
 Implementation checkpoint (2026-07-12):
 

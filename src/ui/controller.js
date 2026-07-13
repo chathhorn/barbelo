@@ -4,9 +4,9 @@ import { parsePbn } from "../parsers/pbn.js";
 import { buildAnalysis } from "../core/boards.js";
 import { plural } from "../core/format.js";
 import { buildResultsAnalysis, defaultReportPair } from "../core/results.js";
-import { renderBoards } from "./boardsView.js";
+import { renderBoards, syncBoardFilterControls } from "./boardsView.js";
 import { renderCharts, renderNotables, renderResultsCharts, visualBoards } from "./chartsView.js";
-import { defaultColumnKeys, renderCsvControls } from "./csvExport.js";
+import { defaultColumnKeys, isResultRowMode, renderCsvControls } from "./csvExport.js";
 import {
   appSubtitle,
   applyActiveView,
@@ -24,6 +24,15 @@ import { flipBrandMark, setElementHidden, showToast } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
 import { STATE, defaultFilters, ensureActiveView } from "./state.js";
 import { annotateTermTooltips } from "./terms.js";
+
+const PBN_PANEL_IDS = ["pbnInfoGrid", "pbnCharts", "pbnSupplementGrid", "boardExplorerPanel"];
+const SHARED_PANEL_IDS = ["resultsPanel", "importDiagnosticsPanel", "csvPanel"];
+
+function setDashboardPanelVisibility(hasPbn) {
+  PBN_PANEL_IDS.forEach((id) => setElementHidden(id, !hasPbn));
+  SHARED_PANEL_IDS.forEach((id) => setElementHidden(id, false));
+  document.getElementById("metricGrid").setAttribute("data-views", hasPbn ? "overview" : "overview results improve");
+}
 
 function setCurrentPbn(text, fileName) {
   const parsed = parsePbn(text, fileName);
@@ -55,7 +64,6 @@ function clearLoadedData() {
   STATE.rowMode = "boards";
   STATE.selectedColumns = new Set();
   STATE.filters = defaultFilters();
-  document.getElementById("fileSubtitle").textContent = "Open a Portable Bridge Notation hand record.";
   flipBrandMark();
   renderAll();
   showToast(hadData ? "Cleared loaded files." : "No loaded files to clear.");
@@ -75,24 +83,17 @@ function setCurrentResults(rawResults) {
 }
 
 function renderResultsOnlyDashboard(results) {
-  setElementHidden("pbnInfoGrid", true);
-  setElementHidden("pbnCharts", true);
-  setElementHidden("pbnSupplementGrid", true);
-  setElementHidden("boardExplorerPanel", true);
-  setElementHidden("resultsPanel", false);
-  setElementHidden("importDiagnosticsPanel", false);
-  setElementHidden("csvPanel", false);
-  document.getElementById("metricGrid").setAttribute("data-views", "overview results improve");
+  setDashboardPanelVisibility(false);
 
-  if (!["results", "boardResults", "pairResults"].includes(STATE.rowMode)) {
+  if (!isResultRowMode(STATE.rowMode)) {
     STATE.rowMode = "results";
     STATE.selectedColumns = new Set(defaultColumnKeys("results", null));
   }
 
   renderResultOnlyMetrics(results);
-  renderResultsPanel(null, results);
+  renderResultsPanel(results);
   renderImportDiagnosticsPanel(results);
-  renderResultsCharts(null, results);
+  renderResultsCharts(results);
   renderPairImprovementReport(results);
   renderCsvControls();
   applyActiveView();
@@ -121,30 +122,18 @@ function renderAll() {
     return;
   }
 
-  setElementHidden("pbnInfoGrid", false);
-  setElementHidden("pbnCharts", false);
-  setElementHidden("pbnSupplementGrid", false);
-  setElementHidden("boardExplorerPanel", false);
-  setElementHidden("resultsPanel", false);
-  setElementHidden("importDiagnosticsPanel", false);
-  setElementHidden("csvPanel", false);
-  document.getElementById("metricGrid").setAttribute("data-views", "overview");
-
-  document.getElementById("boardSearch").value = STATE.filters.search;
-  document.getElementById("sideFilter").value = STATE.filters.side;
-  document.getElementById("classFilter").value = STATE.filters.className;
-  document.getElementById("vulFilter").value = STATE.filters.vulnerability;
-  document.getElementById("playedFilter").value = STATE.filters.played;
-  document.getElementById("rowMode").value = STATE.rowMode;
-  document.getElementById("scoreOutlierToggle").checked = STATE.scoreOutliersOnly;
+  setDashboardPanelVisibility(true);
+  syncBoardFilterControls();
+  /** @type {HTMLSelectElement} */ (document.getElementById("rowMode")).value = STATE.rowMode;
+  /** @type {HTMLInputElement} */ (document.getElementById("scoreOutlierToggle")).checked = STATE.scoreOutliersOnly;
 
   renderMetrics(analysis);
   renderMetadata(analysis);
   renderQuality(analysis);
-  renderResultsPanel(analysis, STATE.results);
+  renderResultsPanel(STATE.results);
   renderImportDiagnosticsPanel(STATE.results);
   renderCharts(analysis, STATE.results);
-  renderResultsCharts(analysis, STATE.results);
+  renderResultsCharts(STATE.results);
   renderPairImprovementReport(STATE.results);
   renderNotables(analysis, visualBoards(analysis, STATE.results));
   renderBoards();

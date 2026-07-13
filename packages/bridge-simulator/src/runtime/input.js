@@ -8,6 +8,17 @@ function editableTarget(target) {
   return target instanceof Element && Boolean(target.closest("input, select, textarea, button, summary, [contenteditable]"));
 }
 
+/**
+ * @param {Object} [options]
+ * @param {HTMLCanvasElement} [options.canvas]
+ * @param {string} [options.mode]
+ * @param {number} [options.sensitivity]
+ * @param {number} [options.keyboardTurnSpeed]
+ * @param {(reason?: string) => void} [options.onPause]
+ * @param {() => void} [options.onHelp]
+ * @param {() => void} [options.onMinimapToggle]
+ * @param {() => void} [options.onPointerLockUnavailable]
+ */
 function createInputController({
   canvas,
   mode = "mouse",
@@ -18,6 +29,7 @@ function createInputController({
   onMinimapToggle = () => {},
   onPointerLockUnavailable = () => {},
 } = {}) {
+  if (!canvas) throw new Error("Simulator input requires a canvas.");
   const keys = new Set();
   const pressed = new Set();
   let mouseTurn = 0;
@@ -98,11 +110,11 @@ function createInputController({
           return false;
         })
         : Promise.resolve(true);
-    } catch (error) {
+    } catch {
       try {
         canvas.requestPointerLock();
         return Promise.resolve(true);
-      } catch (fallbackError) {
+      } catch {
         markPointerLockUnavailable();
         return Promise.resolve(false);
       }

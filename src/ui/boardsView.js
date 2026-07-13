@@ -11,9 +11,23 @@ import {
   plural,
 } from "../core/format.js";
 import { applyActiveView, renderTaskNav } from "./dashboard.js";
-import { setElementHidden, showToast } from "./dom.js";
+import {
+  activateModalLayer,
+  deactivateModalLayer,
+  setElementHidden,
+  showToast,
+} from "./dom.js";
 import { STATE } from "./state.js";
-import { annotateTermTooltips, th } from "./terms.js";
+import { annotateTermTooltips } from "./terms.js";
+
+const BOARD_FILTER_CONTROLS = [
+  { id: "boardSearch", key: "search", eventName: "input" },
+  { id: "sideFilter", key: "side", eventName: "change" },
+  { id: "classFilter", key: "className", eventName: "change" },
+  { id: "vulFilter", key: "vulnerability", eventName: "change" },
+  { id: "playedFilter", key: "played", eventName: "change" },
+];
+let boardOverlayReturnFocus = null;
 
 function boardSearchText(board) {
   const resultSummary = STATE.results ? STATE.results.boardsByNumber.get(String(board.boardNo)) : null;
@@ -184,15 +198,8 @@ function renderBoardCard(board, options = {}) {
 }
 
 function syncBoardFilterControls() {
-  const controls = [
-    ["boardSearch", "search"],
-    ["sideFilter", "side"],
-    ["classFilter", "className"],
-    ["vulFilter", "vulnerability"],
-    ["playedFilter", "played"]
-  ];
-  controls.forEach(([id, key]) => {
-    const element = document.getElementById(id);
+  BOARD_FILTER_CONTROLS.forEach(({ id, key }) => {
+    const element = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (document.getElementById(id));
     if (element) element.value = STATE.filters[key];
   });
 }
@@ -232,7 +239,9 @@ function showBoardOverlay(boardNo) {
   const closeButton = document.getElementById("boardOverlayClose");
   if (!overlay || !body || !title || !closeButton) return;
 
-  showBoardOverlay.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (overlay.classList.contains("hidden")) {
+    boardOverlayReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   overlay.setAttribute("data-board-no", String(board.boardNo));
   title.textContent = "Board Preview";
   body.innerHTML = renderBoardCard(board, {
@@ -240,9 +249,7 @@ function showBoardOverlay(boardNo) {
     className: "overlay-board-card"
   });
   overlay.classList.remove("hidden");
-  document.body.classList.add("modal-open");
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = true;
+  activateModalLayer(overlay);
   annotateTermTooltips(body);
   closeButton.focus();
 }
@@ -253,14 +260,12 @@ function closeBoardOverlay({ restoreFocus = true } = {}) {
   if (!overlay || overlay.classList.contains("hidden")) return;
   overlay.classList.add("hidden");
   overlay.removeAttribute("data-board-no");
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = false;
+  deactivateModalLayer(overlay);
   if (body) body.innerHTML = "";
-  document.body.classList.remove("modal-open");
-  if (restoreFocus && showBoardOverlay.returnFocus && document.contains(showBoardOverlay.returnFocus)) {
-    showBoardOverlay.returnFocus.focus();
+  if (restoreFocus && boardOverlayReturnFocus && document.contains(boardOverlayReturnFocus)) {
+    boardOverlayReturnFocus.focus();
   }
-  showBoardOverlay.returnFocus = null;
+  boardOverlayReturnFocus = null;
 }
 
 function revealBoardInExplorer(boardNo) {
@@ -277,7 +282,7 @@ function revealBoardInExplorer(boardNo) {
   }
 
   setElementHidden("boardExplorerPanel", false);
-  const disclosure = document.getElementById("boardExplorerDisclosure");
+  const disclosure = /** @type {HTMLDetailsElement | null} */ (document.getElementById("boardExplorerDisclosure"));
   if (disclosure) disclosure.open = true;
   STATE.activeView = "boards";
   renderTaskNav(STATE.analysis, STATE.results);
@@ -464,6 +469,7 @@ function renderBoardTagTable(board) {
 }
 
 export {
+  BOARD_FILTER_CONTROLS,
   boardSearchText,
   renderBoards,
   renderBoardList,

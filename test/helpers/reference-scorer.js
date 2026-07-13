@@ -1,5 +1,3 @@
-"use strict";
-
 // Independent duplicate-bridge scorer (Law 77), written from the scoring
 // table rather than from the app's implementation, so the sweep test
 // cross-checks two separate derivations of the same rules.
@@ -51,4 +49,4 @@ function referenceScore(level, strain, doubling, vulnerable, tricks) {
   return base + gameOrPart + slam + insult + overtrickPoints(strain, doubling, vulnerable, tricks - target);
 }
 
-module.exports = { referenceScore };
+export { referenceScore };

@@ -16,19 +16,17 @@ import {
   simulationStats,
   stepSimulation,
 } from "../src/core/simulation.js";
+import { TEST_CARDS as CARDS, createTestScenario } from "./fixtures.mjs";
 
-const CARDS = ["SA", "SK", "SQ", "SJ", "ST", "S9", "H8", "H7", "D6", "D5", "C4", "C3", "C2"]
-  .map((value) => ({ suit: value[0], rank: value[1] }));
-
-const SCENARIO = Object.freeze({
+const SCENARIO = createTestScenario({
   seed: "deterministic-full-run",
-  hand: { cards: CARDS },
+  cards: CARDS,
   wings: [
     { slot: "A", encounterSkin: "auction-gremlin" },
     { slot: "B", encounterSkin: "overtrick-imp" },
     { slot: "C", encounterSkin: "lead-goblin" },
   ],
-  boss: { title: "The Bottom Board", encounterSkin: "bottom-board" },
+  boss: { encounterSkin: "bottom-board" },
 });
 
 function normalizeAngle(value) {

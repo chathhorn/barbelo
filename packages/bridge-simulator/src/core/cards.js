@@ -54,10 +54,7 @@ function buildTrainingHand(seed) {
 }
 
 export {
-  SUIT_ORDER,
-  RANK_ORDER,
   canonicalCardKey,
-  isValidCard,
   normalizeThirteenCards,
   buildTrainingHand,
 };

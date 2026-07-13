@@ -15,7 +15,12 @@ concurrency:
 
 jobs:
   test:
+    name: Unit and type checks (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -23,19 +28,23 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install pinned development tools
+        run: npm ci --ignore-scripts
 
       - name: Run test suite
-        run: node --test
+        run: npm test
 
-      # Type-checks the dependency-free analysis core and parsers via
-      # JSDoc annotations (see src/core/types.js and jsconfig.json). The
-      # UI layer is intentionally outside the checked include set.
-      - name: Type-check core and parsers
-        run: npx --yes -p typescript@5.9 tsc -p jsconfig.json --noEmit
+      # Checks the application plus dependency-neutral simulator modules via
+      # JSDoc. Three.js-facing code remains covered by the browser jobs below.
+      - name: Type-check application and simulator
+        run: npm run typecheck
 
-      - name: Type-check simulator content and core
-        run: npx --yes -p typescript@5.9 tsc -p packages/bridge-simulator/jsconfig.json --noEmit
+      - name: Verify the build on the minimum supported Node version
+        if: matrix.node == '22'
+        run: npm run build -- --output /tmp/barbelo-node22-build --version node22-ci
 
   simulator-e2e:
     name: Simulator E2E (${{ matrix.browser }})
@@ -60,11 +69,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      # The repository manifest pins the local browser-test dependency. CI
-      # still uses an ephemeral exact install and does not generate a lockfile.
-      - name: Install pinned browser-test package
-        run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.61.1
+      - name: Install pinned development tools
+        run: npm ci --ignore-scripts
 
       - name: Verify Playwright pin
         run: node -e "const actual=require('playwright/package.json').version; if (actual !== process.env.PLAYWRIGHT_VERSION) throw new Error('Expected Playwright ' + process.env.PLAYWRIGHT_VERSION + ', got ' + actual)"
@@ -73,6 +81,14 @@ jobs:
       # Each matrix leg installs only its browser and matching Linux libraries.
       - name: Install pinned browser
         run: npx --no-install playwright install --with-deps "$PLAYWRIGHT_BROWSER"
+
+      - name: Run loaded-application smoke test
+        if: matrix.browser == 'chromium'
+        run: node test/e2e/smoke.js
+
+      - name: Run loaded-application accessibility test
+        if: matrix.browser == 'chromium'
+        run: node test/e2e/a11y.js
 
       - name: Run responsive capability browser test
         run: node test/e2e/simulator-responsive.js
@@ -87,21 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           site_root=/tmp/bridge-simulator-built-e2e
-          mkdir -p "$site_root/assets" "$site_root/vendor/three"
-          cp index.html "$site_root/index.html"
-          cp assets/barbelo.css assets/*.png assets/*.jpg assets/*.svg "$site_root/assets/"
-          cp packages/bridge-simulator/simulator.css "$site_root/assets/simulator.css"
-          cp -R packages/bridge-simulator/assets "$site_root/assets/simulator"
-          cp packages/bridge-simulator/LICENSE "$site_root/assets/bridge-simulator.LICENSE"
-          cp packages/bridge-simulator/vendor/three/LICENSE packages/bridge-simulator/vendor/three/VERSION "$site_root/vendor/three/"
-          npx --yes esbuild@0.25.5 src/main.js \
-            --bundle --format=iife --legal-comments=eof \
-            --outfile="$site_root/assets/barbelo.js"
-          npx --yes esbuild@0.25.5 packages/bridge-simulator/src/index.js \
-            --bundle --format=iife --global-name=BridgeSimulator --legal-comments=eof \
-            --outfile="$site_root/assets/bridge-simulator.js"
-          sed -i 's/__BARBELO_VERSION__/built-e2e/g' "$site_root/index.html"
-          sed -i 's|<script type="module" src="src/main.js?v=built-e2e"></script>|<script defer src="assets/barbelo.js?v=built-e2e"></script>|' "$site_root/index.html"
+          npm run build -- --output "$site_root" --version built-e2e
 
       - name: Run built-site simulator browser test
         env:
@@ -122,77 +124,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+
+      - name: Install pinned build tools
+        run: npm ci --ignore-scripts
 
       - name: Prepare static site
         run: |
           set -euo pipefail
-          mkdir -p _site/assets _site/vendor/three
-          cp index.html _site/index.html
-          cp assets/barbelo.css assets/*.png assets/*.jpg assets/*.svg _site/assets/
-          cp packages/bridge-simulator/simulator.css _site/assets/simulator.css
-          cp -R packages/bridge-simulator/assets _site/assets/simulator
-          cp packages/bridge-simulator/LICENSE _site/assets/bridge-simulator.LICENSE
-          cp packages/bridge-simulator/vendor/three/LICENSE packages/bridge-simulator/vendor/three/VERSION _site/vendor/three/
-          npx --yes esbuild@0.25.5 src/main.js \
-            --bundle \
-            --format=iife \
-            --legal-comments=eof \
-            --metafile=/tmp/barbelo-meta.json \
-            --outfile=_site/assets/barbelo.js
-          npx --yes esbuild@0.25.5 packages/bridge-simulator/src/index.js \
-            --bundle \
-            --format=iife \
-            --global-name=BridgeSimulator \
-            --legal-comments=eof \
-            --metafile=/tmp/bridge-simulator-meta.json \
-            --outfile=_site/assets/bridge-simulator.js
           short_sha="${GITHUB_SHA::7}"
-          sed -i "s/__BARBELO_VERSION__/${short_sha}/g" _site/index.html
-          sed -i "s|<script type=\"module\" src=\"src/main.js?v=${short_sha}\"></script>|<script defer src=\"assets/barbelo.js?v=${short_sha}\"></script>|" _site/index.html
-          grep -q "data-version=\"${short_sha}\"" _site/index.html
-          grep -q "assets/barbelo.css?v=${short_sha}" _site/index.html
-          grep -q "assets/barbelo.js?v=${short_sha}" _site/index.html
-          if grep -q "src/main.js" _site/index.html; then
-            echo "Module script tag survived static-site preparation." >&2
-            exit 1
-          fi
-          test -s _site/assets/barbelo.js
-          test -s _site/assets/bridge-simulator.js
-          test -s _site/assets/bridge-simulator.LICENSE
-          test -s _site/assets/simulator.css
-          test -s _site/assets/simulator/ATTRIBUTIONS.md
-          test -s _site/assets/simulator/coach/coach-idle-talk.svg
-          test -s _site/vendor/three/LICENSE
-          test -s _site/vendor/three/VERSION
-          simulator_asset_bytes=$(find _site/assets/simulator -type f -exec stat -c '%s' {} \; | awk '{ total += $1 } END { print total + 0 }')
-          simulator_payload_bytes=$(( $(stat -c '%s' _site/assets/bridge-simulator.js) + $(stat -c '%s' _site/assets/simulator.css) + simulator_asset_bytes ))
-          echo "Required Bridge Simulator payload: ${simulator_payload_bytes} bytes"
-          if (( simulator_payload_bytes > 3145728 )); then
-            echo "Bridge Simulator required payload exceeds the 3 MiB budget." >&2
-            exit 1
-          fi
-          grep -q 'var BridgeSimulator' _site/assets/bridge-simulator.js
-          grep -q 'SPDX-License-Identifier: MIT' _site/assets/bridge-simulator.js
-          grep -q 'packages/bridge-simulator/vendor/three/three.core.js' /tmp/bridge-simulator-meta.json
-          node -e "const m=require('/tmp/bridge-simulator-meta.json'); const bad=Object.keys(m.inputs).filter((p)=>!p.startsWith('packages/bridge-simulator/')); if (bad.length) throw new Error('Non-package modules entered the simulator bundle: ' + bad.join(', '))"
-          if grep -Eq 'packages/bridge-simulator/|src/(core/)?simulator/|vendor/three/' /tmp/barbelo-meta.json; then
-            echo "Simulator or Three.js modules leaked into the main Barbelo bundle." >&2
-            exit 1
-          fi
-          if grep -Eq 'Three\.js Authors|WebGLRenderer|GENERIC_SCENARIO|createSimulatorRenderer' _site/assets/barbelo.js; then
-            echo "Three.js or game payload leaked into the main Barbelo artifact." >&2
-            exit 1
-          fi
-          grep -q 'class="mark-option mark-opt-ouro brand-simulator-launch" data-simulator-open' _site/index.html
-          if grep -q 'data-simulator-open' src/ui/reportView.js; then
-            echo "Bridge Simulator launch control leaked back into the Pair Improvement Report." >&2
-            exit 1
-          fi
-          grep -q 'handleBridgeSimulatorClick' src/ui/io.js
-          if grep -q "__BARBELO_VERSION__" _site/index.html; then
-            echo "Version placeholder survived static-site preparation." >&2
-            exit 1
-          fi
+          npm run build -- --version "$short_sha"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

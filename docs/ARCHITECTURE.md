@@ -1,7 +1,8 @@
 # Architecture
 
-Barbelo is a static webapp: ES modules served as-is during development, bundled
-by esbuild only in CI for the GitHub Pages deploy.  The analysis core is
+Barbelo is a static webapp: ES modules served as-is during development and
+bundled by the checked `tools/build-site.mjs` command for GitHub Pages. The
+analysis core is
 dependency-free and DOM-free; the UI layer renders HTML strings from its output
 into `index.html`'s fixed skeleton.
 
@@ -33,10 +34,12 @@ from board numbers.
 
 The shapes passed across these boundaries are documented as JSDoc
 typedefs in `src/core/types.js` and type-checked in CI
-(`tsc -p jsconfig.json --noEmit`, covering `src/core` and `src/parsers`). The
+(`tsc -p jsconfig.json --noEmit`, covering the application entry, analysis,
+parsers, and UI). The
 simulator package has an independent `jsconfig.json` gate for its generic
-content and deterministic core; its browser runtime is exercised by the
-source and built Playwright gates.
+content, deterministic core, and dependency-neutral browser modules. Its
+Three.js-facing renderer is exercised by the source and built Playwright
+gates instead of type-checking the vendored renderer distribution.
 
 ## Lazy simulator boundary
 
@@ -65,7 +68,8 @@ GitHub Pages uses two classic-script IIFE artifacts:
   `BridgeSimulator.launch(host, options)` API and contains the game plus its pinned
   renderer dependency.
 
-The Pages build copies the package's art, stylesheet, package license, and
+The Pages build command copies an explicit application/package asset manifest,
+the root and package licenses, the package stylesheet, and
 `vendor/three/{LICENSE,VERSION}` into stable paths below `_site`. The host
 adapter supplies a same-origin asset base URL, so source and built modes use
 the same asset names without a CDN. CI checks both esbuild dependency graphs:
@@ -79,6 +83,7 @@ legal notices, payload budget, ouroboros route, and absent report route.
 | --- | --- |
 | `src/main.js` | Entry point: startup wiring and the `window.PBNAnalyzer` console API. |
 | `src/core/constants.js` | Shared bridge vocabulary: seats, suits, denominations, tiny lookups. |
+| `src/core/cards.js` | Shared normalization and canonical ordering for card holdings. |
 | `src/core/format.js` | HTML escaping, number/text formatting, contract glyphs, collection helpers. |
 | `src/core/contracts.js` | Contract text normalization, classification, and contract comparisons. |
 | `src/core/scoring.js` | Duplicate bridge scoring (Law 77): trick scores, bonuses, penalties, vulnerability. |
@@ -92,8 +97,9 @@ legal notices, payload budget, ouroboros route, and absent report route.
 | `src/parsers/pbn.js` | PBN text to directives and per-board tag records; deal/par/double-dummy tag parsing. |
 | `src/parsers/bws.js` | Bridgemate `.BWS` (Jet3 database) binary scan to raw result and player rows. |
 | `src/parsers/csv.js` | Results-CSV parsing with header mapping and RFC-ish quoting. |
+| `src/parsers/text.js` | Shared BOM and line-ending normalization for text formats. |
 | `src/ui/state.js` | The single mutable `STATE` object and pure view-availability rules. |
-| `src/ui/dom.js` | Toast queue, hidden-class toggles, board-jump buttons, deploy-version helpers. |
+| `src/ui/dom.js` | Toast queue, stacked-modal/focus lifecycle, board-jump buttons, deploy-version helpers. |
 | `src/ui/terms.js` | Glossary definitions, tooltip annotation, and the tooltip runtime. |
 | `src/ui/dashboard.js` | File status, task navigation, metrics, metadata, data quality, import diagnostics. |
 | `src/ui/chartsView.js` | SVG charts, notable-board groups, and the pair standings table. |
@@ -107,11 +113,17 @@ legal notices, payload budget, ouroboros route, and absent report route.
 | `index.html` | Static panel skeleton; the UI fills its `id`-addressed containers. |
 | `assets/barbelo.css` | All styling, organized in layered sections (tokens → base → views). |
 | `packages/bridge-simulator/` | Self-contained generic game package: content, core simulation, browser runtime, styles, art, package docs/license, and vendored Three.js. |
+| `packages/bridge-simulator/src/assets.js` | Frozen deployable-art manifest shared by the renderer preloader and reproducible site build. |
 | `packages/bridge-simulator/src/content.js` | Fixed generic auction, declarer-play, and defense coaching mission; contains no application/session inputs. |
 | `packages/bridge-simulator/src/index.js` | Package entry exposing `launch(host, options)`. |
+| `packages/bridge-simulator/src/core/object.js` | Serializable cloning and cycle-safe deep freezing for authored data. |
+| `packages/bridge-simulator/src/runtime/{capability,settings}.js` | FPS preflight and package-owned preference boundaries. |
 | `packages/bridge-simulator/test/` | Package-local unit coverage for generic content, rules, authored geometry, and renderer helpers. |
-| `test/` | `node --test` suite plus golden fixtures; no dependencies. |
-| `tools/generate-golden-fixtures.mjs` | Regenerates the golden fixtures from `samples/`. |
+| `test/` | `node --test` suite, golden fixtures, and opt-in Playwright/real-Safari harnesses. |
+| `test/fixtures/app-session.mjs` | Committed synthetic PBN/BWS session shared by full-pipeline and browser regression gates. |
+| `test/e2e/simulator-harness.js` | Shared static server, browser selection, diagnostics, and assertion reporting for browser harnesses. |
+| `tools/generate-golden-fixtures.mjs` | Regenerates the mandatory synthetic golden and any available real-session goldens. |
+| `tools/build-site.mjs` | Builds and verifies the versioned Pages artifact and lazy package boundary. |
 
 ## Invariants worth knowing
 
@@ -160,11 +172,13 @@ legal notices, payload budget, ouroboros route, and absent report route.
   (`test/bws-parser.test.mjs` and its `01-receiveddata.json` snapshot).
   Jet4 (Access 2000+) files are detected and rejected with guidance.
 
-- **Golden fixtures lock the whole pipeline.** For each sample session,
-  `test/golden/sessions.test.mjs` snapshots BWS parse → join →
-  matchpoints → standings → improvement report and compares against
-  `test/golden/fixtures/*.json` with `deepEqual`. Any numeric drift is
-  a test failure. Regenerate fixtures with
-  `node tools/generate-golden-fixtures.mjs` only for intentional
-  behavior changes, and review the fixture diff like code. (These tests
-  skip when the untracked `samples/` directory is absent.)
+- **Golden fixtures lock the whole pipeline.**
+  `test/golden/synthetic-session.test.mjs` always snapshots the committed
+  synthetic BWS/PBN session through parsing, join, matchpoints, standings,
+  improvement reports, and Table Time exercises. Optional real-session tests
+  cover the same path when the ignored `samples/` directory is present. Both
+  compare against `test/golden/fixtures/*.json` with `deepEqual`, so numeric
+  drift fails visibly. Run `node tools/generate-golden-fixtures.mjs` only for
+  intentional pipeline behavior changes; it always rewrites the synthetic
+  fixture and also rewrites any real fixtures whose local samples are present.
+  Review fixture diffs like code.

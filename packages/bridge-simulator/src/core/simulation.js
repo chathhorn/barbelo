@@ -767,11 +767,7 @@ function simulationStats(state) {
 }
 
 export {
-  SIMULATION_SCHEMA_VERSION,
-  FIXED_HZ,
   FIXED_DT,
-  PLAYER_SPEED,
-  INTERACT_RANGE,
   createSimulation,
   stepSimulation,
   resetEncounter,
@@ -779,5 +775,4 @@ export {
   getSimulationSnapshot,
   drainSimulationEvents,
   simulationStats,
-  objectiveText,
 };

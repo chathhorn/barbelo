@@ -291,21 +291,12 @@ function updateProjectiles(options) {
 }
 
 export {
-  CARD_DAMAGE,
-  CARD_COOLDOWN,
-  SHUFFLE_DURATION,
-  CARD_SPEED,
-  CARD_LIFETIME,
-  PROJECTILE_MAX_STEP,
   createCombatState,
   updateCombatTimers,
   tryShuffleHand,
   tryThrowCard,
   createEnemyProjectile,
   applyDamageToPlayer,
-  applyDamageToEntity,
-  honorForDefeat,
   collectPickup,
-  segmentCircleHitTime,
   updateProjectiles,
 };

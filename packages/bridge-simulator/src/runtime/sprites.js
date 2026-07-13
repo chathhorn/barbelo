@@ -6,35 +6,7 @@ import {
   SpriteMaterial,
   TextureLoader,
 } from "../../vendor/three/three.module.js";
-
-const SPRITE_PATHS = {
-  coachIdle: "coach/coach-idle-talk.svg",
-  coachPoint: "coach/coach-point.svg",
-  coachVictory: "coach/coach-victory.svg",
-  coachTrot1: "coach/coach-trot-1.svg",
-  coachTrot2: "coach/coach-trot-2.svg",
-  kibitzer: "enemies/kibitzer.svg",
-  overtrick: "enemies/overtrick-imp.svg",
-  sentinel: "enemies/red-x-sentinel.svg",
-  boss: "enemies/bottom-board.svg",
-  biscuit: "pickups/biscuit.svg",
-  coffee: "pickups/coffee.svg",
-  reviewSlip: "pickups/review-slip.svg",
-  cardProjectile: "cards/card-projectiles.svg",
-  enemyProjectile: "cards/enemy-score-slip.svg",
-  cardImpact: "cards/card-impact.svg",
-  cardBack: "cards/card-back.svg",
-  feltWall: "textures/felt-wall.svg",
-  auctionWall: "textures/auction-wall.svg",
-  trickworksWall: "textures/trickworks-wall.svg",
-  leadMineWall: "textures/lead-mine-wall.svg",
-  paperPanel: "textures/paper-panel.svg",
-  carpetSuits: "textures/carpet-suits.svg",
-  ceilingTile: "textures/ceiling-tile.svg",
-  chalkboard: "textures/coach-chalkboard.svg",
-  vaultDoor: "textures/traveler-vault-door.svg",
-  courtyardSky: "textures/courtyard-sky.svg",
-};
+import { SIMULATOR_ASSET_PATHS as SPRITE_PATHS } from "../assets.js";
 
 const TILED_TEXTURE_KEYS = new Set([
   "feltWall",
@@ -95,14 +67,18 @@ function createBillboard(texture, { width = 1, height = 1, opacity = 1, depthTes
   return sprite;
 }
 
+function entityAppearanceKey(entity) {
+  return [entity?.sprite, entity?.archetype, entity?.pickupKind, entity?.type, entity?.kind]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 function spriteKeyForEntity(entity) {
-  const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
-    .filter(Boolean).join(" ").toLowerCase();
+  const kind = entityAppearanceKey(entity);
   if (entity && entity.owner === "enemy" && (kind.includes("projectile") || kind.includes("score-slip"))) return "enemyProjectile";
   if (kind.includes("coach") && kind.includes("victory")) return "coachVictory";
   if (kind.includes("coach") && kind.includes("point")) return "coachPoint";
-  if (kind.includes("coach") && kind.includes("trot-2")) return "coachTrot2";
-  if (kind.includes("coach") && kind.includes("trot")) return "coachTrot1";
   if (kind.includes("coach")) return "coachIdle";
   if (kind.includes("boss") || kind.includes("bottom")) return "boss";
   if (kind.includes("overtrick") || kind.includes("imp")) return "overtrick";
@@ -118,8 +94,7 @@ function spriteKeyForEntity(entity) {
 }
 
 function spriteSizeForEntity(entity) {
-  const kind = [entity && entity.sprite, entity && entity.archetype, entity && entity.pickupKind, entity && entity.type, entity && entity.kind]
-    .filter(Boolean).join(" ").toLowerCase();
+  const kind = entityAppearanceKey(entity);
   if (entity && entity.owner === "enemy" && (kind.includes("projectile") || kind.includes("score-slip"))) {
     return { width: 0.38, height: 0.48 };
   }

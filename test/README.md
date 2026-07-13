@@ -3,39 +3,42 @@
 Run the suite from the repo root with:
 
 ```sh
-node --test
+npm test
 ```
 
-No dependencies are needed for the core Node suite (Node 20+; it uses the
-built-in `node:test` runner). Note that `node --test test/` does not work on
-some Node versions — use the bare form above. Browser scripts discovered by
-that command self-skip when Playwright is absent; running their explicit gates
-below requires Playwright and at least one installed browser.
+The core Node suite itself has no runtime dependencies (Node 22+; it uses the
+built-in `node:test` runner). The standard development setup is `npm ci`
+followed by `npm test`, although the unit suites do not import any npm package.
+The npm script intentionally selects `*.test.mjs` files; a bare `node --test`
+would also discover the executable browser harnesses under `test/e2e/`. Those
+harnesses are run explicitly as documented below and require Playwright plus
+an installed browser.
 
 ## Layout
 
 | Path | What it covers |
 |---|---|
 | `test/*.test.mjs` | Analyzer unit tests importing `src/` modules directly (scoring sweep vs an independent reference scorer, loss-classification matrix, matchpoints/identity, report engine, parsers, formatting, template HTML) |
+| `test/unit/` | Focused tests for small shared parser/core utilities. |
 | `packages/bridge-simulator/test/` | Simulator package unit tests for its generic content, deterministic engine, level, renderer adapter, and performance monitor |
-| `test/golden/` | Golden-master tests: the full pipeline must reproduce committed snapshots for the three sample sessions. After an **intentional** behavior change, regenerate with `node tools/generate-golden-fixtures.mjs` |
+| `test/golden/` | Golden-master tests: a committed synthetic session always exercises the full pipeline, while three optional real sessions guard field compatibility. After an **intentional** pipeline behavior change, regenerate with `node tools/generate-golden-fixtures.mjs` and review every fixture diff. |
 | `test/integration/` | Boots the real entry (`src/main.js`) against DOM stubs via `test/helpers/load-app.js` and checks the public API wiring |
-| `test/e2e/` | Real-browser checks through Playwright. Simulator source/built harnesses support Chromium, Firefox, and WebKit; the existing general app smoke/a11y scripts remain Chromium checks. |
-| `test/helpers/` | The DOM-stub app loader, synthetic Jet3 BWS fixture builder, reference scorer, golden snapshotter |
+| `test/e2e/` | Real-browser checks through a shared local-server/browser harness. Simulator source/built scripts support Chromium, Firefox, and WebKit; general app smoke/a11y default to Chromium. |
+| `test/fixtures/` | The committed synthetic PBN/BWS session shared by full-pipeline and browser checks. |
+| `test/helpers/` | The DOM-stub app loader, synthetic Jet3 BWS fixture builder, reference scorer, and golden snapshotter. |
 
-Tests that need the real sample files in `samples/` (golden masters, BWS
-ground truth) skip automatically when that directory is absent, so the suite
-passes in CI where samples are not checked in.
+The synthetic golden, smoke, and accessibility checks never depend on private
+sample data and run in CI. Additional tests that compare against real files in
+`samples/` skip when those ignored files are absent.
 
 ## Bridge Simulator browser test
 
-From the repository root, install the pinned Playwright package and its three
-browser builds, then run the source simulator harness once per browser. The
-repository manifest pins the local browser-test dependency; CI still performs
-an ephemeral exact-version install:
+From the repository root, install the lockfile's exact development tools and
+the three Playwright browser builds, then run the source simulator harness once
+per browser:
 
 ```sh
-npm install --no-save --package-lock=false --ignore-scripts playwright@1.61.1
+npm ci --ignore-scripts
 npx --no-install playwright install chromium firefox webkit
 PLAYWRIGHT_BROWSER=chromium node test/e2e/simulator.js
 PLAYWRIGHT_BROWSER=firefox node test/e2e/simulator.js
@@ -99,26 +102,27 @@ gameplay screenshot from the run:
 PLAYWRIGHT_BROWSER=firefox SIMULATOR_SCREENSHOT=/tmp/bridge-simulator-firefox.png node test/e2e/simulator.js
 ```
 
-CI performs the same ephemeral pinned install, verifies Playwright `1.61.1`,
-and runs Chromium and WebKit legs. Each leg installs only its selected browser,
-runs the focused responsive and slow-frame gates plus the full source harness,
-builds both production IIFEs, and runs `test/e2e/simulator-built.js` against the
-generated static site. Firefox remains supported by the local harnesses, but
-the GPU-less GitHub Ubuntu runner exposes no Firefox WebGL context even with
-`webgl.force-enabled`; CI therefore leaves that renderer leg disabled instead
-of treating missing runner hardware as an application failure. Separate
-failure-path coverage verifies that unavailable WebGL leaves an explanatory
-preflight with Start! disabled and Settings accessible. To run the built gate
-locally after preparing `_site` with the Pages workflow commands:
+CI installs the same lockfile, verifies Playwright `1.61.1`, and runs Chromium
+and WebKit legs. Each leg installs only its selected browser, runs the focused
+responsive and slow-frame gates plus the full source harness, builds both
+production IIFEs with the same command used for deployment, and runs
+`test/e2e/simulator-built.js` against that generated static site. Firefox
+remains supported by the local harnesses, but the GPU-less GitHub Ubuntu runner
+exposes no Firefox WebGL context even with `webgl.force-enabled`; CI therefore
+leaves that renderer leg disabled instead of treating missing runner hardware
+as an application failure. Separate failure-path coverage verifies that
+unavailable WebGL leaves an explanatory preflight with Start! disabled and
+Settings accessible. To run the built gate locally:
 
 ```sh
+npm run build
 PLAYWRIGHT_BROWSER=chromium SERVE_ROOT=_site node test/e2e/simulator-built.js
 PLAYWRIGHT_BROWSER=firefox SERVE_ROOT=_site node test/e2e/simulator-built.js
 PLAYWRIGHT_BROWSER=webkit SERVE_ROOT=_site node test/e2e/simulator-built.js
 ```
 
-When upgrading Playwright, update both explicit version references and the CI
-version check together.
+When upgrading Playwright, update the exact manifest dependency, lockfile,
+workflow version check, and recorded browser versions together.
 
 The Pair Improvement Report does not expose or configure the simulator. The
 randomized top-left ouroboros is a launch button even before files are loaded;

@@ -1,71 +1,32 @@
-"use strict";
+import {
+  REPO,
+  capturePageDiagnostics,
+  closeServer,
+  createCheckReporter,
+  loadPlaywright,
+  logBrowser,
+  originFor,
+  serveStatic,
+} from "./simulator-harness.js";
 
-const fs = require("node:fs");
-const http = require("node:http");
-const path = require("node:path");
-
-const REPO = path.resolve(__dirname, "..", "..");
-const BROWSER_NAME = String(process.env.PLAYWRIGHT_BROWSER || "chromium").toLowerCase();
-const SUPPORTED_BROWSERS = new Set(["chromium", "firefox", "webkit"]);
-let browserType;
-try {
-  const playwright = require(path.join(REPO, "node_modules", "playwright"));
-  browserType = playwright[BROWSER_NAME];
-} catch (error) {
-  console.log("SKIP: playwright not installed (npm install playwright)");
-  process.exit(0);
-}
-if (!SUPPORTED_BROWSERS.has(BROWSER_NAME) || !browserType) {
-  throw new Error(`Unsupported PLAYWRIGHT_BROWSER ${JSON.stringify(BROWSER_NAME)}; use chromium, firefox, or webkit.`);
-}
-const BROWSER_LAUNCH_OPTIONS = BROWSER_NAME === "firefox"
-  ? { firefoxUserPrefs: { "webgl.force-enabled": true } }
-  : {};
-
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".json": "application/json",
-};
-
-function serve() {
-  return new Promise((resolve) => {
-    const server = http.createServer((request, response) => {
-      const pathname = decodeURIComponent(new URL(request.url, "http://local").pathname);
-      const file = path.join(REPO, pathname === "/" ? "index.html" : pathname);
-      if (!file.startsWith(REPO) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-        response.writeHead(404); response.end("not found"); return;
-      }
-      response.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-      response.end(fs.readFileSync(file));
-    });
-    server.listen(0, "127.0.0.1", () => resolve(server));
-  });
-}
-
-const failures = [];
-function check(ok, label) {
-  console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
-  if (!ok) failures.push(label);
-}
+const playwrightHarness = loadPlaywright();
+if (!playwrightHarness) process.exit(0);
+const {
+  browserName: BROWSER_NAME,
+  browserType,
+  launchOptions: BROWSER_LAUNCH_OPTIONS,
+} = playwrightHarness;
+const { check, failures } = createCheckReporter();
 
 (async () => {
-  const server = await serve();
-  const port = server.address().port;
+  const server = await serveStatic(REPO);
+  const origin = originFor(server);
   const browser = await browserType.launch(BROWSER_LAUNCH_OPTIONS);
-  console.log(`BROWSER: ${BROWSER_NAME} ${browser.version()} (Playwright 1.61.1)`);
+  logBrowser(browser, playwrightHarness);
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const errors = [];
-  const requests = [];
-  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("request", (request) => requests.push(request.url()));
+  const { errors, requests } = capturePageDiagnostics(page);
 
-  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.goto(`${origin}/`);
   await page.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
@@ -395,7 +356,7 @@ function check(ok, label) {
   ));
   check(Object.keys(storedPreferences).every((key) => key === "bridgeSimulator.settings.v1"), "local storage contains preferences only");
   check(!/session|report|coach|auction/i.test(JSON.stringify(storedPreferences)), "generic run and coaching content are never persisted");
-  check(requests.every((url) => new URL(url).origin === `http://127.0.0.1:${port}`), "all requests remain same-origin");
+  check(requests.every((url) => new URL(url).origin === origin), "all requests remain same-origin");
   check(errors.length === 0, `browser run has no console/page errors (${errors.join("; ")})`);
 
   await page.locator("#clearAppButton").focus();
@@ -508,7 +469,7 @@ function check(ok, label) {
   await page.waitForFunction(() => !document.querySelector(".bridge-simulator-overlay"));
 
   const failurePage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await failurePage.goto(`http://127.0.0.1:${port}/`);
+  await failurePage.goto(`${origin}/`);
   await failurePage.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
@@ -531,10 +492,8 @@ function check(ok, label) {
   // A 1280×800 desktop viewport at 200% zoom is approximately 640×400 CSS
   // pixels, so this exercises the post-zoom capability route directly.
   const compactPage = await browser.newPage({ viewport: { width: 640, height: 400 } });
-  const compactErrors = [];
-  compactPage.on("console", (message) => { if (message.type() === "error") compactErrors.push(message.text()); });
-  compactPage.on("pageerror", (error) => compactErrors.push(error.message));
-  await compactPage.goto(`http://127.0.0.1:${port}/`);
+  const { errors: compactErrors } = capturePageDiagnostics(compactPage, { captureRequests: false });
+  await compactPage.goto(`${origin}/`);
   await compactPage.evaluate(async () => {
     const { setBrandMarkVariant } = await import("/src/ui/dom.js");
     setBrandMarkVariant(true);
@@ -564,7 +523,7 @@ function check(ok, label) {
   await compactPage.close();
 
   await browser.close();
-  server.close();
+  await closeServer(server);
   console.log(failures.length
     ? `\nSIMULATOR E2E FAILED (${BROWSER_NAME}; ${failures.length})`
     : `\nSIMULATOR E2E PASSED (${BROWSER_NAME})`);

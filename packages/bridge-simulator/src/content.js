@@ -1,14 +1,8 @@
 import { buildTrainingHand } from "./core/cards.js";
+import { deepFreeze } from "./core/object.js";
 
 const SCENARIO_SCHEMA_VERSION = 2;
 const GENERIC_SCENARIO_SEED = "bridge-fundamentals-v1";
-
-function deepFreeze(value, seen = new Set()) {
-  if (!value || typeof value !== "object" || seen.has(value)) return value;
-  seen.add(value);
-  Object.values(value).forEach((entry) => deepFreeze(entry, seen));
-  return Object.freeze(value);
-}
 
 const GENERIC_SCENARIO = deepFreeze({
   schemaVersion: SCENARIO_SCHEMA_VERSION,

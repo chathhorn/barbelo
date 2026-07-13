@@ -7,7 +7,8 @@ function normalizePlayedContractText(value) {
   if (/^(PASS|AP|ALL PASS|PASSED OUT)$/.test(text)) return "PASS";
   const match = text.match(/^([1-7])\s*(NT|N|[SHDC])(?:\s*(XX|X))?$/i);
   if (!match) return text;
-  const denomination = match[2].toUpperCase() === "N" || match[2].toUpperCase() === "NT" ? "NT" : match[2].toUpperCase();
+  const strain = match[2].toUpperCase();
+  const denomination = strain === "N" || strain === "NT" ? "NT" : strain;
   const doubled = match[3] ? ` ${match[3].toUpperCase()}` : "";
   return `${match[1]} ${denomination}${doubled}`;
 }

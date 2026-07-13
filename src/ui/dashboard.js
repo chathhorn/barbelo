@@ -2,7 +2,6 @@
 // data quality, results summary, and import diagnostics.
 import { firstDirective, pbnHeaderDetails } from "../core/boards.js";
 import {
-  average,
   escapeHtml,
   formatBytes,
   formatSigned,
@@ -12,6 +11,16 @@ import { renderResultContractChart } from "./chartsView.js";
 import { renderBoardJumpList } from "./dom.js";
 import { STATE, availableTaskViews } from "./state.js";
 import { annotateTermTooltips, term, th } from "./terms.js";
+
+function renderMetricGrid(metrics) {
+  document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
+    <div class="metric">
+      <div class="label">${escapeHtml(metric.label)}</div>
+      <div class="value">${escapeHtml(metric.value)}</div>
+      <div class="note">${escapeHtml(metric.note)}</div>
+    </div>
+  `).join("");
+}
 
 function updateDropZone(analysis, results) {
   const hasLoadedData = Boolean(analysis || results);
@@ -91,11 +100,12 @@ function renderTaskNav(analysis, results) {
 
   const available = availableTaskViews(analysis, results);
   nav.querySelectorAll("[data-task-view]").forEach((button) => {
-    const view = button.getAttribute("data-task-view");
+    const taskButton = /** @type {HTMLButtonElement} */ (button);
+    const view = taskButton.getAttribute("data-task-view");
     const enabled = Boolean(available[view]);
-    button.classList.toggle("active", view === STATE.activeView);
-    button.disabled = !enabled;
-    button.setAttribute("aria-current", view === STATE.activeView ? "page" : "false");
+    taskButton.classList.toggle("active", view === STATE.activeView);
+    taskButton.disabled = !enabled;
+    taskButton.setAttribute("aria-current", view === STATE.activeView ? "page" : "false");
   });
 }
 
@@ -133,13 +143,7 @@ function renderMetrics(analysis) {
     { label: "Shape Of Set", value: `${gameCount}/${slamCount}`, note: `${partCount} partscores; games / slams` }
   ];
 
-  document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
-    <div class="metric">
-      <div class="label">${escapeHtml(metric.label)}</div>
-      <div class="value">${escapeHtml(metric.value)}</div>
-      <div class="note">${escapeHtml(metric.note)}</div>
-    </div>
-  `).join("");
+  renderMetricGrid(metrics);
 }
 
 function renderMetadata(analysis) {
@@ -238,7 +242,7 @@ function renderQuality(analysis) {
   `).join("");
 }
 
-function renderResultsPanel(analysis, results) {
+function renderResultsPanel(results) {
   const caption = document.getElementById("resultsCaption");
   const body = document.getElementById("resultsSummary");
   if (!results) {
@@ -429,13 +433,7 @@ function renderResultOnlyMetrics(results) {
     { label: "Named Players", value: results.summary.namedPlayers || 0, note: `${results.summary.playerRecords} player rows` }
   ];
 
-  document.getElementById("metricGrid").innerHTML = metrics.map((metric) => `
-    <div class="metric">
-      <div class="label">${escapeHtml(metric.label)}</div>
-      <div class="value">${escapeHtml(metric.value)}</div>
-      <div class="note">${escapeHtml(metric.note)}</div>
-    </div>
-  `).join("");
+  renderMetricGrid(metrics);
 }
 
 export {

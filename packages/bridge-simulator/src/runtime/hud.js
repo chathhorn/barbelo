@@ -1,3 +1,5 @@
+import { SIMULATOR_ASSET_PATHS } from "../assets.js";
+
 function escapeHtml(value) {
   return String(value == null ? "" : value)
     .replaceAll("&", "&amp;")
@@ -7,17 +9,18 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function segmentText(segments) {
+function normalizedSegments(segments) {
   return (Array.isArray(segments) ? segments : [])
     .map((segment) => String(segment || "").trim())
-    .filter(Boolean)
-    .join(" ");
+    .filter(Boolean);
+}
+
+function segmentText(segments) {
+  return normalizedSegments(segments).join(" ");
 }
 
 function renderSegments(segments, className = "") {
-  const content = (Array.isArray(segments) ? segments : [])
-    .map((segment) => String(segment || "").trim())
-    .filter(Boolean)
+  const content = normalizedSegments(segments)
     .map((text) => `<span>${escapeHtml(text)}</span>`)
     .join(" ");
   return `<p${className ? ` class="${escapeHtml(className)}"` : ""}>${content}</p>`;
@@ -132,7 +135,7 @@ function renderPreflight(host, scenario, assetUrl, {
         </div>
         <span class="simulator-mission-chip">Bridge fundamentals · Training deal</span>
         <article class="simulator-coach-card">
-          <img src="${escapeHtml(assetUrl("coach/coach-idle-talk.svg"))}" alt="Upright Border Collie Bridge Coach wearing a trenchcoat">
+          <img src="${escapeHtml(assetUrl(SIMULATOR_ASSET_PATHS.coachIdle))}" alt="Upright Border Collie Bridge Coach wearing a trenchcoat">
           <div>
             <strong>Border Collie Bridge Coach</strong>
             <p>${escapeHtml(bark || "The traveler is in the vault. Fetch.")}</p>
@@ -452,7 +455,7 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
     <section class="simulator-debrief" aria-labelledby="simulator-debrief-title">
       <h2 id="simulator-debrief-title" tabindex="-1">Matchpoints recovered.</h2>
       <article class="simulator-coach-card">
-        <img src="${escapeHtml(assetUrl("coach/coach-victory.svg"))}" alt="Victorious upright Border Collie Bridge Coach in a trenchcoat">
+        <img src="${escapeHtml(assetUrl(SIMULATOR_ASSET_PATHS.coachVictory))}" alt="Victorious upright Border Collie Bridge Coach in a trenchcoat">
         <div><strong>Coach's verdict</strong><p>You cannot outgun a bad auction. Fortunately, this was a simulator.</p></div>
       </article>
       <div class="simulator-debrief-grid">
@@ -483,10 +486,6 @@ function renderDebrief(host, scenario, stats = {}, assetUrl) {
 }
 
 export {
-  escapeHtml,
-  handLabel,
-  segmentText,
-  renderSegments,
   renderPreflight,
   renderSettings,
   createGameShell,

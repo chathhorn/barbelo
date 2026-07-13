@@ -1,5 +1,3 @@
-"use strict";
-
 // Builds minimal in-memory Bridgemate .BWS (Microsoft Jet3 / Access 97 MDB)
 // byte buffers for parser tests: a database definition page followed by
 // Jet3 data pages with real row directories, fixed columns, variable-column
@@ -260,7 +258,7 @@ function buildBwsFile(options) {
   return file;
 }
 
-module.exports = {
+export {
   PAGE_SIZE,
   DELETED_FLAG,
   LOOKUP_FLAG,

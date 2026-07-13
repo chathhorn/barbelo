@@ -1,7 +1,7 @@
 // Sanity checks that an uploaded results file plausibly belongs to the
 // loaded PBN hand record: board overlap, date agreement, join coverage.
 
-import { sum, average, uniqueSorted, numericPairSort } from "./format.js";
+import { average, uniqueSorted, numericPairSort } from "./format.js";
 import { pbnHeaderDetails } from "./boards.js";
 
 function normalizedDateKey(value) {
@@ -155,8 +155,5 @@ function assessPbnResultsCompatibility(analysis, rows, boardSummaries) {
 }
 
 export {
-  normalizedDateKey,
-  dateKeyLabel,
-  compatibilityPercent,
   assessPbnResultsCompatibility,
 };

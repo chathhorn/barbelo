@@ -1,6 +1,16 @@
 // Application state: the single mutable STATE object plus the pure
 // view-availability rules over it.
 
+function defaultFilters() {
+  return {
+    search: "",
+    side: "all",
+    className: "all",
+    vulnerability: "all",
+    played: "all"
+  };
+}
+
 const STATE = {
   parsed: null,
   analysis: null,
@@ -12,24 +22,8 @@ const STATE = {
   scoreOutliersOnly: false,
   rowMode: "boards",
   selectedColumns: new Set(),
-  filters: {
-    search: "",
-    side: "all",
-    className: "all",
-    vulnerability: "all",
-    played: "all"
-  }
+  filters: defaultFilters()
 };
-
-function defaultFilters() {
-  return {
-    search: "",
-    side: "all",
-    className: "all",
-    vulnerability: "all",
-    played: "all"
-  };
-}
 
 function availableTaskViews(analysis, results) {
   return {

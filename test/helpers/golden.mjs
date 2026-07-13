@@ -24,6 +24,10 @@ function snapshotSession(session) {
   if (!hasSample(session.bws) || !hasSample(session.pbn)) return null;
   const analysis = buildAnalysis(parsePbn(String(readSample(session.pbn)), session.pbn));
   const raw = parseBwsBuffer(new Uint8Array(readSample(session.bws)), session.bws);
+  return snapshotPipeline(raw, analysis);
+}
+
+function snapshotPipeline(raw, analysis) {
   const results = buildResultsAnalysis(raw, analysis);
 
   const standings = results.pairStandings
@@ -111,4 +115,4 @@ function loadFixture(name) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-export { SESSIONS, FIXTURES_DIR, snapshotSession, loadFixture, samplePath };
+export { SESSIONS, FIXTURES_DIR, snapshotPipeline, snapshotSession, loadFixture, samplePath };

@@ -1,8 +1,9 @@
 // Board and deal analysis: hand evaluation, PBN board normalization,
 // double-dummy access, and the standard dealer/vulnerability cycles.
 
-import { SEATS, SUITS, RANK_ORDER, HCP_VALUE } from "./constants.js";
-import { countBy, uniqueSorted, safeNumber, sum, average } from "./format.js";
+import { SEATS, SUITS, HCP_VALUE } from "./constants.js";
+import { countBy, uniqueSorted, safeNumber, average } from "./format.js";
+import { sortHolding } from "./cards.js";
 import { normalizeVulnerability } from "./scoring.js";
 import {
   parseDeal,
@@ -12,17 +13,18 @@ import {
   parseDoubleDummyTricks
 } from "../parsers/pbn.js";
 
-function normalizeSuitHolding(value) {
-  const text = String(value == null ? "" : value).trim().toUpperCase();
-  return text === "-" ? "" : text;
-}
+const STANDARD_VULNERABILITY_CYCLE = [
+  "None", "NS", "EW", "All",
+  "NS", "EW", "All", "None",
+  "EW", "All", "None", "NS",
+  "All", "None", "NS", "EW"
+];
 
-function sortHolding(holding) {
-  return normalizeSuitHolding(holding)
-    .split("")
-    .filter(Boolean)
-    .sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b))
-    .join("");
+function longestSuitByLength(lengths) {
+  return SUITS.reduce((best, suit) => {
+    const candidate = { suit: suit.key, length: lengths[suit.key] || 0 };
+    return !best || candidate.length > best.length ? candidate : best;
+  }, null);
 }
 
 function analyzeHand(hand) {
@@ -57,9 +59,7 @@ function analyzeHand(hand) {
   });
 
   const shape = SUITS.map((suit) => lengths[suit.key]).join("-");
-  const longest = SUITS
-    .map((suit) => ({ suit: suit.key, length: lengths[suit.key] }))
-    .sort((a, b) => b.length - a.length || SUITS.findIndex((suit) => suit.key === a.suit) - SUITS.findIndex((suit) => suit.key === b.suit))[0];
+  const longest = longestSuitByLength(lengths);
   const voids = SUITS.filter((suit) => lengths[suit.key] === 0).map((suit) => suit.key);
   const singletons = SUITS.filter((suit) => lengths[suit.key] === 1).map((suit) => suit.key);
   const display = SUITS.map((suit) => normalized[suit.key] || "-").join(".");
@@ -91,9 +91,7 @@ function combinePairStats(hands, pair) {
     lengths[suit.key] = holdings[suit.key].length;
   });
 
-  const bestFit = SUITS
-    .map((suit) => ({ suit: suit.key, length: lengths[suit.key] }))
-    .sort((a, b) => b.length - a.length || SUITS.findIndex((suit) => suit.key === a.suit) - SUITS.findIndex((suit) => suit.key === b.suit))[0];
+  const bestFit = longestSuitByLength(lengths);
 
   return {
     pair,
@@ -115,10 +113,9 @@ function standardDealer(boardNo) {
 }
 
 function standardVulnerability(boardNo) {
-  const cycle = ["None", "NS", "EW", "All", "NS", "EW", "All", "None", "EW", "All", "None", "NS", "All", "None", "NS", "EW"];
   const board = Number(boardNo);
   if (!Number.isFinite(board) || board < 1) return "";
-  return cycle[(board - 1) % cycle.length];
+  return STANDARD_VULNERABILITY_CYCLE[(board - 1) % STANDARD_VULNERABILITY_CYCLE.length];
 }
 
 /**
@@ -336,20 +333,12 @@ function pbnHeaderDetails(analysis) {
 }
 
 export {
-  normalizeSuitHolding,
-  sortHolding,
-  analyzeHand,
-  combinePairStats,
-  standardDealer,
-  standardVulnerability,
   fallbackResultBoard,
   getDoubleDummyTricks,
-  normalizeBoard,
   buildAnalysis,
   emptyAnalysis,
   vulSides,
   vulLabel,
-  directiveMap,
   firstDirective,
   pbnHeaderDetails,
 };

@@ -1,5 +1,26 @@
 {
-  "dependencies": {
-    "playwright": "^1.61.1"
+  "name": "barbelo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A local-first duplicate bridge session analyzer and coaching report.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node tools/build-site.mjs",
+    "test": "npm run test:app && npm run test:simulator",
+    "test:app": "node --test test/*.test.mjs test/golden/*.test.mjs test/integration/*.test.mjs test/unit/*.test.mjs",
+    "test:simulator": "npm --workspace bridge-simulator test",
+    "typecheck": "tsc -p jsconfig.json --noEmit && tsc -p packages/bridge-simulator/jsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5",
+    "playwright": "1.61.1",
+    "typescript": "5.9.2"
   }
 }

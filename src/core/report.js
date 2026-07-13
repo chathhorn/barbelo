@@ -2,10 +2,8 @@
 // perspective, loss classification against same-direction peers, the
 // loss ledger, profile, and practice priorities.
 
-import { denomMeta } from "./constants.js";
-import { formatSigned, formatMp, plural, sum, average, uniqueSorted } from "./format.js";
+import { formatSigned, formatMp, plural, sum, average, uniqueSorted, numericPairSort } from "./format.js";
 import { classifyContract, contractClassRank, contractTarget, samePlayedContract } from "./contracts.js";
-import { numericPairSort } from "./format.js";
 import { isVulnerable } from "./scoring.js";
 import {
   buildBiddingScorecard,
@@ -179,17 +177,17 @@ function pairResultView(results, row, participantKey) {
   if (!isNS && !isEW) return null;
   const side = isNS ? "NS" : "EW";
   const boardRows = results.rowsByField.get(row.fieldKey) || [];
-  const pairScore = row.scoreNS == null ? null : isNS ? row.scoreNS : -row.scoreNS;
+  const pairScore = sideScore(row, side);
   // Peers only: including the pair's own row would shrink fieldDelta by
   // (n-1)/n and systematically under-trip the fixed flag thresholds.
   const fieldScores = boardRows
     .filter((entry) => String(sideParticipantKey(entry, side)) !== pairKey)
-    .map((entry) => entry.scoreNS == null ? null : isNS ? entry.scoreNS : -entry.scoreNS)
+    .map((entry) => sideScore(entry, side))
     .filter((value) => value != null);
   const fieldAverage = fieldScores.length ? average(fieldScores) : null;
   const parScore = row.parNS == null ? null : isNS ? row.parNS : -row.parNS;
-  const matchpoints = isNS ? row.nsMatchpoints : row.ewMatchpoints;
-  const percent = isNS ? row.nsPercent : row.ewPercent;
+  const matchpoints = sideMatchpoints(row, side);
+  const percent = sidePercent(row, side);
   const declared = row.declarerPair === side;
   const trickDeltaForPair = row.ddDelta == null ? null : declared ? row.ddDelta : -row.ddDelta;
   // Club fields deviate from double-dummy systematically (DD assumes
@@ -765,7 +763,7 @@ function weakestStat(stats) {
     .sort((a, b) => a.percent - b.percent || b.count - a.count)[0] || null;
 }
 
-function buildPairProfile(views, lossLedger, decisionTypes) {
+function buildPairProfile(views, decisionTypes) {
   const roleStats = [
     buildViewStat("Declaring", views.filter((view) => view.declared)),
     buildViewStat("Defending", views.filter((view) => !view.declared))
@@ -853,7 +851,7 @@ function buildPairProfile(views, lossLedger, decisionTypes) {
   };
 }
 
-function buildPracticePriorities(lossLedger, decisionTypes, views) {
+function buildPracticePriorities(decisionTypes, views) {
   const priorities = [];
   decisionTypes.slice(0, 5).forEach((type) => {
     priorities.push({
@@ -1054,8 +1052,8 @@ function buildPairImprovementReport(results, participantKey) {
   const lowBoards = views.filter((view) => view.percent != null && view.percent <= 35);
   const fieldLosses = views.filter((view) => view.fieldDelta != null && view.fieldDelta <= -200);
   const decisionTypes = buildDecisionTypeSummary(lossLedger);
-  const profile = buildPairProfile(views, lossLedger, decisionTypes);
-  const practicePriorities = buildPracticePriorities(lossLedger, decisionTypes, views);
+  const profile = buildPairProfile(views, decisionTypes);
+  const practicePriorities = buildPracticePriorities(decisionTypes, views);
   // Headline baseline is the field average (half the top per board),
   // not a perfect top: a good session must read as a good session.
   let mpEarned = 0;
@@ -1102,34 +1100,7 @@ function buildPairImprovementReport(results, participantKey) {
 }
 
 export {
-  LOSS_CATEGORY_INFO,
-  DECISION_TYPE_INFO,
-  LOSS_CATEGORY_ORDER,
-  lossCategoryInfo,
   decisionTypeInfoForCategory,
-  bestMakeableForPair,
-  pairResultView,
-  addReviewReason,
-  analyzeReviewItem,
-  buildDecisionTypeSummary,
-  dominantBoardLoss,
-  comparisonSameContract,
-  diagnosisConfidence,
   peerDisplayName,
-  buildSwingDiagnosis,
-  buildSameDirectionPeerComparison,
-  contractMadeByRow,
-  classifyLossComparison,
-  buildBoardLossItem,
-  buildLossExamples,
-  buildPairLossLedger,
-  averagePercentForViews,
-  buildViewStat,
-  bestStat,
-  weakestStat,
-  buildPairProfile,
-  buildPracticePriorities,
-  buildFieldContext,
-  reviewPriorityAdvice,
   buildPairImprovementReport,
 };

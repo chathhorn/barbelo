@@ -210,13 +210,8 @@ function resetEnemy(enemy) {
 
 export {
   ARCHETYPE_STATS,
-  enemyStatsFor,
   createEnemyFromMarker,
-  portalMidpoint,
   findSpacePath,
-  nextPathWaypoint,
-  normalizedDirection,
-  bossPhase,
   computeEnemyIntent,
   resetEnemy,
 };

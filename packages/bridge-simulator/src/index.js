@@ -1,6 +1,6 @@
 import { GENERIC_SCENARIO } from "./content.js";
 import { coachEntityFor } from "./core/coach.js";
-import { FULL_LEVEL, SLICE_LEVEL } from "./core/level.js";
+import { getAuthoredLevel } from "./core/level.js";
 import { assertValidLevel } from "./core/validateLevel.js";
 import {
   FIXED_DT,
@@ -12,6 +12,7 @@ import {
   stepSimulation,
 } from "./core/simulation.js";
 import { createAudioController } from "./runtime/audio.js";
+import { fpsCapability } from "./runtime/capability.js";
 import {
   createGameShell,
   renderChalkboard,
@@ -27,60 +28,10 @@ import {
 import { createInputController } from "./runtime/input.js";
 import { createSlowFrameMonitor } from "./runtime/performance.js";
 import { createSimulatorRenderer } from "./runtime/renderer.js";
+import { loadSettings, mouseSensitivity, saveSettings } from "./runtime/settings.js";
 import { disposeSpriteTextures, preloadSpriteTextures } from "./runtime/sprites.js";
 
-const SETTINGS_KEY = "bridgeSimulator.settings.v1";
 const MAX_FRAME_DELTA = 0.25;
-
-function safeLocalStorage() {
-  try {
-    return globalThis.localStorage || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function defaultSettings() {
-  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return {
-    inputMode: "mouse",
-    fov: 72,
-    sensitivity: 5,
-    volume: 45,
-    reducedEffects: reduced,
-    highContrast: false,
-    muted: false,
-  };
-}
-
-function loadSettings() {
-  const defaults = defaultSettings();
-  try {
-    const storage = safeLocalStorage();
-    const parsed = storage ? JSON.parse(storage.getItem(SETTINGS_KEY) || "null") : null;
-    if (!parsed || typeof parsed !== "object") return defaults;
-    return {
-      inputMode: parsed.inputMode === "keyboard" ? "keyboard" : "mouse",
-      fov: Math.max(55, Math.min(90, Number(parsed.fov) || defaults.fov)),
-      sensitivity: Math.max(1, Math.min(10, Number(parsed.sensitivity) || defaults.sensitivity)),
-      volume: Math.max(0, Math.min(100, Number(parsed.volume) || 0)),
-      reducedEffects: Boolean(parsed.reducedEffects),
-      highContrast: Boolean(parsed.highContrast),
-      muted: Boolean(parsed.muted),
-    };
-  } catch (error) {
-    return defaults;
-  }
-}
-
-function saveSettings(settings) {
-  try {
-    const storage = safeLocalStorage();
-    if (storage) storage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch (error) {
-    // Preferences are optional and contain no game-progress state.
-  }
-}
 
 function assetResolver(base, version) {
   const root = new URL(base, document.baseURI);
@@ -89,25 +40,6 @@ function assetResolver(base, version) {
     if (version) url.searchParams.set("v", version);
     return url.href;
   };
-}
-
-function fpsCapability() {
-  if (window.innerWidth < 960 || window.innerHeight < 540) {
-    return { available: false, reason: "The post-zoom viewport is below the 960 × 540 CSS-pixel FPS minimum." };
-  }
-  if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches && navigator.maxTouchPoints > 0) {
-    return { available: false, reason: "Touch-first controls are not supported in this release." };
-  }
-  try {
-    const probe = document.createElement("canvas");
-    const gl = probe.getContext("webgl2") || probe.getContext("webgl");
-    if (!gl) return { available: false, reason: "WebGL is unavailable in this browser." };
-    const lose = gl.getExtension("WEBGL_lose_context");
-    if (lose) lose.loseContext();
-  } catch (error) {
-    return { available: false, reason: "WebGL could not be initialized." };
-  }
-  return { available: true, reason: "" };
 }
 
 function focusableWithin(container) {
@@ -146,6 +78,8 @@ class SimulatorApp {
     this.settingsReturnKind = "";
     this.launchError = "";
     this.timers = new Set();
+    this.captionTimer = 0;
+    this.damageTimer = 0;
     this.capabilityTimer = 0;
     this.slowFrameMonitor = createSlowFrameMonitor();
     this.boundClick = (event) => this.handleClick(event);
@@ -287,7 +221,7 @@ class SimulatorApp {
   }
 
   mouseSensitivity() {
-    return 0.00075 + this.settings.sensitivity * 0.00045;
+    return mouseSensitivity(this.settings);
   }
 
   handleClick(event) {
@@ -691,11 +625,9 @@ class SimulatorApp {
     this.elements.caption.textContent = text;
     this.elements.caption.hidden = false;
     this.elements.live.textContent = text;
-    const timer = window.setTimeout(() => {
-      this.timers.delete(timer);
+    this.replaceTimer("captionTimer", () => {
       if (this.elements && this.elements.caption) this.elements.caption.hidden = true;
     }, duration);
-    this.timers.add(timer);
   }
 
   flashDamage() {
@@ -703,10 +635,23 @@ class SimulatorApp {
     this.elements.damage.classList.remove("active");
     void this.elements.damage.offsetWidth;
     this.elements.damage.classList.add("active");
-    const timer = window.setTimeout(() => {
-      this.timers.delete(timer);
+    this.replaceTimer("damageTimer", () => {
       this.elements?.damage.classList.remove("active");
     }, 250);
+  }
+
+  replaceTimer(property, callback, duration) {
+    const previous = this[property];
+    if (previous) {
+      window.clearTimeout(previous);
+      this.timers.delete(previous);
+    }
+    const timer = window.setTimeout(() => {
+      this.timers.delete(timer);
+      if (this[property] === timer) this[property] = 0;
+      callback();
+    }, duration);
+    this[property] = timer;
     this.timers.add(timer);
   }
 
@@ -724,6 +669,8 @@ class SimulatorApp {
     this.raf = 0;
     this.timers.forEach((timer) => window.clearTimeout(timer));
     this.timers.clear();
+    this.captionTimer = 0;
+    this.damageTimer = 0;
     if (this.elements && this.elements.canvas) this.elements.canvas.removeEventListener("webglcontextlost", this.boundContextLost);
     this.input?.destroy();
     this.input = null;
@@ -766,7 +713,7 @@ async function launch(host, options = {}) {
   }
   if (!options.assetBaseUrl) throw new Error("Simulator assetBaseUrl is required.");
   const scenario = GENERIC_SCENARIO;
-  const level = options.levelId === "slice" ? SLICE_LEVEL : FULL_LEVEL;
+  const level = getAuthoredLevel(options.levelId || "full");
   assertValidLevel(level);
   const assetUrl = assetResolver(options.assetBaseUrl, options.version || "");
   host.classList.add("bridge-simulator-root");

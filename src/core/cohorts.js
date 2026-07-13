@@ -298,8 +298,6 @@ function buildBiddingScorecard(results, views) {
 }
 
 export {
-  median,
-  sameContractCohort,
   buildDeclaredScorecard,
   buildDefendedScorecard,
   buildOvertrickMeter,

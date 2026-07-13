@@ -1,21 +1,13 @@
-"use strict";
+import http from "node:http";
+import net from "node:net";
+import { spawn, spawnSync } from "node:child_process";
+import {
+  REPO,
+  closeServer,
+  createCheckReporter,
+  serveStatic,
+} from "./simulator-harness.js";
 
-const fs = require("node:fs");
-const http = require("node:http");
-const net = require("node:net");
-const path = require("node:path");
-const { spawn, spawnSync } = require("node:child_process");
-
-const REPO = path.resolve(__dirname, "..", "..");
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".json": "application/json",
-};
 const ARROW_RIGHT = "\uE014";
 
 class WebDriverError extends Error {
@@ -28,22 +20,6 @@ class WebDriverError extends Error {
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function serveSource() {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((request, response) => {
-      const pathname = decodeURIComponent(new URL(request.url, "http://local").pathname);
-      const file = path.join(REPO, pathname === "/" ? "index.html" : pathname);
-      if (!file.startsWith(REPO) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-        response.writeHead(404); response.end("not found"); return;
-      }
-      response.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-      response.end(fs.readFileSync(file));
-    });
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve(server));
-  });
 }
 
 function reservePort() {
@@ -176,11 +152,7 @@ async function sendKey(client, value, duration) {
   }
 }
 
-const failures = [];
-function check(ok, label) {
-  console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
-  if (!ok) failures.push(label);
-}
+const { check, failures } = createCheckReporter();
 
 async function run() {
   if (process.env.SIMULATOR_REAL_SAFARI !== "1") {
@@ -210,7 +182,7 @@ async function run() {
         try { await client.close(); } catch (error) { console.warn(`WARN: Safari session cleanup failed: ${error.message}`); }
       }
       await stopDriver(driver);
-      if (appServer) await new Promise((resolve) => appServer.close(resolve));
+      await closeServer(appServer);
     })();
     return cleanupPromise;
   };
@@ -220,7 +192,7 @@ async function run() {
   process.once("SIGINT", onSigint);
   process.once("SIGTERM", onSigterm);
   try {
-    appServer = await serveSource();
+    appServer = await serveStatic(REPO);
     const appPort = appServer.address().port;
     const driverPort = await reservePort();
     driver = spawn("safaridriver", ["--port", String(driverPort)], { stdio: ["ignore", "pipe", "pipe"] });

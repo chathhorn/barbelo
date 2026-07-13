@@ -2,11 +2,13 @@
   "compilerOptions": {
     "checkJs": true,
     "strict": false,
-    "target": "esnext",
+    "target": "es2023",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext", "dom", "dom.iterable"],
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noEmit": true
   },
-  "include": ["src/core", "src/parsers"]
+  "include": ["src"]
 }

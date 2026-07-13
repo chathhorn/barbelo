@@ -16,7 +16,7 @@ const CONTRACT_TOKEN_RE = /([1-7])\s?(NT|[SHDCN])\s?(XX|X)?(?![A-Za-z])/g;
 
 function contractGlyphHtml(text) {
   const escaped = escapeHtml(String(text == null ? "" : text));
-  return escaped.replace(CONTRACT_TOKEN_RE, (match, level, strain, doubled) => {
+  return escaped.replace(CONTRACT_TOKEN_RE, (_match, level, strain, doubled) => {
     const suit = strain === "NT" || strain === "N" ? null : SUITS.find((entry) => entry.key === strain);
     const strainHtml = suit ? `<span class="suit-glyph ${suit.className}">${suit.html}</span>` : "NT";
     const doubledHtml = doubled ? `<span class="dbl">${doubled === "XX" ? "&times;&times;" : "&times;"}</span>` : "";
@@ -97,7 +97,6 @@ function numericPairSort(a, b) {
 export {
   numericPairSort,
   escapeHtml,
-  CONTRACT_TOKEN_RE,
   contractGlyphHtml,
   formatSigned,
   formatMp,

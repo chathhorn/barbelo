@@ -324,7 +324,6 @@ function buildScoringCards(results, report, maxCards) {
       })))
       .sort((a, b) => Number(String(a.label).replace("+", "")) - Number(String(b.label).replace("+", "")));
     const id = `scoring-${row.index}`;
-    const doubledText = row.parsedContract.doubled === "XX" ? " redoubled" : row.parsedContract.doubled === "X" ? " doubled" : "";
     const madeBy = row.tricks != null ? row.tricks - (Number(row.parsedContract.level) + 6) : null;
     const outcome = madeBy == null ? "" : madeBy >= 0 ? `making ${row.tricks}` : `down ${-madeBy}`;
     return {
@@ -334,7 +333,7 @@ function buildScoringCards(results, report, maxCards) {
       boardNo: row.boardNo,
       maskBoard: false,
       prompt: {
-        lead: `${rowContractText(row)}${doubledText ? "" : ""} - ${outcome}, ${candidate.vulnerable ? "vulnerable" : "not vulnerable"}.`,
+        lead: `${rowContractText(row)} - ${outcome}, ${candidate.vulnerable ? "vulnerable" : "not vulnerable"}.`,
         question: "The declaring side scores..."
       },
       options: options.map((option) => ({ key: option.key, label: option.label })),
@@ -781,9 +780,6 @@ function buildPairExercises(results, report) {
 
 export {
   buildPairExercises,
-  buildOvertrickCard,
-  buildLadderCard,
-  buildScoringCards,
   buildBidItAgainCard,
   buildTrickTargetCard,
   buildReadRoomCard,
@@ -791,5 +787,4 @@ export {
   buildPriceTheSaveCard,
   overtrickBandFor,
   ladderBandFor,
-  coachLine,
 };

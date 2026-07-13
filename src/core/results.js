@@ -2,7 +2,7 @@
 // pair identity, matchpointing, standings, and the session analysis.
 
 import { SEATS, PAIRS, seatName } from "./constants.js";
-import { pickField, safeNumber, plural, average, sum, uniqueSorted, countBy, numericPairSort } from "./format.js";
+import { pickField, safeNumber, plural, average, uniqueSorted, countBy, numericPairSort } from "./format.js";
 import { normalizePlayedContractText, normalizeResultValue } from "./contracts.js";
 import { scoreDuplicateContract } from "./scoring.js";
 import { fallbackResultBoard, getDoubleDummyTricks, emptyAnalysis } from "./boards.js";
@@ -47,11 +47,10 @@ function boardMapByNumber(analysis) {
  *
  * @param {Object<string, *>} row One raw receivedData row.
  * @param {number} index Position in the raw receivedData array.
- * @param {import("./types.js").PbnAnalysis} analysis
  * @param {Map<string, import("./types.js").Board>} boardMap PBN boards keyed by boardNo.
  * @returns {import("./types.js").ResultRow|null}
  */
-function normalizeResultRow(row, index, analysis, boardMap) {
+function normalizeResultRow(row, index, boardMap) {
   const boardNo = safeNumber(pickField(row, ["Board", "board", "Board Number", "board_number"]));
   if (boardNo == null) return null;
   const pairNS = safeNumber(pickField(row, ["PairNS", "Pair NS", "NSPair", "NS Pair", "pair_ns"]));
@@ -462,7 +461,7 @@ function buildResultsAnalysis(rawResults, analysis) {
   }
   const playerNumbers = normalizePlayerNumbers(rawResults.playerNumbers || []);
   const normalizedRows = (rawResults.receivedData || [])
-    .map((row, index) => normalizeResultRow(row, index, analysis, boardMap))
+    .map((row, index) => normalizeResultRow(row, index, boardMap))
     .filter(Boolean);
   const skippedNoBoard = (rawResults.receivedData || []).length - normalizedRows.length;
   if (skippedNoBoard) {
@@ -590,30 +589,6 @@ function buildResultsAnalysis(rawResults, analysis) {
 }
 
 export {
-  normalizeResultSide,
-  parseScoreAdjustment,
-  boardMapByNumber,
-  normalizeResultRow,
-  normalizePlayerNumbers,
-  playerHasIdentity,
-  playerPlaceholder,
-  playerDisplay,
-  pairRosterKey,
-  ensurePairRoster,
-  rosterTableKey,
-  rosterPairId,
-  buildPairRosters,
-  summarizePairRosters,
-  pairRosterLabel,
-  pairSeatPlayer,
-  pairRosterKnownCount,
-  participantKeyFor,
-  participantLabelFor,
-  attachPlayerNames,
-  addPairStanding,
-  applyMatchpoints,
-  summarizeResultBoard,
-  detectSidePairCollision,
   defaultReportPair,
   sideScore,
   sideMatchpoints,

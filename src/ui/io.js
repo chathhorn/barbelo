@@ -4,6 +4,7 @@ import { parseBwsBuffer } from "../parsers/bws.js";
 import { plural } from "../core/format.js";
 import { parseResultsCsv } from "../parsers/csv.js";
 import {
+  BOARD_FILTER_CONTROLS,
   closeBoardOverlay,
   renderBoards,
   revealBoardInExplorer,
@@ -20,14 +21,15 @@ import {
   renderCsvPreview,
 } from "./csvExport.js";
 import { applyActiveView, renderTaskNav } from "./dashboard.js";
-import { showToast } from "./dom.js";
+import { showToast, trapFocusWithin } from "./dom.js";
 import { renderPairImprovementReport } from "./reportView.js";
 import { handleQuizClick, handleQuizKeydown } from "./quizView.js";
 import { handleBridgeSimulatorClick } from "./simulatorView.js";
 import { STATE } from "./state.js";
 
+/** @param {ArrayBuffer | Uint8Array} buffer */
 function decodeTextBuffer(buffer) {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer || 0);
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch (error) {
@@ -35,11 +37,27 @@ function decodeTextBuffer(buffer) {
   }
 }
 
+function loadedArrayBuffer(reader) {
+  if (!(reader.result instanceof ArrayBuffer)) {
+    throw new Error("The browser did not return binary file data.");
+  }
+  return reader.result;
+}
+
+function closestEventTarget(event, selector) {
+  return event.target instanceof Element ? event.target.closest(selector) : null;
+}
+
 function readFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    setCurrentPbn(decodeTextBuffer(reader.result), file.name);
+    try {
+      setCurrentPbn(decodeTextBuffer(loadedArrayBuffer(reader)), file.name);
+    } catch (error) {
+      const message = error && error.message ? error.message : "The hand record could not be parsed.";
+      showToast(`Could not import PBN: ${message}`, "error");
+    }
   };
   reader.onerror = () => {
     showToast("Could not read the selected file.", "error");
@@ -54,11 +72,12 @@ function readResultsFile(file) {
   reader.onload = () => {
     try {
       const raw = lowerName.endsWith(".bws")
-        ? parseBwsBuffer(reader.result, file.name)
-        : parseResultsCsv(decodeTextBuffer(reader.result), file.name, file.size);
+        ? parseBwsBuffer(loadedArrayBuffer(reader), file.name)
+        : parseResultsCsv(decodeTextBuffer(loadedArrayBuffer(reader)), file.name, file.size);
       setCurrentResults(raw);
     } catch (error) {
-      showToast(`Could not import results: ${error.message}`, "error");
+      const message = error && error.message ? error.message : "The results file could not be parsed.";
+      showToast(`Could not import results: ${message}`, "error");
     }
   };
   reader.onerror = () => {
@@ -99,22 +118,20 @@ function readDroppedFiles(files) {
   }
 }
 
-function setupEvents() {
-  const fileInputs = [document.getElementById("pbnFile")];
-  fileInputs.forEach((input) => {
-    input.addEventListener("change", (event) => {
-      readFile(event.target.files[0]);
-      event.target.value = "";
-    });
+/** @param {(file?: File) => void} reader */
+function bindFileInput(id, reader) {
+  const element = /** @type {HTMLInputElement | null} */ (document.getElementById(id));
+  if (!element) throw new Error(`Missing file input #${id}.`);
+  element.addEventListener("change", (event) => {
+    const input = /** @type {HTMLInputElement} */ (event.currentTarget);
+    reader(input.files?.[0]);
+    input.value = "";
   });
+}
 
-  const resultInputs = [document.getElementById("resultsFile")];
-  resultInputs.forEach((input) => {
-    input.addEventListener("change", (event) => {
-      readResultsFile(event.target.files[0]);
-      event.target.value = "";
-    });
-  });
+function setupEvents() {
+  bindFileInput("pbnFile", readFile);
+  bindFileInput("resultsFile", readResultsFile);
 
   const dropZone = document.getElementById("dropZone");
   ["dragenter", "dragover"].forEach((eventName) => {
@@ -135,10 +152,11 @@ function setupEvents() {
 
   document.getElementById("clearAppButton").addEventListener("click", clearLoadedData);
   document.querySelector(".brand-simulator-launch[data-simulator-open]").addEventListener("click", handleBridgeSimulatorClick);
-  document.getElementById("boardOverlayClose").addEventListener("click", () => closeBoardOverlay());
-  document.getElementById("boardOverlay").addEventListener("click", (event) => {
-    if (event.target.closest("[data-board-overlay-close]")) closeBoardOverlay();
+  const boardOverlay = document.getElementById("boardOverlay");
+  boardOverlay.addEventListener("click", (event) => {
+    if (closestEventTarget(event, "[data-board-overlay-close]")) closeBoardOverlay();
   });
+  boardOverlay.addEventListener("keydown", (event) => trapFocusWithin(event, boardOverlay));
   document.getElementById("boardOverlayOpenExplorer").addEventListener("click", () => {
     const boardNo = document.getElementById("boardOverlay").getAttribute("data-board-no");
     closeBoardOverlay({ restoreFocus: false });
@@ -156,61 +174,50 @@ function setupEvents() {
     }
   });
   document.getElementById("taskNav").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-task-view]");
+    const button = /** @type {HTMLButtonElement | null} */ (closestEventTarget(event, "[data-task-view]"));
     if (!button || button.disabled) return;
     STATE.activeView = button.getAttribute("data-task-view");
     renderTaskNav(STATE.analysis, STATE.results);
     applyActiveView();
   });
 
-  document.getElementById("boardSearch").addEventListener("input", (event) => {
-    STATE.filters.search = event.target.value;
-    renderBoards();
-  });
-  document.getElementById("sideFilter").addEventListener("change", (event) => {
-    STATE.filters.side = event.target.value;
-    renderBoards();
-  });
-  document.getElementById("classFilter").addEventListener("change", (event) => {
-    STATE.filters.className = event.target.value;
-    renderBoards();
-  });
-  document.getElementById("vulFilter").addEventListener("change", (event) => {
-    STATE.filters.vulnerability = event.target.value;
-    renderBoards();
-  });
-  document.getElementById("playedFilter").addEventListener("change", (event) => {
-    STATE.filters.played = event.target.value;
-    renderBoards();
+  BOARD_FILTER_CONTROLS.forEach(({ id, eventName, key }) => {
+    document.getElementById(id).addEventListener(eventName, (event) => {
+      const control = /** @type {HTMLInputElement | HTMLSelectElement} */ (event.currentTarget);
+      STATE.filters[key] = control.value;
+      renderBoards();
+    });
   });
   document.getElementById("scoreOutlierToggle").addEventListener("change", (event) => {
-    STATE.scoreOutliersOnly = event.target.checked;
+    STATE.scoreOutliersOnly = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
     if (STATE.analysis) renderCharts(STATE.analysis, STATE.results);
   });
   document.getElementById("boardGrid").addEventListener("click", (event) => {
-    const trigger = event.target.closest("[data-board-select]");
+    const trigger = closestEventTarget(event, "[data-board-select]");
     if (!trigger) return;
     event.preventDefault();
     selectBoardInExplorer(trigger.getAttribute("data-board-select"));
   });
   document.getElementById("reportPairSelect").addEventListener("change", (event) => {
-    STATE.reportPair = event.target.value;
+    STATE.reportPair = /** @type {HTMLSelectElement} */ (event.currentTarget).value;
     renderPairImprovementReport(STATE.results);
   });
   document.getElementById("pairReportBody").addEventListener("click", (event) => {
     handleQuizClick(event);
   });
-  document.getElementById("quizOverlay").addEventListener("click", (event) => {
+  const quizOverlay = document.getElementById("quizOverlay");
+  quizOverlay.addEventListener("click", (event) => {
     if (handleQuizClick(event)) return;
     // Board jumps inside the quiz reveal open the board preview on top.
-    const jump = event.target.closest("[data-board-jump]");
+    const jump = closestEventTarget(event, "[data-board-jump]");
     if (jump) {
       event.preventDefault();
       showBoardOverlay(jump.getAttribute("data-board-jump"));
     }
   });
+  quizOverlay.addEventListener("keydown", (event) => trapFocusWithin(event, quizOverlay));
   document.getElementById("dashboard").addEventListener("click", (event) => {
-    const trigger = event.target.closest("[data-board-jump]");
+    const trigger = closestEventTarget(event, "[data-board-jump]");
     if (!trigger) return;
     event.preventDefault();
     const boardNo = trigger.getAttribute("data-board-jump");
@@ -219,15 +226,16 @@ function setupEvents() {
   });
 
   document.getElementById("rowMode").addEventListener("change", (event) => {
-    STATE.rowMode = event.target.value;
+    STATE.rowMode = /** @type {HTMLSelectElement} */ (event.currentTarget).value;
     STATE.selectedColumns = new Set(defaultColumnKeys(STATE.rowMode, STATE.analysis));
     renderCsvControls();
   });
 
   document.getElementById("columnList").addEventListener("change", (event) => {
-    const key = event.target.getAttribute("data-column-key");
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    const key = input?.getAttribute("data-column-key");
     if (!key) return;
-    if (event.target.checked) STATE.selectedColumns.add(key);
+    if (input.checked) STATE.selectedColumns.add(key);
     else STATE.selectedColumns.delete(key);
     renderCsvPreview();
   });

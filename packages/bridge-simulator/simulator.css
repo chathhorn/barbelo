@@ -222,12 +222,6 @@
   margin-top: 20px;
 }
 
-.simulator-actions .primary {
-  border-color: #e1b43f;
-  background: #695122;
-  color: #fff5d6;
-}
-
 .simulator-clipboard {
   border: 2px solid #746441;
   padding: 14px 16px;

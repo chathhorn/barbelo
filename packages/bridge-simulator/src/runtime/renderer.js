@@ -167,7 +167,7 @@ function createSimulatorRenderer({ canvas, level, textures, palette = null, fov 
     if (loseContext && typeof renderer.forceContextLoss === "function") renderer.forceContextLoss();
   }
 
-  return { renderer, scene, camera, sync, render, setFov, setReducedEffects, resourceInfo, destroy };
+  return { renderer, scene, camera, render, setFov, setReducedEffects, resourceInfo, destroy };
 }
 
-export { createSimulatorRenderer, snapshotEntities, playerView };
+export { createSimulatorRenderer, snapshotEntities };

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import fixture from "./helpers/bws-fixture.js";
+import * as fixture from "./helpers/bws-fixture.js";
 import * as parser from "../src/parsers/bws.js";
 
 const SAMPLE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "samples", "01.BWS");

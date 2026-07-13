@@ -9,11 +9,10 @@ import {
   setTermElementText,
   term,
   termDefinition,
-  th,
   tooltipAttrs,
 } from "./terms.js";
 
-function renderResultsCharts(analysis, results) {
+function renderResultsCharts(results) {
   const section = document.getElementById("resultsCharts");
   if (!results) {
     section.classList.add("hidden");
@@ -24,14 +23,22 @@ function renderResultsCharts(analysis, results) {
   annotateTermTooltips(section);
 }
 
-function resultScoreOutlierSummaries(summaries) {
-  const flagged = summaries.filter((summary) => Math.abs(summary.averageVsPar || 0) >= 200 || (summary.scoreSpread || 0) >= 800);
+function chooseScoreOutliers(items, isFlagged, severity) {
+  const flagged = items.filter(isFlagged);
   const chosen = flagged.length
     ? flagged
-    : [...summaries]
-      .sort((a, b) => Math.max(Math.abs(b.averageVsPar || 0), (b.scoreSpread || 0) / 4) - Math.max(Math.abs(a.averageVsPar || 0), (a.scoreSpread || 0) / 4))
-      .slice(0, Math.min(8, summaries.length));
+    : [...items]
+      .sort((a, b) => severity(b) - severity(a))
+      .slice(0, Math.min(8, items.length));
   return [...chosen].sort((a, b) => a.boardNo - b.boardNo);
+}
+
+function resultScoreOutlierSummaries(summaries) {
+  return chooseScoreOutliers(
+    summaries,
+    (summary) => Math.abs(summary.averageVsPar || 0) >= 200 || (summary.scoreSpread || 0) >= 800,
+    (summary) => Math.max(Math.abs(summary.averageVsPar || 0), (summary.scoreSpread || 0) / 4)
+  );
 }
 
 function renderResultScoreChart(results, outliersOnly = false) {
@@ -168,14 +175,11 @@ function renderCharts(analysis, results) {
 }
 
 function scoreOutlierBoards(boards) {
-  const flagged = boards
-    .filter((board) => Math.abs(board.optimum.nsPerspective || 0) >= 500 || board.parContracts.some((contract) => contract.level >= 6));
-  const chosen = flagged.length
-    ? flagged
-    : [...boards]
-      .sort((a, b) => Math.abs(b.optimum.nsPerspective || 0) - Math.abs(a.optimum.nsPerspective || 0))
-      .slice(0, Math.min(8, boards.length));
-  return [...chosen].sort((a, b) => a.boardNo - b.boardNo);
+  return chooseScoreOutliers(
+    boards,
+    (board) => Math.abs(board.optimum.nsPerspective || 0) >= 500 || board.parContracts.some((contract) => contract.level >= 6),
+    (board) => Math.abs(board.optimum.nsPerspective || 0)
+  );
 }
 
 function renderScoreChart(boards, outliersOnly = false) {

@@ -89,3 +89,13 @@ test("the public launch boundary requires an explicit asset base", async () => {
     /assetBaseUrl is required/
   );
 });
+
+test("the public launch boundary rejects unknown level manifests", async () => {
+  await assert.rejects(
+    launch({ replaceChildren() {}, classList: {} }, {
+      assetBaseUrl: "/assets/",
+      levelId: "unknown",
+    }),
+    /Unknown Bridge Simulator level manifest/
+  );
+});

@@ -1,63 +1,39 @@
-"use strict";
-
-const path = require("node:path");
-const fs = require("node:fs");
-const http = require("node:http");
-
-const REPO = path.resolve(__dirname, "..", "..");
-if (!fs.existsSync(path.join(REPO, "samples", "20260627.BWS"))) {
-  console.log("SKIP: samples/ not present");
-  process.exit(0);
-}
-let chromium;
-try {
-  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
-} catch (error) {
-  console.log("SKIP: playwright not installed (npm install playwright)");
-  process.exit(0);
-}
+import { Buffer } from "node:buffer";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
+  REPO,
+  capturePageDiagnostics,
+  closeServer,
+  createCheckReporter,
+  forceRandomChoices,
+  loadPlaywright,
+  originFor,
+  serveStatic,
+} from "./simulator-harness.js";
+import {
+  APP_BWS_BYTES,
+  APP_EXPECTED_PAIR_COUNT,
+  APP_PBN_TEXT,
+  appBwsInput,
+  appPbnInput,
+} from "../fixtures/app-session.mjs";
+const playwright = loadPlaywright();
+if (!playwright) process.exit(0);
 const SERVE_ROOT = process.env.SERVE_ROOT || REPO;
 
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg" };
-
-function serve() {
-  return new Promise((resolve) => {
-    const server = http.createServer((req, res) => {
-      const urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname);
-      let file = path.join(SERVE_ROOT, urlPath === "/" ? "index.html" : urlPath);
-      if (!file.startsWith(SERVE_ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-        res.writeHead(404); res.end("not found"); return;
-      }
-      res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-      res.end(fs.readFileSync(file));
-    });
-    server.listen(0, "127.0.0.1", () => resolve(server));
-  });
-}
-
-const problems = [];
-function check(condition, label) {
-  console.log(`${condition ? "PASS" : "FAIL"}: ${label}`);
-  if (!condition) problems.push(label);
-}
+const { check, failures: problems } = createCheckReporter();
 
 (async () => {
-  const server = await serve();
-  const port = server.address().port;
-  const browser = await chromium.launch();
+  const server = await serveStatic(SERVE_ROOT);
+  const browser = await playwright.browserType.launch(playwright.launchOptions);
   const page = await browser.newPage();
-  const consoleErrors = [];
-  const requests = [];
-  page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
-  page.on("pageerror", (error) => consoleErrors.push(`pageerror: ${error.message}`));
-  page.on("request", (request) => requests.push(request.url()));
+  const { errors: consoleErrors, requests } = capturePageDiagnostics(page);
 
   // 1. Load
-  await page.goto(`http://127.0.0.1:${port}/`);
-  await page.evaluate(async () => {
-    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
-    setBrandMarkVariant(true);
-  });
+  await forceRandomChoices(page, [0]);
+  await page.goto(originFor(server));
   await page.waitForTimeout(300);
   check(consoleErrors.length === 0, `page loads without console errors (${consoleErrors.join("; ")})`);
 
@@ -97,7 +73,7 @@ function check(condition, label) {
   );
 
   // 2. Load BWS only (results-only mode)
-  await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
+  await page.setInputFiles("#resultsFile", appBwsInput());
   await page.waitForTimeout(600);
   const metricVisible = await page.evaluate(() => {
     const grid = document.getElementById("metricGrid");
@@ -111,10 +87,13 @@ function check(condition, label) {
   await page.click('[data-task-view="results"]');
   await page.waitForTimeout(200);
   const standingsRows = await page.evaluate(() => document.querySelectorAll("#pairStandings .standings-table tbody tr").length);
-  check(standingsRows === 17, `pair standings shows all pairs (got ${standingsRows}, want 17)`);
+  check(
+    standingsRows === APP_EXPECTED_PAIR_COUNT,
+    `pair standings shows all pairs (got ${standingsRows}, want ${APP_EXPECTED_PAIR_COUNT})`,
+  );
 
   // 3. Add the PBN
-  await page.setInputFiles("#pbnFile", path.join(REPO, "samples", "20260627.pbn"));
+  await page.setInputFiles("#pbnFile", appPbnInput());
   await page.waitForTimeout(600);
   const overviewOk = await page.evaluate(() => document.getElementById("metricGrid").children.length > 0);
   check(overviewOk, "overview metrics render with PBN loaded");
@@ -151,6 +130,14 @@ function check(condition, label) {
     card.querySelector("[data-quiz-option]").click();
     const revealed = !overlay.querySelector(".quiz-reveal").classList.contains("hidden");
     const earned = overlay.querySelectorAll(".biscuit.earned").length;
+    const boardJump = overlay.querySelector(".quiz-reveal [data-board-jump]");
+    if (boardJump) boardJump.click();
+    const boardOverlay = document.getElementById("boardOverlay");
+    const boardStacked = Boolean(boardJump) && !boardOverlay.classList.contains("hidden") &&
+      overlay.inert && !boardOverlay.inert && document.querySelector(".app-shell").inert;
+    if (boardStacked) document.getElementById("boardOverlayClose").click();
+    const quizRemainsModal = boardStacked && boardOverlay.classList.contains("hidden") &&
+      !overlay.classList.contains("hidden") && !overlay.inert && document.querySelector(".app-shell").inert;
     const label1 = document.getElementById("quizOverlayCount").textContent;
     document.getElementById("quizNextButton").click();
     const label2 = document.getElementById("quizOverlayCount").textContent;
@@ -160,9 +147,10 @@ function check(condition, label) {
     const backAnswered = overlay.querySelector("[data-quiz-card]").classList.contains("answered");
     document.getElementById("quizOverlayClose").click();
     const closed = overlay.classList.contains("hidden");
+    const appRestored = !document.querySelector(".app-shell").inert;
     return {
-      ok: revealed && earned === 1 && label1 !== label2 && secondUnanswered && backAnswered && closed,
-      why: `revealed=${revealed} earned=${earned} nav=${label1}->${label2} second=${secondUnanswered} back=${backAnswered} closed=${closed}`
+      ok: revealed && earned === 1 && quizRemainsModal && label1 !== label2 && secondUnanswered && backAnswered && closed && appRestored,
+      why: `revealed=${revealed} earned=${earned} stacked=${quizRemainsModal} nav=${label1}->${label2} second=${secondUnanswered} back=${backAnswered} closed=${closed} restored=${appRestored}`
     };
   });
   check(quizCheck.ok, `quiz overlay: answer, navigate, persist, close (${quizCheck.why})`);
@@ -186,16 +174,13 @@ function check(condition, label) {
     `CSV preview clean (content=${csvCheck.hasContent} undefined=${csvCheck.undef} NaN=${csvCheck.nan})`);
 
   // 6. Encoding: UTF-8 CSV without BOM
-  const utf8Csv = path.join(require("node:os").tmpdir(), "barbelo-utf8-results.csv");
+  const utf8Csv = path.join(os.tmpdir(), "barbelo-utf8-results.csv");
   fs.writeFileSync(utf8Csv, "Board,PairNS,PairEW,NS/EW,Contract,Result,Remarks\n1,1,2,N,3 NT,=,José & Müller\n1,3,4,N,3 NT,-1,\n");
   await page.setInputFiles("#resultsFile", utf8Csv);
   await page.waitForTimeout(500);
-  const encoding = await page.evaluate(() => ({
-    good: document.body.innerHTML.includes("José & Müller") || document.body.innerHTML.includes("José &amp; Müller"),
-    bad: document.body.innerHTML.includes("JosÃ©")
-  }));
-  check(encoding.good === false || encoding.good, "(info) remark text present check ran");
-  check(!encoding.bad, "UTF-8 text does not mojibake");
+  const hasMojibake = await page.evaluate(() => document.body.innerHTML.includes("JosÃ©"));
+  fs.unlinkSync(utf8Csv);
+  check(!hasMojibake, "UTF-8 text does not mojibake");
 
   // 7. Multi-file drop
   await page.evaluate(() => window.PBNAnalyzer && document.getElementById("clearAppButton").click());
@@ -211,10 +196,7 @@ function check(condition, label) {
       pbn: document.getElementById("pbnStatusCard").className.includes("loaded"),
       results: document.getElementById("resultsStatusCard").className.includes("loaded")
     };
-  }, [
-    Array.from(fs.readFileSync(path.join(REPO, "samples", "01.pbn"))),
-    Array.from(fs.readFileSync(path.join(REPO, "samples", "01.BWS")))
-  ]);
+  }, [Array.from(Buffer.from(APP_PBN_TEXT, "utf8")), Array.from(APP_BWS_BYTES)]);
   check(dropOk.pbn && dropOk.results, `dropping PBN+BWS together loads both (pbn=${dropOk.pbn} results=${dropOk.results})`);
 
   // 8. Clear
@@ -225,7 +207,7 @@ function check(condition, label) {
   check(consoleErrors.length === 0, `no console errors across entire run (${consoleErrors.join("; ").slice(0, 300)})`);
 
   await browser.close();
-  server.close();
+  await closeServer(server);
   console.log(problems.length ? `\nSMOKE FAILED: ${problems.length} problems` : "\nSMOKE PASSED");
   process.exit(problems.length ? 1 : 0);
 })().catch((error) => { console.error("SMOKE CRASHED:", error); process.exit(2); });

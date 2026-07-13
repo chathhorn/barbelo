@@ -15,12 +15,10 @@ import {
   spriteKeyForEntity,
   spriteSizeForEntity,
 } from "../src/runtime/sprites.js";
+import { createTestScenario } from "./fixtures.mjs";
 
-const SCENARIO = Object.freeze({
+const SCENARIO = createTestScenario({
   seed: "renderer-exit-test",
-  hand: null,
-  wings: [{ slot: "A" }],
-  boss: { title: "The Bottom Board" },
 });
 
 function worldBounds(mesh) {

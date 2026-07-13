@@ -1,0 +1,25 @@
+const SIMULATOR_ASSET_PATHS = Object.freeze({
+  coachIdle: "coach/coach-idle-talk.svg",
+  coachPoint: "coach/coach-point.svg",
+  coachVictory: "coach/coach-victory.svg",
+  kibitzer: "enemies/kibitzer.svg",
+  overtrick: "enemies/overtrick-imp.svg",
+  sentinel: "enemies/red-x-sentinel.svg",
+  boss: "enemies/bottom-board.svg",
+  biscuit: "pickups/biscuit.svg",
+  coffee: "pickups/coffee.svg",
+  reviewSlip: "pickups/review-slip.svg",
+  enemyProjectile: "cards/enemy-score-slip.svg",
+  cardBack: "cards/card-back.svg",
+  feltWall: "textures/felt-wall.svg",
+  auctionWall: "textures/auction-wall.svg",
+  trickworksWall: "textures/trickworks-wall.svg",
+  leadMineWall: "textures/lead-mine-wall.svg",
+  paperPanel: "textures/paper-panel.svg",
+  carpetSuits: "textures/carpet-suits.svg",
+  ceilingTile: "textures/ceiling-tile.svg",
+  chalkboard: "textures/coach-chalkboard.svg",
+  vaultDoor: "textures/traveler-vault-door.svg",
+});
+
+export { SIMULATOR_ASSET_PATHS };

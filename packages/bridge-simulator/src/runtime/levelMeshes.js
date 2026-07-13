@@ -11,6 +11,7 @@ import {
   ShapeGeometry,
   Vector3,
 } from "../../vendor/three/three.module.js";
+import { pointOnSegment, polygonArea } from "../core/collision.js";
 
 const MATERIAL_COLORS = {
   "coat-check-wall": 0x725846,
@@ -100,15 +101,6 @@ function createMaterialCache(textures) {
     return cache.get(id);
   }
   return { get, values: () => cache.values() };
-}
-
-function pointOnSegment(point, segment, tolerance = 0.02) {
-  const dx = segment.b.x - segment.a.x;
-  const dz = segment.b.z - segment.a.z;
-  const cross = (point.x - segment.a.x) * dz - (point.z - segment.a.z) * dx;
-  if (Math.abs(cross) > tolerance * Math.max(1, Math.hypot(dx, dz))) return false;
-  const dot = (point.x - segment.a.x) * dx + (point.z - segment.a.z) * dz;
-  return dot >= -tolerance && dot <= dx * dx + dz * dz + tolerance;
 }
 
 function portalIntervalsForWall(level, wall) {
@@ -229,11 +221,7 @@ function physicalWallSegments(level) {
 }
 
 function polygonWinding(space) {
-  const twiceArea = space.polygon.reduce((area, point, index) => {
-    const next = space.polygon[(index + 1) % space.polygon.length];
-    return area + point.x * next.z - next.x * point.z;
-  }, 0);
-  return twiceArea >= 0 ? 1 : -1;
+  return polygonArea(space.polygon) >= 0 ? 1 : -1;
 }
 
 function wallFaceMaterials(physical, materialForWall, spaceById) {
@@ -563,4 +551,4 @@ function createLevelMeshes(level, textures) {
   return { root, portalMeshes, updatePortals, destroy };
 }
 
-export { WALL_DEPTH, WALL_TILE_SIZE, createLevelMeshes, physicalWallSegments, solidWallSegments };
+export { WALL_DEPTH, WALL_TILE_SIZE, createLevelMeshes, physicalWallSegments };

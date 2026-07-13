@@ -19,15 +19,12 @@ import {
   simulationStats,
   stepSimulation,
 } from "../src/core/simulation.js";
+import { TEST_CARDS as CARDS, createTestScenario } from "./fixtures.mjs";
 
-const CARDS = ["SA", "SK", "SQ", "SJ", "ST", "S9", "H8", "H7", "D6", "D5", "C4", "C3", "C2"]
-  .map((value) => ({ suit: value[0], rank: value[1] }));
-
-const SCENARIO = Object.freeze({
+const SCENARIO = createTestScenario({
   seed: "engine-test",
-  hand: { cards: CARDS },
+  cards: CARDS,
   wings: [{ slot: "A" }, { slot: "B" }, { slot: "C" }],
-  boss: { title: "The Bottom Board" },
 });
 
 test("the boss has thirty percent less health without changing ordinary enemies", () => {

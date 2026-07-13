@@ -1,6 +1,6 @@
 // The glossary: term definitions, tooltip attributes, table-header and
 // term markup helpers, and the tooltip runtime.
-import { average, escapeHtml } from "../core/format.js";
+import { escapeHtml } from "../core/format.js";
 
 const TERM_DEFINITIONS = {
   "accepted results": "Traveler result rows that the BWS scanner recognized as usable played-board records.",
@@ -218,7 +218,6 @@ const TERM_ALIASES = {
   "ew mp": "ew matchpoints",
   "ew partnership": "pair ew",
   "ew players": "players",
-  "ew score": "ns score",
   "ew score perspective": "ew score",
   "game level": "game-level",
   "hcp delta": "hcp delta ns",
@@ -302,6 +301,15 @@ function th(label, className, definition) {
   return `<th scope="col"${classes ? ` class="${escapeHtml(classes)}"` : ""}${tooltipAttrs(help)}>${escapeHtml(label)}</th>`;
 }
 
+function clearTermTooltip(element, removeTabindex = false) {
+  element.classList.remove("term-tip");
+  element.removeAttribute("data-tooltip");
+  element.removeAttribute("aria-describedby");
+  if (removeTabindex || element.getAttribute("tabindex") === "0") {
+    element.removeAttribute("tabindex");
+  }
+}
+
 function annotateTermTooltips(root) {
   if (!root) return;
   const noisySelector = [
@@ -314,10 +322,7 @@ function annotateTermTooltips(root) {
     ".legend-item.term-tip"
   ].join(",");
   root.querySelectorAll(noisySelector).forEach((element) => {
-    element.classList.remove("term-tip");
-    element.removeAttribute("data-tooltip");
-    element.removeAttribute("aria-describedby");
-    if (element.getAttribute("tabindex") === "0") element.removeAttribute("tabindex");
+    clearTermTooltip(element);
   });
   const selector = [
     "th",
@@ -347,10 +352,7 @@ function setTermElementText(element, text) {
   const help = termDefinition(text);
   const heading = ["H1", "H2", "H3", "LABEL"].includes(element.tagName);
   if (heading) {
-    element.classList.remove("term-tip");
-    element.removeAttribute("data-tooltip");
-    element.removeAttribute("aria-describedby");
-    element.removeAttribute("tabindex");
+    clearTermTooltip(element, true);
     return;
   }
   element.classList.toggle("term-tip", !!help);
@@ -359,9 +361,7 @@ function setTermElementText(element, text) {
     element.setAttribute("aria-describedby", "termTooltip");
     if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "0");
   } else {
-    element.removeAttribute("data-tooltip");
-    element.removeAttribute("aria-describedby");
-    element.removeAttribute("tabindex");
+    clearTermTooltip(element, true);
   }
 }
 
@@ -399,24 +399,27 @@ function setupTooltips() {
     tooltip.classList.add("hidden");
   };
 
+  const targetForEvent = (event) =>
+    event.target instanceof Element ? event.target.closest("[data-tooltip]") : null;
+
   document.addEventListener("mouseover", (event) => {
-    const target = event.target.closest("[data-tooltip]");
+    const target = targetForEvent(event);
     if (target) show(target);
   });
 
   document.addEventListener("mouseout", (event) => {
-    const target = event.target.closest("[data-tooltip]");
+    const target = targetForEvent(event);
     if (!target || target.contains(event.relatedTarget)) return;
     hide(target);
   });
 
   document.addEventListener("focusin", (event) => {
-    const target = event.target.closest("[data-tooltip]");
+    const target = targetForEvent(event);
     if (target) show(target);
   });
 
   document.addEventListener("focusout", (event) => {
-    const target = event.target.closest("[data-tooltip]");
+    const target = targetForEvent(event);
     if (target) hide(target);
   });
 

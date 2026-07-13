@@ -1,6 +1,16 @@
 # Bridge Simulator Finalization Playtest
 
-Status: not yet run. The Pair Improvement Report launch was authorized separately on 2026-07-12; this protocol remains the outstanding structured human release-readiness gate.
+> **Archived and superseded (2026-07-13).** Do not use this protocol for the
+> current simulator. It describes the former personalized report launch,
+> Standard/Practice/Coach-only modes, Honor/System Notes mechanics, and other
+> flows that no longer exist. Current setup and automated coverage are in
+> [`../../test/README.md`](../../test/README.md); the package boundary is
+> documented in
+> [`../../packages/bridge-simulator/README.md`](../../packages/bridge-simulator/README.md).
+
+Historical status at the time of archiving: not yet run. The Pair Improvement
+Report launch was authorized separately on 2026-07-12; this protocol was the
+outstanding structured human release-readiness gate.
 
 Use this protocol for the Phase 8 decision in [bridge-simulator-plan.md](bridge-simulator-plan.md). Keep the raw notes local; do not commit participant names or uploaded session data.
 

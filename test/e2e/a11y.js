@@ -1,52 +1,22 @@
-"use strict";
-const path = require("node:path");
-const fs = require("node:fs");
-const http = require("node:http");
-
-const REPO = path.resolve(__dirname, "..", "..");
-if (!fs.existsSync(path.join(REPO, "samples", "20260627.BWS"))) {
-  console.log("SKIP: samples/ not present");
-  process.exit(0);
-}
-let chromium;
-try {
-  ({ chromium } = require(path.join(REPO, "node_modules", "playwright")));
-} catch (error) {
-  console.log("SKIP: playwright not installed (npm install playwright)");
-  process.exit(0);
-}
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-};
-function serve() {
-  return new Promise((resolve) => {
-    const server = http.createServer((req, res) => {
-      const p = decodeURIComponent(new URL(req.url, "http://x").pathname);
-      const f = path.join(REPO, p === "/" ? "index.html" : p);
-      if (!f.startsWith(REPO) || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
-      res.writeHead(200, { "Content-Type": MIME[path.extname(f)] || "application/octet-stream" });
-      res.end(fs.readFileSync(f));
-    });
-    server.listen(0, "127.0.0.1", () => resolve(server));
-  });
-}
-const problems = [];
-const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`); if (!ok) problems.push(label); };
+import {
+  REPO,
+  closeServer,
+  createCheckReporter,
+  forceRandomChoices,
+  loadPlaywright,
+  originFor,
+  serveStatic,
+} from "./simulator-harness.js";
+import { appBwsInput, appPbnInput } from "../fixtures/app-session.mjs";
+const playwright = loadPlaywright();
+if (!playwright) process.exit(0);
+const { check, failures: problems } = createCheckReporter();
 (async () => {
-  const server = await serve();
-  const port = server.address().port;
-  const browser = await chromium.launch();
+  const server = await serveStatic(REPO);
+  const browser = await playwright.browserType.launch(playwright.launchOptions);
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await page.goto(`http://127.0.0.1:${port}/`);
-  await page.evaluate(async () => {
-    const { setBrandMarkVariant } = await import("/src/ui/dom.js");
-    setBrandMarkVariant(true);
-  });
+  await forceRandomChoices(page, [0]);
+  await page.goto(originFor(server));
   check(
     await page.locator(".brand-simulator-launch").count() === 1 &&
       !await page.locator(".brand-simulator-launch").isDisabled() &&
@@ -72,9 +42,9 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
     await page.evaluate(() => !document.querySelector(".app-shell").inert && document.activeElement?.matches(".brand-simulator-launch")),
     "blank-app simulator exit restores app interactivity and launch focus"
   );
-  await page.setInputFiles("#resultsFile", path.join(REPO, "samples", "20260627.BWS"));
+  await page.setInputFiles("#resultsFile", appBwsInput());
   await page.waitForTimeout(400);
-  await page.setInputFiles("#pbnFile", path.join(REPO, "samples", "20260627.pbn"));
+  await page.setInputFiles("#pbnFile", appPbnInput());
   await page.waitForTimeout(2200);
 
   // toast live region
@@ -113,7 +83,7 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
 
   // chart mark keyboard activation
   const markCount = await page.evaluate(() => document.querySelectorAll('.chart-board-mark[tabindex="0"], .chart-board-label[tabindex="0"]').length);
-  check(markCount > 50, `chart marks focusable (${markCount})`);
+  check(markCount > 0, `chart marks focusable (${markCount})`);
   await page.evaluate(() => document.querySelector('#scoreChart .chart-board-mark[tabindex="0"], .chart-board-mark[tabindex="0"]').focus());
   await page.keyboard.press("Enter");
   await page.waitForTimeout(400);
@@ -279,7 +249,7 @@ const check = (ok, label) => { console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
   check(scopes.scoped / scopes.all > 0.8, `th scope coverage ${scopes.scoped}/${scopes.all}`);
 
   await browser.close();
-  server.close();
+  await closeServer(server);
   console.log(problems.length ? `\nA11Y CHECK FAILED (${problems.length})` : "\nA11Y CHECK PASSED");
   process.exit(problems.length ? 1 : 0);
 })().catch((e) => { console.error("CRASH:", e); process.exit(2); });

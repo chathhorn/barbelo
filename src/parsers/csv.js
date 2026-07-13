@@ -1,10 +1,7 @@
 // Results-file CSV parsing: header mapping and RFC-ish quoting, shared
 // by direct .csv uploads.
 import { pickField } from "../core/format.js";
-
-function normalizeText(text) {
-  return String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-}
+import { normalizeText } from "./text.js";
 
 function parseCsvRows(text) {
   const source = normalizeText(text);
@@ -104,4 +101,4 @@ function parseResultsCsv(text, fileName, fileSize) {
   };
 }
 
-export { parseResultsCsv, parseCsvRows };
+export { parseResultsCsv };

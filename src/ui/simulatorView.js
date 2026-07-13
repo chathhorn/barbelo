@@ -1,7 +1,13 @@
 // Lazy lifecycle bridge for Bridge Simulator. This module is intentionally
 // small enough to live in Barbelo's main bundle. The self-contained game
 // package, Three.js renderer, styles, and assets load only when opened.
-import { deployedVersion, showToast } from "./dom.js";
+import {
+  activateModalLayer,
+  deactivateModalLayer,
+  deployedVersion,
+  showToast,
+  trapFocusWithin,
+} from "./dom.js";
 
 let activeController = null;
 let activeOverlay = null;
@@ -10,8 +16,6 @@ let loadPromise = null;
 let stylesheetPromise = null;
 let returnFocus = null;
 let openGeneration = 0;
-let appShellPriorInert = null;
-let bodyHadModalOpen = false;
 
 function versionedUrl(path) {
   const url = new URL(path, document.baseURI);
@@ -30,8 +34,10 @@ function ensureStylesheet() {
     const href = versionedUrl(isBuiltSite()
       ? "assets/simulator.css"
       : "packages/bridge-simulator/simulator.css");
-    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')]
-      .find((link) => link.href === href);
+    const stylesheets = /** @type {NodeListOf<HTMLLinkElement>} */ (
+      document.querySelectorAll('link[rel="stylesheet"]')
+    );
+    const existing = [...stylesheets].find((link) => link.href === href);
     if (existing) {
       if (existing.sheet) resolve(existing);
       else if (existing.dataset.bridgeSimulatorState === "loading") {
@@ -149,7 +155,7 @@ function createOverlay() {
     </div>
   `;
   overlay.addEventListener("click", (event) => {
-    if (event.target.closest("[data-simulator-exit]")) closeBridgeSimulator();
+    if (event.target instanceof Element && event.target.closest("[data-simulator-exit]")) closeBridgeSimulator();
   });
   overlay.addEventListener("keydown", trapOverlayFocus);
   return overlay;
@@ -161,20 +167,7 @@ function trapOverlayFocus(event) {
     closeBridgeSimulator();
     return;
   }
-  if (event.key !== "Tab" || !activeOverlay) return;
-  const focusable = [...activeOverlay.querySelectorAll(
-    'button:not([disabled]), input:not([disabled]), select:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
-  )].filter((element) => !element.closest("[hidden]") && element.getClientRects().length);
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  trapFocusWithin(event, activeOverlay);
 }
 
 function bridgeSimulatorIsOpen() {
@@ -183,21 +176,15 @@ function bridgeSimulatorIsOpen() {
 
 async function openBridgeSimulatorOnce(options) {
   const generation = ++openGeneration;
-  const quizOverlay = document.getElementById("quizOverlay");
-  if (quizOverlay && !quizOverlay.classList.contains("hidden")) document.getElementById("quizOverlayClose")?.click();
   const boardOverlay = document.getElementById("boardOverlay");
   if (boardOverlay && !boardOverlay.classList.contains("hidden")) document.getElementById("boardOverlayClose")?.click();
+  const quizOverlay = document.getElementById("quizOverlay");
+  if (quizOverlay && !quizOverlay.classList.contains("hidden")) document.getElementById("quizOverlayClose")?.click();
   if (!returnFocus) returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   activeOverlay = createOverlay();
   document.body.appendChild(activeOverlay);
-  bodyHadModalOpen = document.body.classList.contains("modal-open");
-  document.body.classList.add("modal-open");
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) {
-    appShellPriorInert = appShell.inert;
-    appShell.inert = true;
-  }
-  const exit = activeOverlay.querySelector("[data-simulator-exit]");
+  activateModalLayer(activeOverlay);
+  const exit = /** @type {HTMLElement | null} */ (activeOverlay.querySelector("[data-simulator-exit]"));
   if (exit) exit.focus();
 
   const status = activeOverlay.querySelector(".bridge-simulator-global-status");
@@ -259,26 +246,24 @@ function handleBridgeSimulatorClick(event) {
   return true;
 }
 
-function closeBridgeSimulator({ restoreFocus = true, preserveReturnFocus = false } = {}) {
+function closeBridgeSimulator({ restoreFocus = true } = {}) {
   openGeneration += 1;
   if (activeController && typeof activeController.destroy === "function") {
     try {
       activeController.destroy();
-    } catch (error) {
+    } catch {
       // Cleanup remains best-effort; the overlay and inert state must always
       // be restored even if a renderer teardown hook fails.
     }
   }
   activeController = null;
-  if (activeOverlay) activeOverlay.remove();
+  if (activeOverlay) {
+    deactivateModalLayer(activeOverlay);
+    activeOverlay.remove();
+  }
   activeOverlay = null;
-  const appShell = document.querySelector(".app-shell");
-  if (appShell) appShell.inert = Boolean(appShellPriorInert);
-  appShellPriorInert = null;
-  if (!bodyHadModalOpen) document.body.classList.remove("modal-open");
-  bodyHadModalOpen = false;
   if (restoreFocus && returnFocus && document.contains(returnFocus)) returnFocus.focus();
-  if (!preserveReturnFocus) returnFocus = null;
+  returnFocus = null;
 }
 
 export {

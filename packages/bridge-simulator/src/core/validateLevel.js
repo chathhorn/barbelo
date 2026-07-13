@@ -167,7 +167,7 @@ function validateMarkers(level, errors) {
   if (spawns.length !== 1) errors.push(`Level needs exactly one player spawn; found ${spawns.length}.`);
 }
 
-function validateManifest(level, errors, warnings) {
+function validateManifest(level, errors) {
   const manifest = level.manifest || {};
   const primarySpaces = level.spaces.filter((entry) => entry.primary !== false).length;
   if (manifest.expectedPrimarySpaces != null && primarySpaces !== manifest.expectedPrimarySpaces) {
@@ -231,7 +231,7 @@ function validateLevel(level) {
     validateSpaceGeometry(level, errors);
     validatePortals(level, errors, warnings);
     validateMarkers(level, errors);
-    validateManifest(level, errors, warnings);
+    validateManifest(level, errors);
   }
   const reachable = reachableSpaces(level, {
     slips: level.objectives ? level.objectives.requiredSlipCount : 0,
@@ -261,8 +261,6 @@ function assertValidLevel(level) {
 }
 
 export {
-  markerById,
-  reachableSpaces,
   validateLevel,
   assertValidLevel,
 };

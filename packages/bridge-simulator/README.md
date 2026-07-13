@@ -30,10 +30,17 @@ theme and accessibility settings do not depend on an embedding application's
 markup. The package stores only display/input preferences under
 `bridgeSimulator.settings.v1`; run progress is ephemeral.
 
-The package is source-first and has no install step. Its Three.js copy and
-provenance are under `vendor/three/`; original visual-asset provenance is in
+The package is source-first and has no runtime install step. Its Three.js copy
+and provenance are under `vendor/three/`; `src/assets.js` is the deployable art
+manifest, and original visual-asset provenance is in
 `assets/ATTRIBUTIONS.md`.
 
-Run its dependency-free unit suite from this directory with `npm test`. The
-tests live alongside the package in `test/`; Barbelo's browser integration
-harnesses remain in the repository-level `test/e2e/` directory.
+After the repository-level `npm ci`, run the package unit suite from this
+directory with `npm test`, and run its JavaScript checks with
+`npm run typecheck`. The unit tests need no installed npm packages; renderer
+tests exercise the package's vendored Three.js copy, while the root install
+supplies TypeScript for the type gate. That gate covers the asset manifest,
+content, deterministic core, and dependency-neutral browser modules; the
+Three.js-facing renderer is also covered by real-browser integration tests.
+Package tests live in `test/`; Barbelo's browser harnesses remain in the
+repository-level `test/e2e/` directory.

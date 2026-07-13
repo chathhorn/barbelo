@@ -19,7 +19,7 @@ import { annotateTermTooltips, term, tooltipAttrs } from "./terms.js";
 
 function renderPairImprovementReport(results) {
   const panel = document.getElementById("pairReportPanel");
-  const select = document.getElementById("reportPairSelect");
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById("reportPairSelect"));
   const caption = document.getElementById("pairReportCaption");
   const body = document.getElementById("pairReportBody");
   if (!results || !results.pairStandings.length) {
@@ -199,7 +199,7 @@ function renderLossThemes(report) {
   `;
   const body = `
       <div class="decision-type-grid">
-        ${types.map((type, index) => {
+        ${types.map((type) => {
           const width = conceded ? (type.totalLoss / conceded) * 100 : 0;
           const basis = `${type.label}: ${formatMp(type.totalLoss)} of ${formatMp(conceded)} MP conceded in this report (${width.toFixed(0)}%). One MP for each same-direction table that beat this pair.`;
           const categories = categoriesByType.get(type.key) || [];

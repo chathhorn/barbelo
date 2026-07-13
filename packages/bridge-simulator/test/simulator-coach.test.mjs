@@ -11,12 +11,10 @@ import {
   simulationStats,
   stepSimulation,
 } from "../src/core/simulation.js";
+import { createTestScenario } from "./fixtures.mjs";
 
-const SCENARIO = Object.freeze({
+const SCENARIO = createTestScenario({
   seed: "coach-impact-test",
-  hand: null,
-  wings: [{ slot: "A" }],
-  boss: { title: "The Bottom Board" },
 });
 
 test("player cards stop on the current Coach without damage, Honor, or hostile accuracy", () => {

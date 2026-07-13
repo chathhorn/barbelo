@@ -1,10 +1,8 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { pathToFileURL } = require("node:url");
-
-const ROOT = path.join(__dirname, "..", "..");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SAMPLES_DIR = path.join(ROOT, "samples");
 
 function makeStubElement() {
@@ -102,4 +100,4 @@ function csvFrom(rows) {
   }).join(",")).join("\n");
 }
 
-module.exports = { loadApp, installDomStubs, ROOT, SAMPLES_DIR, samplePath, hasSample, readSample, csvFrom };
+export { loadApp, installDomStubs, ROOT, SAMPLES_DIR, samplePath, hasSample, readSample, csvFrom };

@@ -1,3 +1,7 @@
 .DS_Store
+*.swp
+_site/
 samples/
+/corpus/*.bws
+/corpus/*.BWS
 CLAUDE.md

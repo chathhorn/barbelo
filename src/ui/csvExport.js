@@ -11,7 +11,13 @@ import {
 import { csvCell, escapeHtml, plural } from "../core/format.js";
 import { showToast } from "./dom.js";
 import { STATE } from "./state.js";
-import { annotateTermTooltips, term, termDefinition, th } from "./terms.js";
+import { annotateTermTooltips, termDefinition, th } from "./terms.js";
+
+const RESULT_ROW_MODES = new Set(["results", "boardResults", "pairResults"]);
+
+function isResultRowMode(mode) {
+  return RESULT_ROW_MODES.has(mode);
+}
 
 function pbnFileName(analysis) {
   return analysis && analysis.parsed ? analysis.parsed.fileName || "" : "";
@@ -33,7 +39,7 @@ function defaultColumnKeys(mode, analysis) {
 
 function getColumnDefs(mode, analysis, results) {
   const boardCols = [
-    col("file_name", "File Name", (ctx) => pbnFileName(analysis)),
+    col("file_name", "File Name", () => pbnFileName(analysis)),
     col("record_index", "Record Index", (ctx) => ctx.board.index + 1),
     col("board", "Board", (ctx) => ctx.board.boardNo),
     col("event", "Event", (ctx) => ctx.board.tags.Event || ""),
@@ -271,26 +277,25 @@ function getCsvContexts(mode, analysis, results) {
 }
 
 function updateRowModeOptions() {
-  const select = document.getElementById("rowMode");
+  const select = /** @type {HTMLSelectElement | null} */ (document.getElementById("rowMode"));
   if (!select) return;
   const hasPbn = !!STATE.analysis;
-  const resultModes = new Set(["results", "boardResults", "pairResults"]);
   Array.from(select.options).forEach((option) => {
-    option.disabled = !hasPbn && !resultModes.has(option.value);
+    option.disabled = !hasPbn && !isResultRowMode(option.value);
   });
 }
 
 function renderCsvControls() {
   const analysis = STATE.analysis;
   if (!analysis && !STATE.results) return;
-  if (!analysis && !["results", "boardResults", "pairResults"].includes(STATE.rowMode)) {
+  if (!analysis && !isResultRowMode(STATE.rowMode)) {
     STATE.rowMode = "results";
     STATE.selectedColumns = new Set(defaultColumnKeys("results", analysis));
   }
   const defs = getColumnDefs(STATE.rowMode, analysis, STATE.results);
   const selected = STATE.selectedColumns;
   updateRowModeOptions();
-  document.getElementById("rowMode").value = STATE.rowMode;
+  /** @type {HTMLSelectElement} */ (document.getElementById("rowMode")).value = STATE.rowMode;
 
   document.getElementById("csvCaption").textContent = `${plural(getCsvContexts(STATE.rowMode, analysis, STATE.results).length, "row")} available.`;
   document.getElementById("columnList").innerHTML = defs.map((entry) => `
@@ -377,6 +382,7 @@ function downloadCsv() {
 export {
   pbnFileName,
   defaultColumnKeys,
+  isResultRowMode,
   getColumnDefs,
   col,
   isGameAvailable,

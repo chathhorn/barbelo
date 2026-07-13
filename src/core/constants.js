@@ -4,6 +4,7 @@
 const SEATS = ["N", "E", "S", "W"];
 
 const PAIRS = { N: "NS", S: "NS", E: "EW", W: "EW" };
+const SEAT_NAMES = { N: "North", E: "East", S: "South", W: "West" };
 
 const SUITS = [
   { key: "S", label: "Spades", short: "S", html: "&spades;", className: "spade" },
@@ -25,7 +26,7 @@ const RANK_ORDER = "AKQJT98765432";
 const HCP_VALUE = { A: 4, K: 3, Q: 2, J: 1 };
 
 function seatName(seat) {
-  return { N: "North", E: "East", S: "South", W: "West" }[seat] || seat;
+  return SEAT_NAMES[seat] || seat;
 }
 
 function suitMeta(key) {
